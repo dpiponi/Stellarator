@@ -1491,40 +1491,42 @@ readStella addr =
 
 instance Emu6502 MonadAtari where
     {- INLINE readMemory -}
-    readMemory addr =
-        if addr >= 0x00 && addr < 0x80
-            then usingStella $ readStella addr
-            else if addr >= 0x80 && addr < 0x100 || addr >= 0x180 && addr < 0x200
-                    then do
-                        m <- use mem
-                        liftIO $ readArray m (fromIntegral addr .&. 0xff)
-                    else if addr >= 0x280 && addr < 0x298
-                        then usingStella $ readStella addr
-                        else if addr >= 0xf000
-                            then do
-                                m <- use mem
-                                liftIO $ readArray m (fromIntegral addr)
-                            else return 0 --do
-                                --error $ "Mystery read from " ++ showHex addr ""
+    readMemory addr' =
+        let addr = addr' .&. 0b1111111111111 in -- 6507
+            if addr >= 0x00 && addr < 0x80
+                then usingStella $ readStella addr
+                else if addr >= 0x80 && addr < 0x100 || addr >= 0x180 && addr < 0x200
+                        then do
+                            m <- use mem
+                            liftIO $ readArray m (fromIntegral addr .&. 0xff)
+                        else if addr >= 0x280 && addr < 0x298
+                            then usingStella $ readStella addr
+                            else if addr >= 0x1000
+                                then do
+                                    m <- use mem
+                                    liftIO $ readArray m (fromIntegral addr)
+                                else return 0 --do
+                                    --error $ "Mystery read from " ++ showHex addr ""
 
 
     {- INLINE writeMemory -}
-    writeMemory addr v =
-        if addr >= 0x00 && addr < 0x80
-            then usingStella $ writeStella addr v
-            else if addr >= 0x80 && addr < 0x100 || addr >= 0x180 && addr < 0x200
-                    then do
-                        m <- use mem
-                        liftIO $ writeArray m (fromIntegral addr .&. 0xff) v
-                    else if addr >= 0x280 && addr < 0x298
-                            then usingStella $ writeStella addr v
-                            else if addr >= 0xf000
-                                then do
-                                    m <- use mem
-                                    liftIO $ writeArray m (fromIntegral addr) v
-                                else do
-                                    return ()
-                                    --liftIO $ print $ "Mystery write to " ++ showHex addr ""
+    writeMemory addr' v =
+        let addr = addr' .&. 0b1111111111111 in -- 6507
+            if addr >= 0x00 && addr < 0x80
+                then usingStella $ writeStella addr v
+                else if addr >= 0x80 && addr < 0x100 || addr >= 0x180 && addr < 0x200
+                        then do
+                            m <- use mem
+                            liftIO $ writeArray m (fromIntegral addr .&. 0xff) v
+                        else if addr >= 0x280 && addr < 0x298
+                                then usingStella $ writeStella addr v
+                                else if addr >= 0x1000
+                                    then do
+                                        m <- use mem
+                                        liftIO $ writeArray m (fromIntegral addr) v
+                                    else do
+                                        return ()
+                                        --liftIO $ print $ "Mystery write to " ++ showHex addr ""
 
     {- INLINE getPC -}
     getPC = use (regs . pc)
@@ -1633,7 +1635,7 @@ main = do
   -- 160x192
   helloWorld <- createRGBSurface (V2 screenWidth screenHeight) RGB888
 
-  memory <- newArray (0, 0xffff) 0 :: IO (IOUArray Int Word8)
+  memory <- newArray (0, 0x2000) 0 :: IO (IOUArray Int Word8)
 --  readBinary memory "kernel_01.bin" 0xf000
   --readBinary memory "kernel_13.bin" 0xf000
   --readBinary memory "Breakout.bin" 0xf000
@@ -1646,7 +1648,10 @@ main = do
   --readBinary memory "combat.bin" 0xf000
   --readBinary memory "joustpong.bin" 0xf000
   --readBinary memory "exp.bin" 0xf000
-  readBinary memory (file args) 0xf000
+  readBinary memory (file args) 0x1000
+  pclo <- readArray memory 0x1ffc
+  pchi <- readArray memory 0x1ffd
+  let initialPC = fromIntegral pclo+(fromIntegral pchi `shift` 8)
 
   oregs <- newArray (0, 0x3f) 0
   iregs <- newArray (0, 0x0d) 0
@@ -1668,7 +1673,7 @@ main = do
       _subtimer = 0,
       _interval = 0
   }
-  let state = S { _mem = memory,  _clock = 0, _regs = R 0xf000 0 0 0 0 0xff,
+  let state = S { _mem = memory,  _clock = 0, _regs = R initialPC 0 0 0 0 0xff,
                     _debug = False,
                     _stella = stella}
 
