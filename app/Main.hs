@@ -957,8 +957,6 @@ data Stella = Stella {
     _vpos :: !CInt,
     _tvSurface :: !Surface,
     _vblank :: !Word8,
-    _vsync :: !Word8,
-    _wsync :: !Word8,
     _ppos0 :: !CInt,
     _ppos1 :: !CInt,
     _swcha :: !Word8,
@@ -1230,13 +1228,23 @@ bit n t = if t then 1 `shift` n else 0
 {- INLINE compositeAndCollide -}
 compositeAndCollide :: (MonadIO m, MonadState Stella m) => CInt -> m Word8
 compositeAndCollide x = do
+    ctrlpf' <- getORegister ctrlpf
+    colupf' <- getORegister colupf
+    colup0' <- getORegister colup0
+    colup1' <- getORegister colup1
+    let playfieldColor = if testBit ctrlpf' 1
+            then if x < 80
+                then colup0'
+                else colup1'
+            else colupf'
+
     -- Assemble colours
     pbackground <- Pixel True <$> getORegister colubk
-    pplayfield <- Pixel <$> playfield (fromIntegral $ x `shift` (-2)) <*> getORegister colupf
-    pplayer0 <- Pixel <$> player0 <*> getORegister colup0
-    pplayer1 <- Pixel <$> player1 <*> getORegister colup1
-    pmissile0 <- Pixel <$> missile0 <*> getORegister colup0
-    pmissile1 <- Pixel <$> missile1 <*> getORegister colup1
+    pplayfield <- Pixel <$> playfield (fromIntegral $ x `shift` (-2)) <*> return playfieldColor
+    pplayer0 <- Pixel <$> player0 <*> return colup0'
+    pplayer1 <- Pixel <$> player1 <*> return colup1'
+    pmissile0 <- Pixel <$> missile0 <*> return colup0'
+    pmissile1 <- Pixel <$> missile1 <*> return colup1'
     pball <- Pixel <$> ball <*> getORegister colupf
 
     orIRegister cxm0p $ bit 7 (plogic pmissile0 && plogic pplayer1) .|.
@@ -1256,7 +1264,6 @@ compositeAndCollide x = do
                          bit 6 (plogic pmissile0 && plogic pmissile1)
     
     -- Get ordering priority
-    ctrlpf' <- getORegister ctrlpf
     let Pixel _ final = pbackground `mappend`
                         if ctrlpf' .&. 0b00000100 /= 0
                             then mconcat [pplayer1, pmissile1, pplayer0, pmissile0, pplayfield, pball]
@@ -1368,30 +1375,6 @@ makeLenses ''StateAtari
 
 newtype MonadAtari a = M { unM :: StateT StateAtari IO a }
     deriving (Functor, Applicative, Monad, MonadState StateAtari, MonadIO)
-
-{- SPECIALIZE player0 :: Int -> StateT Stella IO Bool -}
-{- SPECIALIZE player1 :: Int -> StateT Stella IO Bool -}
-{- SPECIALIZE stellaWsync :: StateT Stella IO () -}
-{- SPECIALIZE stellaVsync :: Word8 -> StateT Stella IO () -}
-{- SPECIALIZE stellaVblank :: Word8 -> StateT Stella IO () -}
-{- SPECIALIZE stellaTick :: Int -> StateT Stella IO () -}
-
-{-
-vsync_addr :: Word16
-vsync_addr = 0x00
-vblank_addr :: Word16
-vblank_addr = 0x01
-wsync_addr :: Word16
-wsync_addr = 0x02
-colubk_addr :: Word16
-colubk_addr = 0x09
-pf0_addr :: Word16
-pf0_addr = 0x0d
-pf1_addr :: Word16
-pf1_addr = 0x0e
-pf2_addr :: Word16
-pf2_addr = 0x0f
--}
 
 --  XXX Do this! If reset occurs during horizontal blank, the object will appear at the left side of the television screen
 
@@ -1681,14 +1664,6 @@ main = do
       _vpos = 0,
       _tvSurface = helloWorld,
       _vblank = 0,
-      _vsync = 0,
-      _wsync = 0,
---      _colubk = 0,
---      _colupf = 0,
---      _pf0 = 0,
---      _pf1 = 0,
---      _pf2 = 0,
---      _ctrlpf = 0,
       _ppos0 = 9999,
       _ppos1 = 9999,
 --      _grp0 = 0,
@@ -1771,13 +1746,6 @@ main = do
         loop
 
   flip runStateT state $ do
-      --usingStella $ putORegister nusiz0 0
-      --usingStella $ putORegister nusiz1 0
-      --usingStella $ putORegister colup0 0
-      --usingStella $ putORegister colup1 0
-      --usingStella $ putORegister pf0 0
-      --usingStella $ putORegister pf1 0
-      --usingStella $ putORegister pf2 0
       loop
 
   SDL.destroyWindow window
