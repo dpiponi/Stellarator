@@ -909,8 +909,11 @@ step = do
     dumpState
     return ()
 
-nusiz0, nusiz1, colup0, colup1, pf0, pf1, pf2, enam0, enam1, enabl, hmp0, hmp1, hmm0, hmm1, hmbl :: Word16
-grp0, grp1, colupf, colubk, ctrlpf :: Word16
+newtype OReg = OReg Word16 deriving (Ord, Ix, Eq, Num)
+newtype IReg = IReg Word16 deriving (Ord, Ix, Eq, Num)
+
+nusiz0, nusiz1, colup0, colup1, pf0, pf1, pf2, enam0, enam1, enabl, hmp0, hmp1, hmm0, hmm1, hmbl :: OReg
+grp0, grp1, refp0, refp1, colupf, colubk, ctrlpf :: OReg
 nusiz0 = 0x04
 nusiz1 = 0x05
 colup0 = 0x06
@@ -918,6 +921,8 @@ colup1 = 0x07
 colupf = 0x08
 colubk = 0x09
 ctrlpf = 0x0a
+refp0 = 0x0b
+refp1 = 0x0c
 pf0 = 0x0d
 pf1 = 0x0e
 pf2 = 0x0f
@@ -932,15 +937,21 @@ hmm0 = 0x22
 hmm1 = 0x23
 hmbl = 0x24
 
-cxm0p, cxm1p, inpt4, inpt5 :: Word16
+cxm0p, cxm1p, cxp0fb, cxp1fb, cxm0fb, cxm1fb, cxblpf, cxppmm, inpt4, inpt5 :: IReg
 cxm0p = 0x00
 cxm1p = 0x01
+cxp0fb = 0x02
+cxp1fb = 0x03
+cxm0fb = 0x04
+cxm1fb = 0x05
+cxblpf = 0x06
+cxppmm = 0x07
 inpt4 = 0x0c
 inpt5 = 0x0d
 
 data Stella = Stella {
-     _oregisters :: IOUArray Word16 Word8,
-     _iregisters :: IOUArray Word16 Word8,
+     _oregisters :: IOUArray OReg Word8,
+     _iregisters :: IOUArray IReg Word8,
     _stellaClock :: !Int64,
     _hpos :: !CInt,
     _vpos :: !CInt,
@@ -948,46 +959,16 @@ data Stella = Stella {
     _vblank :: !Word8,
     _vsync :: !Word8,
     _wsync :: !Word8,
---    _colubk :: !Word8,
---    _colupf :: !Word8,
---    _pf0 :: !Word8,
---    _pf1 :: !Word8,
---    _pf2 :: !Word8,
---    _ctrlpf :: !Word8,
---    _colup0 :: ! Word8,
---    _colup1 :: !Word8,
     _ppos0 :: !CInt,
     _ppos1 :: !CInt,
---    _grp0 :: !Word8,
---    _grp1 :: !Word8,
     _swcha :: !Word8,
     _swchb :: !Word8,
---    _enam0 :: !Word8,
---    _enam1 :: !Word8,
---    _hmp0 :: !Word8,
---    _hmp1 :: !Word8,
---    _nusiz0 :: !Word8,
---    _nusiz1 :: !Word8,
---    _inpt4 :: !Word8,
---    _cxm0p :: !Word8,
---    _cxm1p :: !Word8,
-    _cxp0fb :: !Word8,
-    _cxp1fb :: !Word8,
-    _cxm0fb :: !Word8,
-    _cxm1fb :: !Word8,
-    _cxblpf :: !Word8,
-    _cxppmm :: !Word8,
---    _enabl :: !Word8,
     _mpos0 :: !CInt,
     _mpos1 :: !CInt,
     _bpos :: !CInt,
     _resmp0 :: !Word8,
     _resmp1 :: !Word8,
     _resbl :: !Word8,
---    _hmm0 :: !Word8,
---    _hmm1 :: !Word8,
---    _hmbl :: !Word8,
---    _inpt5 :: !Word8,
     _intim :: !Word8,
     _subtimer :: !CInt,
     _interval :: !CInt
@@ -995,25 +976,30 @@ data Stella = Stella {
 
 $(makeLenses ''Stella)
 
-putORegister :: (MonadIO m, MonadState Stella m) => Word16 -> Word8 -> m ()
+putORegister :: (MonadIO m, MonadState Stella m) => OReg -> Word8 -> m ()
 putORegister i v = do
     r <- use oregisters
     liftIO $ writeArray r i v
 
-getORegister :: (MonadIO m, MonadState Stella m) => Word16 -> m Word8
+getORegister :: (MonadIO m, MonadState Stella m) => OReg -> m Word8
 getORegister i = do
     r <- use oregisters
     liftIO $ readArray r i
 
-putIRegister :: (MonadIO m, MonadState Stella m) => Word16 -> Word8 -> m ()
+putIRegister :: (MonadIO m, MonadState Stella m) => IReg -> Word8 -> m ()
 putIRegister i v = do
     r <- use iregisters
     liftIO $ writeArray r i v
 
-getIRegister :: (MonadIO m, MonadState Stella m) => Word16 -> m Word8
+getIRegister :: (MonadIO m, MonadState Stella m) => IReg -> m Word8
 getIRegister i = do
     r <- use iregisters
     liftIO $ readArray r i
+
+orIRegister :: (MonadIO m, MonadState Stella m) => IReg -> Word8 -> m ()
+orIRegister i v = do
+    r <- use iregisters
+    liftIO $ readArray r i >>= writeArray r i . (v .|.)
 
 {- INLINE playfield -}
 playfield :: (MonadIO m, MonadState Stella m) => Int -> m Bool
@@ -1030,41 +1016,46 @@ playfield i | i >= 20 && i < 40 = do
                 ctrlpf' <- getORegister ctrlpf
                 playfield $ if ctrlpf' .&. 0b00000001 > 0 then 39-i else i-20
 
+{-# INLINE flipIf #-}
+flipIf :: Bool -> Int -> Int
+flipIf True x = x
+flipIf False x = 7-x
+
 {- INLINE stretchPlayer -}
-stretchPlayer :: Word8 -> CInt -> Word8 -> Bool
-stretchPlayer sizeCopies o grp0' =
+stretchPlayer :: Bool -> Word8 -> CInt -> Word8 -> Bool
+stretchPlayer reflect sizeCopies o grp0' =
     case sizeCopies of
         0b000 -> -- one copy
             if o >= 0 && o < 8
-                then (grp0' `shift` (fromIntegral o-7)) .&. 1 /= 0
+                then testBit grp0' (flipIf reflect $ fromIntegral o)
                 else False
         0b001 -> -- two copies close
             if o >= 0 && o < 8 || o >= 16 && o < 24
-                then (grp0' `shift` (fromIntegral (o .&. 7)-7)) .&. 1 /= 0
+                then testBit grp0' (flipIf reflect $ fromIntegral (o .&. 7))
                 else False
         0b010 -> -- two copies - med
             if o >= 0 && o < 8 || o >= 32 && o < 40
-                then (grp0' `shift` (fromIntegral (o .&. 7)-7)) .&. 1 /= 0
+                then testBit grp0' (flipIf reflect $ fromIntegral (o .&. 7))
                 else False
         0b011 -> -- three copies close
             if o >= 0 && o < 8 || o >= 16 && o < 24 || o >= 32 && o < 40
-                then (grp0' `shift` (fromIntegral (o .&. 7)-7)) .&. 1 /= 0
+                then testBit grp0' (flipIf reflect $ fromIntegral (o .&. 7))
                 else False
         0b100 -> -- two copies wide
             if o >= 0 && o < 8 || o >= 64 && o < 72
-                then (grp0' `shift` (fromIntegral (o .&. 7)-7)) .&. 1 /= 0
+                then testBit grp0' (flipIf reflect $ fromIntegral (o .&. 7))
                 else False
         0b101 -> -- double size player
             if o >= 0 && o < 16
-                then (grp0' `shift` ((fromIntegral o `shift` (-1))-7)) .&. 1 /= 0
+                then testBit grp0' (flipIf reflect $ fromIntegral ((o `shift` (-1)) .&. 7))
                 else False
         0b110 -> -- three copies medium
             if o >= 0 && o < 8 || o >= 32 && o < 40 || o >= 64 && o < 72
-                then (grp0' `shift` (fromIntegral (o .&. 7)-7)) .&. 1 /= 0
+                then testBit grp0' (flipIf reflect $ fromIntegral (o .&. 7))
                 else False
         0b111 -> -- quad sized player
             if o >= 0 && o < 32
-                then (grp0' `shift` ((fromIntegral o `shift` (-2))-7)) .&. 1 /= 0
+                then testBit grp0' (flipIf reflect $ (fromIntegral ((o `shift` (-2)) .&. 7)))
                 else False
 
 -- Stella programmer's guide p.40
@@ -1076,7 +1067,9 @@ player0 = do
     let o = hpos'-ppos0' :: CInt
     sizeCopies <- (0b111 .&.) <$> getORegister nusiz0
     grp0' <- getORegister grp0
-    return $ stretchPlayer sizeCopies o grp0'
+    refp0' <- getORegister refp0
+    let reflected = testBit refp0' 3
+    return $ stretchPlayer reflected sizeCopies o grp0'
 
 {- INLINE player1 -}
 player1 :: (MonadIO m, MonadState Stella m) => m Bool
@@ -1084,9 +1077,10 @@ player1 = do
     hpos' <- use hpos
     ppos1' <- use ppos1
     let o = hpos'-ppos1' :: CInt
-    sizeCopies <- (0b111 .&.) <$> getORegister 0x05
+    sizeCopies <- (0b111 .&.) <$> getORegister nusiz1
     grp1' <- getORegister grp1
-    return $ stretchPlayer sizeCopies o grp1'
+    refp1' <- getORegister refp1
+    return $ stretchPlayer (testBit refp1' 3) sizeCopies o grp1'
 
 -- Stella programmer's guide p.22
 {- INLINE missile0 -}
@@ -1112,7 +1106,7 @@ missile1 = do
             hpos' <- use hpos
             mpos1' <- use mpos1
             let o = hpos'-mpos1' :: CInt
-            nusiz1' <- getORegister 0x05
+            nusiz1' <- getORegister nusiz1
             let missileSize = 1 `shift` (fromIntegral ((nusiz1' `shift` (fromIntegral $ -4)) .&. 0b11))
             return $ o >= 0 && o < missileSize
         else return False
@@ -1153,14 +1147,14 @@ stellaHmclr = do
 {- INLINE stellaCxclr -}
 stellaCxclr :: (MonadIO m, MonadState Stella m) => m ()
 stellaCxclr = do
-    cxm0fb .= 0
-    cxm1fb .= 0
-    cxp0fb .= 0
-    cxp1fb .= 0
-    cxm0fb .= 0
-    cxm1fb .= 0
-    cxblpf .= 0
-    cxppmm .= 0
+    putIRegister cxm0p 0
+    putIRegister cxm1p 0
+    putIRegister cxm0fb 0
+    putIRegister cxm1fb 0
+    putIRegister cxp0fb 0
+    putIRegister cxp1fb 0
+    putIRegister cxblpf 0
+    putIRegister cxppmm 0
 
 {- INLINE stellaHmove -}
 stellaHmove :: (MonadIO m, MonadState Stella m) => m ()
@@ -1245,25 +1239,21 @@ compositeAndCollide x = do
     pmissile1 <- Pixel <$> missile1 <*> getORegister colup1
     pball <- Pixel <$> ball <*> getORegister colupf
 
---    cxm0p . bitAt 7 ||= (plogic pmissile0 && plogic pplayer1)
---    cxm0p . bitAt 6 ||= (plogic pmissile0 && plogic pplayer0)
-    putIRegister cxm0p $ bit 7 (plogic pmissile0 && plogic pplayer1) .|.
-                         bit 6 (plogic pmissile0 && plogic pplayer0)
-    putIRegister cxm1p $ bit 7 (plogic pmissile1 && plogic pplayer1) .|.
-                         bit 6 (plogic pmissile1 && plogic pplayer0)
---    cxm1p . bitAt 7 ||= (plogic pmissile1 && plogic pplayer0)
---    cxm1p . bitAt 6 ||= (plogic pmissile1 && plogic pplayer1)
-    cxp0fb . bitAt 7 ||= (plogic pplayer0 && plogic pplayfield)
-    cxp0fb . bitAt 6 ||= (plogic pplayer0 && plogic pball)
-    cxp1fb . bitAt 7 ||= (plogic pplayer1 && plogic pplayfield)
-    cxp1fb . bitAt 6 ||= (plogic pplayer1 && plogic pball)
-    cxm0fb . bitAt 7 ||= (plogic pmissile0 && plogic pplayfield)
-    cxm0fb . bitAt 6 ||= (plogic pmissile0 && plogic pball)
-    cxm1fb . bitAt 7 ||= (plogic pmissile1 && plogic pplayfield)
-    cxm1fb . bitAt 6 ||= (plogic pmissile1 && plogic pball)
-    cxblpf . bitAt 7 ||= (plogic pball && plogic pplayfield)
-    cxppmm . bitAt 7 ||= (plogic pplayer0 && plogic pplayer1)
-    cxppmm . bitAt 6 ||= (plogic pmissile0 && plogic pmissile1)
+    orIRegister cxm0p $ bit 7 (plogic pmissile0 && plogic pplayer1) .|.
+                        bit 6 (plogic pmissile0 && plogic pplayer0)
+    orIRegister cxm1p $ bit 7 (plogic pmissile1 && plogic pplayer1) .|.
+                        bit 6 (plogic pmissile1 && plogic pplayer0)
+    orIRegister cxp0fb $ bit 7 (plogic pplayer0 && plogic pplayfield) .|.
+                         bit 6 (plogic pplayer0 && plogic pball)
+    orIRegister cxp1fb $ bit 7 (plogic pplayer1 && plogic pplayfield) .|.
+                         bit 6 (plogic pplayer1 && plogic pball)
+    orIRegister cxm0fb $ bit 7 (plogic pmissile0 && plogic pplayfield) .|.
+                         bit 6 (plogic pmissile0 && plogic pball)
+    orIRegister cxm1fb $ bit 7 (plogic pmissile1 && plogic pplayfield) .|.
+                         bit 6 (plogic pmissile1 && plogic pball)
+    orIRegister cxblpf $ bit 7 (plogic pball && plogic pplayfield)
+    orIRegister cxppmm $ bit 7 (plogic pplayer0 && plogic pplayer1) .|.
+                         bit 6 (plogic pmissile0 && plogic pmissile1)
     
     -- Get ordering priority
     ctrlpf' <- getORegister ctrlpf
@@ -1429,6 +1419,8 @@ writeStella addr v =
        0x08 -> putORegister colupf v               -- COLUPF
        0x09 -> putORegister colubk v               -- COLUBK
        0x0a -> putORegister ctrlpf v               -- COLUPF
+       0x0b -> putORegister refp0 v               -- REFP0
+       0x0c -> putORegister refp1 v               -- REFP1
        0x0d -> putORegister pf0 v                  -- PF0
        0x0e -> putORegister pf1 v                  -- PF1
        0x0f -> putORegister pf2 v                  -- PF2
@@ -1482,39 +1474,39 @@ readStella addr =
     case addr of
         0x00 -> getIRegister cxm0p
         0x01 -> getIRegister cxm1p
-        0x02 -> use cxp0fb
-        0x03 -> use cxp1fb
-        0x04 -> use cxm0fb
-        0x05 -> use cxm1fb
-        0x06 -> use cxblpf
-        0x07 -> use cxppmm
+        0x02 -> getIRegister cxp0fb
+        0x03 -> getIRegister cxp1fb
+        0x04 -> getIRegister cxm0fb
+        0x05 -> getIRegister cxm1fb
+        0x06 -> getIRegister cxblpf
+        0x07 -> getIRegister cxppmm
         0x0c -> getIRegister inpt4
         0x10 -> getIRegister cxm0p
         0x11 -> getIRegister cxm1p
-        0x12 -> use cxp0fb
-        0x13 -> use cxp1fb
-        0x14 -> use cxm0fb
-        0x15 -> use cxm1fb
-        0x16 -> use cxblpf
-        0x17 -> use cxppmm
+        0x12 -> getIRegister cxp0fb
+        0x13 -> getIRegister cxp1fb
+        0x14 -> getIRegister cxm0fb
+        0x15 -> getIRegister cxm1fb
+        0x16 -> getIRegister cxblpf
+        0x17 -> getIRegister cxppmm
         0x1c -> getIRegister inpt4
         0x20 -> getIRegister cxm0p
         0x21 -> getIRegister cxm1p
-        0x22 -> use cxp0fb
-        0x23 -> use cxp1fb
-        0x24 -> use cxm0fb
-        0x25 -> use cxm1fb
-        0x26 -> use cxblpf
-        0x27 -> use cxppmm
+        0x22 -> getIRegister cxp0fb
+        0x23 -> getIRegister cxp1fb
+        0x24 -> getIRegister cxm0fb
+        0x25 -> getIRegister cxm1fb
+        0x26 -> getIRegister cxblpf
+        0x27 -> getIRegister cxppmm
         0x2c -> getIRegister inpt4
         0x30 -> getIRegister cxm0p
         0x31 -> getIRegister cxm1p
-        0x32 -> use cxp0fb
-        0x33 -> use cxp1fb
-        0x34 -> use cxm0fb
-        0x35 -> use cxm1fb
-        0x36 -> use cxblpf
-        0x37 -> use cxppmm
+        0x32 -> getIRegister cxp0fb
+        0x33 -> getIRegister cxp1fb
+        0x34 -> getIRegister cxm0fb
+        0x35 -> getIRegister cxm1fb
+        0x36 -> getIRegister cxblpf
+        0x37 -> getIRegister cxppmm
         0x3c -> getIRegister inpt4
         0x280 -> use swcha
         0x282 -> use swchb
@@ -1679,8 +1671,8 @@ main = do
   --readBinary memory "exp.bin" 0xf000
   readBinary memory (file args) 0xf000
 
-  oregs <- newArray (0, 0xff) 0
-  iregs <- newArray (0, 0xff) 0
+  oregs <- newArray (0, 0x3f) 0
+  iregs <- newArray (0, 0x0d) 0
   let stella = Stella {
       _oregisters = oregs,
       _iregisters = iregs,
@@ -1710,7 +1702,9 @@ main = do
 --      _inpt4 = 0,
 --      _cxm0p = 0,
 --      _cxm1p = 0, 
-      _cxp0fb = 0, _cxp1fb = 0, _cxm0fb = 0, _cxm1fb = 0, _cxblpf = 0, _cxppmm = 0,
+--      _cxp0fb = 0, _cxp1fb = 0,
+      --_cxm0fb = 0, _cxm1fb = 0,
+--      _cxblpf = 0, _cxppmm = 0,
 --      _enabl = 0,
       _mpos0 = 0, _mpos1 = 0,
       _bpos = 0,
@@ -1756,16 +1750,12 @@ main = do
                         SDL.ScancodeV -> usingStella $ swchb . bitAt 0 .= not pressed
                         SDL.ScancodeSpace -> usingStella $ do
                             latch <- use (vblank . bitAt 6)
-                            liftIO $ putStrLn $ "Latch = " ++ show (latch, pressed)
                             case (latch, pressed) of
                                 (False, _) -> do
-                                    --inpt4 . bitAt 7 .= not pressed
-                                    -- XXX write setBit
                                     inpt4' <- getIRegister inpt4
                                     putIRegister inpt4 ((inpt4' .&. 0b01111111) .|. bit 7 (not pressed))
                                 (True, False) -> return ()
                                 (True, True) -> do
-                                    --inpt4 . bitAt 7 .= False
                                     inpt4' <- getIRegister inpt4
                                     putIRegister inpt4 (inpt4' .&. 0b01111111)
                 otherwise -> return ()
