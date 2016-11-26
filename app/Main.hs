@@ -932,9 +932,11 @@ hmm0 = 0x22
 hmm1 = 0x23
 hmbl = 0x24
 
-cxm0p, cxm1p :: Word16
+cxm0p, cxm1p, inpt4, inpt5 :: Word16
 cxm0p = 0x00
 cxm1p = 0x01
+inpt4 = 0x0c
+inpt5 = 0x0d
 
 data Stella = Stella {
      _oregisters :: IOUArray Word16 Word8,
@@ -966,7 +968,7 @@ data Stella = Stella {
 --    _hmp1 :: !Word8,
 --    _nusiz0 :: !Word8,
 --    _nusiz1 :: !Word8,
-    _inpt4 :: !Word8,
+--    _inpt4 :: !Word8,
 --    _cxm0p :: !Word8,
 --    _cxm1p :: !Word8,
     _cxp0fb :: !Word8,
@@ -985,7 +987,7 @@ data Stella = Stella {
 --    _hmm0 :: !Word8,
 --    _hmm1 :: !Word8,
 --    _hmbl :: !Word8,
-    _inpt5 :: !Word8,
+--    _inpt5 :: !Word8,
     _intim :: !Word8,
     _subtimer :: !CInt,
     _interval :: !CInt
@@ -1199,8 +1201,11 @@ stellaVblank v = do
     vold <- use vblank
     -- Set latches for INPT4 and INPT5
     when (vold .&. 0b01000000 /= 0) $ do
-        inpt4 . bitAt 7 .= True
-        inpt5 . bitAt 7 .= True
+        i <- getIRegister inpt4 -- XXX write modifyIRegister
+        putIRegister inpt4 (i .|. 0b10000000)
+        i <- getIRegister inpt5
+        putIRegister inpt5 (i .|. 0b10000000)
+
     --liftIO $ putStrLn $ show vold ++ " -> " ++ show v
     if (vold .&. 0b00000010 /= 0) && (v .&. 0b00000010 == 0)
         then do
@@ -1483,7 +1488,7 @@ readStella addr =
         0x05 -> use cxm1fb
         0x06 -> use cxblpf
         0x07 -> use cxppmm
-        0x0c -> use inpt4
+        0x0c -> getIRegister inpt4
         0x10 -> getIRegister cxm0p
         0x11 -> getIRegister cxm1p
         0x12 -> use cxp0fb
@@ -1492,7 +1497,7 @@ readStella addr =
         0x15 -> use cxm1fb
         0x16 -> use cxblpf
         0x17 -> use cxppmm
-        0x1c -> use inpt4
+        0x1c -> getIRegister inpt4
         0x20 -> getIRegister cxm0p
         0x21 -> getIRegister cxm1p
         0x22 -> use cxp0fb
@@ -1501,7 +1506,7 @@ readStella addr =
         0x25 -> use cxm1fb
         0x26 -> use cxblpf
         0x27 -> use cxppmm
-        0x2c -> use inpt4
+        0x2c -> getIRegister inpt4
         0x30 -> getIRegister cxm0p
         0x31 -> getIRegister cxm1p
         0x32 -> use cxp0fb
@@ -1510,7 +1515,7 @@ readStella addr =
         0x35 -> use cxm1fb
         0x36 -> use cxblpf
         0x37 -> use cxppmm
-        0x3c -> use inpt4
+        0x3c -> getIRegister inpt4
         0x280 -> use swcha
         0x282 -> use swchb
         otherwise -> return 0
@@ -1702,7 +1707,7 @@ main = do
 --      _enam1 = 0,
 --      _hmp0 = 0,
 --      _hmp1 = 0,
-      _inpt4 = 0,
+--      _inpt4 = 0,
 --      _cxm0p = 0,
 --      _cxm1p = 0, 
       _cxp0fb = 0, _cxp1fb = 0, _cxm0fb = 0, _cxm1fb = 0, _cxblpf = 0, _cxppmm = 0,
@@ -1715,7 +1720,7 @@ main = do
 --      _hmm0 = 0,
 --      _hmm1 = 0,
 --      _hmbl = 0,
-      _inpt5 = 0,
+--      _inpt5 = 0,
       _intim = 0,
       _subtimer = 0,
       _interval = 0
@@ -1753,9 +1758,16 @@ main = do
                             latch <- use (vblank . bitAt 6)
                             liftIO $ putStrLn $ "Latch = " ++ show (latch, pressed)
                             case (latch, pressed) of
-                                (False, _) -> inpt4 . bitAt 7 .= not pressed
+                                (False, _) -> do
+                                    --inpt4 . bitAt 7 .= not pressed
+                                    -- XXX write setBit
+                                    inpt4' <- getIRegister inpt4
+                                    putIRegister inpt4 ((inpt4' .&. 0b01111111) .|. bit 7 (not pressed))
                                 (True, False) -> return ()
-                                (True, True) -> inpt4 . bitAt 7 .= False
+                                (True, True) -> do
+                                    --inpt4 . bitAt 7 .= False
+                                    inpt4' <- getIRegister inpt4
+                                    putIRegister inpt4 (inpt4' .&. 0b01111111)
                 otherwise -> return ()
 
         liftIO $ lockSurface screenSurface
