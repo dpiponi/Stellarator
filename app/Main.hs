@@ -913,7 +913,7 @@ newtype OReg = OReg Word16 deriving (Ord, Ix, Eq, Num)
 newtype IReg = IReg Word16 deriving (Ord, Ix, Eq, Num)
 
 nusiz0, nusiz1, colup0, colup1, pf0, pf1, pf2, enam0, enam1, enabl, hmp0, hmp1, hmm0, hmm1, hmbl :: OReg
-grp0, grp1, refp0, refp1, colupf, colubk, ctrlpf :: OReg
+grp0, grp1, refp0, refp1, colupf, colubk, ctrlpf, resmp0, resmp1 :: OReg
 nusiz0 = 0x04
 nusiz1 = 0x05
 colup0 = 0x06
@@ -936,6 +936,8 @@ hmp1 = 0x21
 hmm0 = 0x22
 hmm1 = 0x23
 hmbl = 0x24
+resmp0 = 0x28
+resmp1 = 0x29
 
 cxm0p, cxm1p, cxp0fb, cxp1fb, cxm0fb, cxm1fb, cxblpf, cxppmm, inpt4, inpt5 :: IReg
 cxm0p = 0x00
@@ -964,9 +966,6 @@ data Stella = Stella {
     _mpos0 :: !CInt,
     _mpos1 :: !CInt,
     _bpos :: !CInt,
-    _resmp0 :: !Word8,
-    _resmp1 :: !Word8,
-    _resbl :: !Word8,
     _intim :: !Word8,
     _subtimer :: !CInt,
     _interval :: !CInt
@@ -1003,16 +1002,16 @@ orIRegister i v = do
 playfield :: (MonadIO m, MonadState Stella m) => Int -> m Bool
 playfield i | i >= 0 && i < 4 = do
                 pf0' <- getORegister pf0
-                return $ (pf0' `shift` (i-4)) .&. 1 > 0
+                return $ testBit pf0' (4-i)
             | i >=4 && i < 12 = do
                 pf1' <- getORegister pf1
-                return $ (pf1' `shift` (i-11)) .&. 1 > 0
+                return $ testBit pf1' (11-i)
             | i >= 12 && i < 20 = do
                 pf2' <- getORegister pf2
-                return $ (pf2' `shift` (12-i)) .&. 1 > 0
+                return $ testBit pf2' (i-12)
 playfield i | i >= 20 && i < 40 = do
                 ctrlpf' <- getORegister ctrlpf
-                playfield $ if ctrlpf' .&. 0b00000001 > 0 then 39-i else i-20
+                playfield $ if testBit ctrlpf' 0 then 39-i else i-20
 
 {-# INLINE flipIf #-}
 flipIf :: Bool -> Int -> Int
@@ -1085,11 +1084,13 @@ player1 = do
 missile0 :: (MonadIO m, MonadState Stella m) => m Bool
 missile0 = do
     enam0' <- getORegister enam0
+    resmp0' <- getORegister resmp0
     if (enam0' .&. 0x10) /= 0
         then do
             hpos' <- use hpos
-            mpos1' <- use mpos1
-            let o = hpos'-mpos1' :: CInt
+            when (testBit resmp0' 1) $ use hpos >>= (mpos0 .=)
+            mpos0' <- use mpos0
+            let o = hpos'-mpos0' :: CInt
             nusiz0' <- getORegister nusiz0
             let missileSize = 1 `shift` (fromIntegral ((nusiz0' `shift` (fromIntegral $ -4)) .&. 0b11))
             return $ o >= 0 && o < missileSize
@@ -1099,9 +1100,11 @@ missile0 = do
 missile1 :: (MonadIO m, MonadState Stella m) => m Bool
 missile1 = do
     enam1' <- getORegister enam1
+    resmp1' <- getORegister resmp1
     if (enam1' .&. 0b10) /= 0
         then do
-            hpos' <- use hpos
+            hpos' <- use hpos 
+            when (testBit resmp1' 1) $ use hpos >>= (mpos1 .=) -- XXX may need to do this on resmp
             mpos1' <- use mpos1
             let o = hpos'-mpos1' :: CInt
             nusiz1' <- getORegister nusiz1
@@ -1131,15 +1134,10 @@ clockMove i = fromIntegral ((fromIntegral i :: Int8) `shift` (-4))
 {- INLINE stellaHmclr -}
 stellaHmclr :: (MonadIO m, MonadState Stella m) => m ()
 stellaHmclr = do
-    --hmp0 .= 0
     putORegister hmp0 0
     putORegister hmp1 0
-    --hmp1 .= 0
-    --hmm0 .= 0
-    --hmm1 .= 0
     putORegister hmm0 0
     putORegister hmm1 0
-    --hmbl .= 0
     putORegister hmbl 0
 
 {- INLINE stellaCxclr -}
@@ -1422,12 +1420,8 @@ writeStella addr v =
        0x22 -> putORegister hmm0 v                 -- HMM0
        0x23 -> putORegister hmm1 v                 -- HMM1
        0x24 -> putORegister hmbl v                 -- HMBL
-       0x28 -> do
-        resmp0' <- use (resmp0 . bitAt 1)
-        when (resmp0') $ use ppos0 >>= (mpos0 .=)  -- RESMP0
-       0x29 -> do
-        resmp1' <- use (resmp1 . bitAt 1)
-        when (resmp1') $ use ppos1 >>= (mpos1 .=)  -- RESMP1
+       0x28 -> putORegister resmp0 v
+       0x29 -> putORegister resmp1 v
        0x2a -> stellaHmove               -- HMOVE
        0x2b -> stellaHmclr               -- HMCLR
        0x2c -> stellaCxclr               -- CXCLR
@@ -1666,30 +1660,10 @@ main = do
       _vblank = 0,
       _ppos0 = 9999,
       _ppos1 = 9999,
---      _grp0 = 0,
---      _grp1 = 0,
       _swcha = 0xff,
       _swchb = 0b00001011,
---      _enam0 = 0,
---      _enam1 = 0,
---      _hmp0 = 0,
---      _hmp1 = 0,
---      _inpt4 = 0,
---      _cxm0p = 0,
---      _cxm1p = 0, 
---      _cxp0fb = 0, _cxp1fb = 0,
-      --_cxm0fb = 0, _cxm1fb = 0,
---      _cxblpf = 0, _cxppmm = 0,
---      _enabl = 0,
       _mpos0 = 0, _mpos1 = 0,
       _bpos = 0,
-      _resmp0 = 0,
-      _resmp1 = 0,
-      _resbl = 0,
---      _hmm0 = 0,
---      _hmm1 = 0,
---      _hmbl = 0,
---      _inpt5 = 0,
       _intim = 0,
       _subtimer = 0,
       _interval = 0
@@ -1728,11 +1702,11 @@ main = do
                             case (latch, pressed) of
                                 (False, _) -> do
                                     inpt4' <- getIRegister inpt4
-                                    putIRegister inpt4 ((inpt4' .&. 0b01111111) .|. bit 7 (not pressed))
+                                    putIRegister inpt4 ((clearBit inpt4' 7) .|. bit 7 (not pressed))
                                 (True, False) -> return ()
                                 (True, True) -> do
                                     inpt4' <- getIRegister inpt4
-                                    putIRegister inpt4 (inpt4' .&. 0b01111111)
+                                    putIRegister inpt4 (clearBit inpt4' 7)
                 otherwise -> return ()
 
         liftIO $ lockSurface screenSurface
