@@ -72,8 +72,8 @@ class (Monad m, MonadIO m) => Emu6502 m where
     addPC :: Int -> m ()
     illegal :: Word8 -> m ()
 
-    debugStr :: String -> m ()
-    debugStrLn :: String -> m ()
+    debugStr :: Int -> String -> m ()
+    debugStrLn :: Int -> String -> m ()
 
 {- INLINE dumpRegisters -}
 dumpRegisters :: Emu6502 m => m ()
@@ -82,24 +82,24 @@ dumpRegisters = do
     --tClock <- use clock
     --debugStr $ "clock = " ++ show tClock
     regPC <- getPC
-    debugStr $ " pc = " ++ showHex regPC ""
+    debugStr 9 $ " pc = " ++ showHex regPC ""
     regP <- getP
-    debugStr $ " flags = " ++ showHex regP ""
-    debugStr $ "(N=" ++ showHex ((regP `shift` (-7)) .&. 1) ""
-    debugStr $ ",V=" ++ showHex ((regP `shift` (-6)) .&. 1) ""
-    debugStr $ ",B=" ++ showHex (regP `shift` ((-4)) .&. 1) ""
-    debugStr $ ",D=" ++ showHex (regP `shift` ((-3)) .&. 1) ""
-    debugStr $ ",I=" ++ showHex (regP `shift` ((-2)) .&. 1) ""
-    debugStr $ ",Z=" ++ showHex (regP `shift` ((-1)) .&. 1) ""
-    debugStr $ ",C=" ++ showHex (regP .&. 1) ""
+    debugStr 9 $ " flags = " ++ showHex regP ""
+    debugStr 9 $ "(N=" ++ showHex ((regP `shift` (-7)) .&. 1) ""
+    debugStr 9 $ ",V=" ++ showHex ((regP `shift` (-6)) .&. 1) ""
+    debugStr 9 $ ",B=" ++ showHex (regP `shift` ((-4)) .&. 1) ""
+    debugStr 9 $ ",D=" ++ showHex (regP `shift` ((-3)) .&. 1) ""
+    debugStr 9 $ ",I=" ++ showHex (regP `shift` ((-2)) .&. 1) ""
+    debugStr 9 $ ",Z=" ++ showHex (regP `shift` ((-1)) .&. 1) ""
+    debugStr 9 $ ",C=" ++ showHex (regP .&. 1) ""
     regA <- getA 
-    debugStr $ ") A = " ++ showHex regA ""
+    debugStr 9 $ ") A = " ++ showHex regA ""
     regX <- getX
-    debugStr $ " X = " ++ showHex regX ""
+    debugStr 9 $ " X = " ++ showHex regX ""
     regY <- getY
-    debugStrLn $ " Y = " ++ showHex regY ""
+    debugStrLn 9 $ " Y = " ++ showHex regY ""
     regS <- getS
-    debugStrLn $ " N = " ++ showHex regS ""
+    debugStrLn 9 $ " N = " ++ showHex regS ""
 
 {- INLINE dumpMemory -}
 dumpMemory :: Emu6502 m => m ()
@@ -108,10 +108,10 @@ dumpMemory = do
     b0 <- readMemory regPC
     b1 <- readMemory (regPC+1)
     b2 <- readMemory (regPC+2)
-    debugStr $ "(PC) = "
-    debugStr $ showHex b0 "" ++ " "
-    debugStr $ showHex b1 "" ++ " "
-    debugStrLn $ showHex b2 ""
+    debugStr 9 $ "(PC) = "
+    debugStr 9 $ showHex b0 "" ++ " "
+    debugStr 9 $ showHex b1 "" ++ " "
+    debugStrLn 9 $ showHex b2 ""
 
 {- INLINE dumpState -}
 dumpState :: Emu6502 m => m ()
@@ -323,13 +323,13 @@ ins_bra getFlag value = do
     let oldP = p0+2
     if value && f || not value && not f
         then do
-            debugStrLn "Taking branch"
+            debugStrLn 9 "Taking branch"
             offset <- readMemory (p0+1) -- XXX or ^^^
             let newP = if offset < 0x80 then oldP+i16 offset else oldP+i16 offset-0x100
             tick $ if newP .&. 0xff00 == oldP .&. 0xff00 then 3 else 4
             putPC newP
         else do
-            debugStrLn "Not taking branch"
+            debugStrLn 9 "Not taking branch"
             tick 2
             putPC oldP
 
@@ -463,7 +463,7 @@ ins_ora bbb = do
     putA newA
     setN newA
     setZ newA
-    debugStrLn $ "A = " ++ show newA
+    debugStrLn 9 $ "A = " ++ show newA
 
 {- INLINE ins_and -}
 ins_and :: Emu6502 m => Word8 -> m ()
@@ -474,7 +474,7 @@ ins_and bbb = do
     putA newA
     setN newA
     setZ newA
-    debugStrLn $ "A = " ++ show newA
+    debugStrLn 9 $ "A = " ++ show newA
 
 {- INLINE ins_xor -}
 ins_xor :: Emu6502 m => Word8 -> m ()
@@ -485,17 +485,17 @@ ins_xor bbb = do
     putA newA
     setN newA
     setZ newA
-    debugStrLn $ "A = " ++ show newA
+    debugStrLn 9 $ "A = " ++ show newA
 
 {- INLINE ins_lda -}
 ins_lda :: Emu6502 m => Word8 -> m ()
 ins_lda bbb = do
-    debugStrLn $ "LDA instruction with address mode " ++ showHex bbb ""
+    debugStrLn 9 $ "LDA instruction with address mode " ++ showHex bbb ""
     newA <- getData bbb
     putA newA
     setN newA
     setZ newA
-    debugStrLn $ "A = " ++ show newA
+    debugStrLn 9 $ "A = " ++ show newA
 
 {- INLINE ins_sta -}
 ins_sta :: Emu6502 m => Word8 -> m ()
@@ -539,8 +539,8 @@ ins_sbc bbb = do
     decimal <- getD
     if decimal
         then do
-            debugStrLn $ "Decimal subtract oldA ="++showHex oldA "" ++ " src=" ++ showHex src ""
-            debugStrLn $ "unadjusted = " ++ showHex newA ""
+            debugStrLn 9 $ "Decimal subtract oldA ="++showHex oldA "" ++ " src=" ++ showHex src ""
+            debugStrLn 9 $ "unadjusted = " ++ showHex newA ""
             let adjustedA = if iz (oldA .&. 0xf)-(if carry then 0 else 1) < iz (src .&. 0xf)
                                 then newA - 6
                                 else newA
@@ -552,7 +552,7 @@ ins_sbc bbb = do
         else do
             putA $ fromIntegral (newA .&. 0xff)
             putC $ newA < 0x100
-    debugStrLn $ "A = " ++ show newA
+    debugStrLn 9 $ "A = " ++ show newA
 
 {- INLINE ins_cmp -}
 ins_cmp :: Emu6502 m => Word8 -> m ()
@@ -813,15 +813,15 @@ ins_rts = do
 {- INLINE step -}
 step :: Emu6502 m => m ()
 step = do
-    debugStrLn "------"
+    debugStrLn 9 "------"
     dumpState
     p0 <- getPC
     --if p0 == 0x3781 then debug .= True else return () -- XXX
     if p0 == 0x400 then liftIO $ putStrLn "Started!!!" else return ()
     if p0 == 0x3770 then liftIO $ putStrLn "Passed!!!" else return ()
-    debugStrLn $ "pc = " ++ showHex p0 ""
+    debugStrLn 9 $ "pc = " ++ showHex p0 ""
     i <- readMemory p0
-    debugStrLn $ "instruction = " ++ showHex i ""
+    debugStrLn 9 $ "instruction = " ++ showHex i ""
     case i of
         0x00 -> ins_brk
         0x08 -> ins_php
@@ -860,7 +860,7 @@ step = do
 
         otherwise -> do
             let cc = i .&. 0b11
-            debugStrLn $ "cc = " ++ show cc
+            debugStrLn 9 $ "cc = " ++ show cc
             case cc of
                 0b00 -> do
                     let aaa = (i `shift` (-5)) .&. 0b111
@@ -969,10 +969,34 @@ data Stella = Stella {
     _bpos :: !CInt,
     _intim :: !Word8,
     _subtimer :: !CInt,
-    _interval :: !CInt
+    _interval :: !CInt,
+    _stellaDebug :: !Int,
+    _lastClock :: !Int64
 }
 
 $(makeLenses ''Stella)
+
+{- INLINE stellaDebugStr -}
+stellaDebugStr n str = do
+    d <- use stellaDebug
+    if n <= d
+        then do
+            before <- use lastClock
+            now <- use stellaClock
+            liftIO $ putStr $ show now ++ " +" ++ show (now-before) ++ ": " ++ str
+            lastClock .= now
+        else return ()
+
+{- INLINE stellaDebugStrLn -}
+stellaDebugStrLn n str = do
+    d <- use stellaDebug
+    if n <= d
+        then do
+            before <- use lastClock
+            now <- use stellaClock
+            liftIO $ putStrLn $ show now ++ " +" ++ show (now-before) ++ ": " ++ str
+            lastClock .= now
+        else return ()
 
 putORegister :: (MonadIO m, MonadState Stella m) => OReg -> Word8 -> m ()
 putORegister i v = do
@@ -1192,10 +1216,14 @@ stellaWsync :: (MonadIO m, MonadState Stella m) => m ()
 stellaWsync = do
     hpos' <- use hpos
     stellaTick (228-fromIntegral hpos')
+    stellaDebugStrLn 0 $ "WSYNC (post)"
+
+-- http://atariage.com/forums/topic/107527-atari-2600-vsyncvblank/
 
 {- INLINE stellaVsync -}
 stellaVsync :: (MonadIO m, MonadState Stella m) => Word8 -> m ()
 stellaVsync v = do
+    stellaDebugStrLn 0 $ "VSYNC " ++ showHex v ""
     oldv <- getORegister vsync
     when (testBit oldv 1 && not (testBit v 1)) $ do
             hpos .= 0
@@ -1205,13 +1233,14 @@ stellaVsync v = do
 {- INLINE stellaVblank -}
 stellaVblank :: (MonadIO m, MonadState Stella m) => Word8 -> m ()
 stellaVblank v = do
+    stellaDebugStrLn 0 $ "VBLANK " ++ showHex v ""
     vold <- use vblank
     -- Set latches for INPT4 and INPT5
-    when (vold .&. 0b01000000 /= 0) $ do
+    when (testBit v 6) $ do
         i <- getIRegister inpt4 -- XXX write modifyIRegister
-        putIRegister inpt4 (i .|. 0b10000000)
+        putIRegister inpt4 (setBit i 7)
         i <- getIRegister inpt5
-        putIRegister inpt5 (i .|. 0b10000000)
+        putIRegister inpt5 (setBit i 7)
 
     --liftIO $ putStrLn $ show vold ++ " -> " ++ show v
     {-
@@ -1293,6 +1322,7 @@ stellaTick n = do
     -- Interval timer
     x <- use intim
     y <- use interval
+    stellaDebugStrLn 0 $ "clock = " ++ show x
     stellaClock += 1
     subtimer' <- use subtimer
     let subtimer'' = subtimer'-1
@@ -1386,7 +1416,7 @@ data StateAtari = S {
     _mem :: IOUArray Int Word8,
     _clock :: !Int,
     _regs :: !Registers,
-    _debug :: !Bool,
+    _debug :: !Int,
     _stella :: Stella
 }
 
@@ -1508,6 +1538,7 @@ readStella addr =
         0x3c -> getIRegister inpt4
         0x280 -> use swcha
         0x282 -> use swchb
+        0x284 -> use intim
         otherwise -> return 0
 
 instance Emu6502 MonadAtari where
@@ -1609,16 +1640,16 @@ instance Emu6502 MonadAtari where
     addPC n = regs . pc += fromIntegral n
 
     {- INLINE debugStr -}
-    debugStr str = do
+    debugStr n str = do
         d <- use debug
-        if d
+        if n <= d
             then liftIO $ putStr str
             else return ()
 
     {- INLINE debugStrLn -}
-    debugStrLn str = do
+    debugStrLn n str = do
         d <- use debug
-        if d
+        if n <= d
             then liftIO $ putStrLn str
             else return ()
 
@@ -1657,18 +1688,6 @@ main = do
   helloWorld <- createRGBSurface (V2 screenWidth screenHeight) RGB888
 
   memory <- newArray (0, 0x2000) 0 :: IO (IOUArray Int Word8)
---  readBinary memory "kernel_01.bin" 0xf000
-  --readBinary memory "kernel_13.bin" 0xf000
-  --readBinary memory "Breakout.bin" 0xf000
-  --readBinary memory "Yar.bin" 0xf000
-  --readBinary memory "Galaxian.bin" 0xf000
-  --readBinary memory "skiing.bin" 0xf000
-  --readBinary memory "kernel21.bin" 0xf000
-  --readBinary memory "kernel22.bin" 0xf000
-  --readBinary memory "adventure.rom" 0xf000
-  --readBinary memory "combat.bin" 0xf000
-  --readBinary memory "joustpong.bin" 0xf000
-  --readBinary memory "exp.bin" 0xf000
   readBinary memory (file args) 0x1000
   pclo <- readArray memory 0x1ffc
   pchi <- readArray memory 0x1ffd
@@ -1692,10 +1711,12 @@ main = do
       _bpos = 0,
       _intim = 0,
       _subtimer = 0,
-      _interval = 0
+      _interval = 0,
+      _lastClock = 0,
+      _stellaDebug = -1
   }
   let state = S { _mem = memory,  _clock = 0, _regs = R initialPC 0 0 0 0 0xff,
-                    _debug = False,
+                    _debug = 8,
                     _stella = stella}
 
   let loopUntil n = do
@@ -1745,8 +1766,7 @@ main = do
 
         loop
 
-  flip runStateT state $ do
-      loop
+  flip runStateT state loop
 
   SDL.destroyWindow window
   SDL.freeSurface helloWorld
