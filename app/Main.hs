@@ -1543,6 +1543,16 @@ readStella addr =
 
 -- http://www.qotile.net/minidig/docs/2600_mem_map.txt
 
+--
+-- Decision tree for type of memory
+--
+-- testBit a 12
+-- True -> ROM
+-- False -> testBit a 7
+--          False -> TIA
+--          True -> testBit a 9
+--                  True -> RIOT
+--                  False -> RAM
 {-# INLINE isTIA #-}
 isTIA :: Word16 -> Bool
 isTIA a = not (testBit a 7) && not (testBit a 12)
@@ -1554,6 +1564,10 @@ isRAM a = testBit a 7 && not (testBit a 9) && not (testBit a 12)
 {-# INLINE isRIOT #-}
 isRIOT :: Word16 -> Bool
 isRIOT a = testBit a 7 && testBit a 9 && not (testBit a 12)
+
+{-# INLINE isROM #-}
+isROM :: Word16 -> Bool
+isROM a = testBit a 12
 
 instance Emu6502 MonadAtari where
     {- INLINE readMemory -}
@@ -1780,7 +1794,11 @@ main = do
 
         loop
 
-  flip runStateT state loop
+  flip runStateT state $ do
+    -- Joystick buttons not pressed
+    usingStella $ putIRegister inpt4 0x80
+    usingStella $ putIRegister inpt5 0x80
+    loop
 
   SDL.destroyWindow window
   SDL.freeSurface helloWorld
