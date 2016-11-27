@@ -1541,18 +1541,32 @@ readStella addr =
         0x284 -> use intim
         otherwise -> return 0
 
+-- http://www.qotile.net/minidig/docs/2600_mem_map.txt
+
+{-# INLINE isTIA #-}
+isTIA :: Word16 -> Bool
+isTIA a = not (testBit a 7) && not (testBit a 12)
+
+{-# INLINE isRAM #-}
+isRAM :: Word16 -> Bool
+isRAM a = testBit a 7 && not (testBit a 9) && not (testBit a 12)
+
+{-# INLINE isRIOT #-}
+isRIOT :: Word16 -> Bool
+isRIOT a = testBit a 7 && testBit a 9 && not (testBit a 12)
+
 instance Emu6502 MonadAtari where
     {- INLINE readMemory -}
     readMemory addr' =
         let addr = addr' .&. 0b1111111111111 in -- 6507
-            if addr >= 0x00 && addr < 0x80
-                then usingStella $ readStella addr
-                else if addr >= 0x80 && addr < 0x100 || addr >= 0x180 && addr < 0x200
+            if isTIA addr
+                then usingStella $ readStella (addr .&. 0x3f)
+                else if isRAM addr
                         then do
                             m <- use mem
                             liftIO $ readArray m (fromIntegral addr .&. 0xff)
-                        else if addr >= 0x280 && addr < 0x298
-                            then usingStella $ readStella addr
+                        else if isRIOT addr
+                            then usingStella $ readStella (0x280+(addr .&. 0x1f))
                             else if addr >= 0x1000
                                 then do
                                     m <- use mem
@@ -1564,14 +1578,14 @@ instance Emu6502 MonadAtari where
     {- INLINE writeMemory -}
     writeMemory addr' v =
         let addr = addr' .&. 0b1111111111111 in -- 6507
-            if addr >= 0x00 && addr < 0x80
-                then usingStella $ writeStella addr v
-                else if addr >= 0x80 && addr < 0x100 || addr >= 0x180 && addr < 0x200
+            if isTIA addr
+                then usingStella $ writeStella (addr .&. 0x3f) v
+                else if isRAM addr
                         then do
                             m <- use mem
                             liftIO $ writeArray m (fromIntegral addr .&. 0xff) v
-                        else if addr >= 0x280 && addr < 0x298
-                                then usingStella $ writeStella addr v
+                        else if isRIOT addr
+                                then usingStella $ writeStella (0x280+(addr .&. 0x1f)) v
                                 else if addr >= 0x1000
                                     then do
                                         m <- use mem
