@@ -914,6 +914,7 @@ newtype IReg = IReg Word16 deriving (Ord, Ix, Eq, Num)
 
 nusiz0, nusiz1, colup0, colup1, pf0, pf1, pf2, enam0, enam1, enabl, hmp0, hmp1, hmm0, hmm1, hmbl :: OReg
 grp0, grp1, refp0, refp1, colupf, colubk, ctrlpf, resmp0, resmp1 :: OReg
+vsync = 0x00
 nusiz0 = 0x04
 nusiz1 = 0x05
 colup0 = 0x06
@@ -1085,7 +1086,7 @@ missile0 :: (MonadIO m, MonadState Stella m) => m Bool
 missile0 = do
     enam0' <- getORegister enam0
     resmp0' <- getORegister resmp0
-    if (enam0' .&. 0x10) /= 0
+    if testBit enam0' 1
         then do
             hpos' <- use hpos
             when (testBit resmp0' 1) $ use hpos >>= (mpos0 .=)
@@ -1101,7 +1102,7 @@ missile1 :: (MonadIO m, MonadState Stella m) => m Bool
 missile1 = do
     enam1' <- getORegister enam1
     resmp1' <- getORegister resmp1
-    if (enam1' .&. 0b10) /= 0
+    if testBit enam1' 1
         then do
             hpos' <- use hpos 
             when (testBit resmp1' 1) $ use hpos >>= (mpos1 .=) -- XXX may need to do this on resmp
@@ -1152,17 +1153,29 @@ stellaCxclr = do
     putIRegister cxblpf 0
     putIRegister cxppmm 0
 
+{-# INLINE wrap160 #-}
+wrap160 :: CInt -> CInt
+wrap160 i | i>=picx && i < picx+160 = i
+          | i < picx = wrap160 (i+160)
+          | i >= picx+160 = wrap160 (i-160)
+
 {- INLINE stellaHmove -}
 stellaHmove :: (MonadIO m, MonadState Stella m) => m ()
 stellaHmove = do
     poffset0 <- getORegister hmp0
-    ppos0 -= clockMove poffset0
+    ppos0' <- use ppos0
+    ppos0 .= wrap160 (ppos0'-clockMove poffset0)
+
     poffset1 <- getORegister hmp1
     ppos1 -= clockMove poffset1
+
     moffset0 <- getORegister hmm0
     mpos0 -= clockMove moffset0
+
     moffset1 <- getORegister hmm1
-    mpos1 -= clockMove moffset1
+    mpos1' <- use mpos1
+    mpos1 .= wrap160 (mpos1'-clockMove moffset1) -- XXX do rest
+
     boffset <- getORegister hmbl
     bpos -= clockMove boffset
 
@@ -1183,7 +1196,11 @@ stellaWsync = do
 {- INLINE stellaVsync -}
 stellaVsync :: (MonadIO m, MonadState Stella m) => Word8 -> m ()
 stellaVsync v = do
-    return ()
+    oldv <- getORegister vsync
+    when (testBit oldv 1 && not (testBit v 1)) $ do
+            hpos .= 0
+            vpos .= 0
+    putORegister vsync v
 
 {- INLINE stellaVblank -}
 stellaVblank :: (MonadIO m, MonadState Stella m) => Word8 -> m ()
@@ -1197,12 +1214,14 @@ stellaVblank v = do
         putIRegister inpt5 (i .|. 0b10000000)
 
     --liftIO $ putStrLn $ show vold ++ " -> " ++ show v
+    {-
     if (vold .&. 0b00000010 /= 0) && (v .&. 0b00000010 == 0)
         then do
             --liftIO $ print "VBLANK"
             hpos .= 0
             vpos .= 0
         else return ()
+    -}
     vblank .= v
 
 -- player0
@@ -1230,7 +1249,7 @@ compositeAndCollide x = do
     colupf' <- getORegister colupf
     colup0' <- getORegister colup0
     colup1' <- getORegister colup1
-    let playfieldColor = if testBit ctrlpf' 1
+    let playfieldColour = if testBit ctrlpf' 1
             then if x < 80
                 then colup0'
                 else colup1'
@@ -1238,7 +1257,7 @@ compositeAndCollide x = do
 
     -- Assemble colours
     pbackground <- Pixel True <$> getORegister colubk
-    pplayfield <- Pixel <$> playfield (fromIntegral $ x `shift` (-2)) <*> return playfieldColor
+    pplayfield <- Pixel <$> playfield (fromIntegral $ x `shift` (-2)) <*> return playfieldColour
     pplayer0 <- Pixel <$> player0 <*> return colup0'
     pplayer1 <- Pixel <$> player1 <*> return colup1'
     pmissile0 <- Pixel <$> missile0 <*> return colup0'
@@ -1247,8 +1266,8 @@ compositeAndCollide x = do
 
     orIRegister cxm0p $ bit 7 (plogic pmissile0 && plogic pplayer1) .|.
                         bit 6 (plogic pmissile0 && plogic pplayer0)
-    orIRegister cxm1p $ bit 7 (plogic pmissile1 && plogic pplayer1) .|.
-                        bit 6 (plogic pmissile1 && plogic pplayer0)
+    orIRegister cxm1p $ bit 7 (plogic pmissile1 && plogic pplayer0) .|.
+                        bit 6 (plogic pmissile1 && plogic pplayer1)
     orIRegister cxp0fb $ bit 7 (plogic pplayer0 && plogic pplayfield) .|.
                          bit 6 (plogic pplayer0 && plogic pball)
     orIRegister cxp1fb $ bit 7 (plogic pplayer1 && plogic pplayfield) .|.
@@ -1263,7 +1282,7 @@ compositeAndCollide x = do
     
     -- Get ordering priority
     let Pixel _ final = pbackground `mappend`
-                        if ctrlpf' .&. 0b00000100 /= 0
+                        if testBit ctrlpf' 2
                             then mconcat [pplayer1, pmissile1, pplayer0, pmissile0, pplayfield, pball]
                             else mconcat [pball, pplayfield, pplayer1, pmissile1, pplayer0, pmissile0]
     return final
@@ -1272,6 +1291,8 @@ stellaTick :: (MonadIO m, MonadState Stella m) => Int -> m ()
 stellaTick 0 = return ()
 stellaTick n = do
     -- Interval timer
+    x <- use intim
+    y <- use interval
     stellaClock += 1
     subtimer' <- use subtimer
     let subtimer'' = subtimer'-1
