@@ -20,7 +20,8 @@ import Data.Binary
 import Data.Binary.Get
 import Data.Bits hiding (bit)
 import Data.Bits.Lens
-import Data.ByteString as B hiding (putStr, putStrLn, getLine, length, elem, map)
+import Data.ByteString as B hiding (putStr, putStrLn, getLine, length, elem, map, reverse)
+import Data.Char
 import Data.Int
 import Data.Monoid
 import Data.Word
@@ -75,6 +76,7 @@ class (Monad m, MonadIO m) => Emu6502 m where
     debugStr :: Int -> String -> m ()
     debugStrLn :: Int -> String -> m ()
 
+-- Deliberately non-functioning INLINEs
 {- INLINE dumpRegisters -}
 dumpRegisters :: Emu6502 m => m ()
 dumpRegisters = do
@@ -971,7 +973,9 @@ data Stella = Stella {
     _subtimer :: !CInt,
     _interval :: !CInt,
     _stellaDebug :: !Int,
-    _lastClock :: !Int64
+    _lastClock :: !Int64,
+    _xbreak :: !Int32,
+    _ybreak :: !Int32
 }
 
 $(makeLenses ''Stella)
@@ -998,30 +1002,55 @@ stellaDebugStrLn n str = do
             lastClock .= now
         else return ()
 
+{- INLINE putORegister -}
 putORegister :: (MonadIO m, MonadState Stella m) => OReg -> Word8 -> m ()
 putORegister i v = do
     r <- use oregisters
     liftIO $ writeArray r i v
 
+{- INLINE getORegister -}
 getORegister :: (MonadIO m, MonadState Stella m) => OReg -> m Word8
 getORegister i = do
     r <- use oregisters
     liftIO $ readArray r i
 
+{- INLINE putIRegister -}
 putIRegister :: (MonadIO m, MonadState Stella m) => IReg -> Word8 -> m ()
 putIRegister i v = do
     r <- use iregisters
     liftIO $ writeArray r i v
 
+{- INLINE getIRegister -}
 getIRegister :: (MonadIO m, MonadState Stella m) => IReg -> m Word8
 getIRegister i = do
     r <- use iregisters
     liftIO $ readArray r i
 
+{- INLINE orIRegister -}
 orIRegister :: (MonadIO m, MonadState Stella m) => IReg -> Word8 -> m ()
 orIRegister i v = do
     r <- use iregisters
     liftIO $ readArray r i >>= writeArray r i . (v .|.)
+
+inBinary :: (Bits a) => Int -> a -> String
+inBinary 0 x = ""
+inBinary n x = inBinary (n-1) (x `shift` (-1)) ++ if testBit x 0 then "1" else "0"
+
+dumpStella :: (MonadIO m, MonadState Stella m) => m ()
+dumpStella = do
+    hpos' <- use hpos
+    vpos' <- use vpos
+    liftIO $ putStrLn $ "hpos = " ++ show hpos' ++ " vpos = " ++ show vpos'
+    grp0' <- getORegister grp0
+    grp1' <- getORegister grp1
+    liftIO $ putStrLn $ "GRP0 = " ++ showHex grp0' "" ++ "(" ++ inBinary 8 grp0' ++ ")"
+    liftIO $ putStrLn $ "GRP1 = " ++ showHex grp1' "" ++ "(" ++ inBinary 8 grp1' ++ ")"
+    pf0' <- getORegister pf0
+    pf1' <- getORegister pf1
+    pf2' <- getORegister pf2
+    liftIO $ putStrLn $ "PF = " ++ reverse (inBinary 4 (pf0' `shift` (-4)))
+                                ++ inBinary 8 pf1'
+                                ++ reverse (inBinary 8 pf2')
 
 {- INLINE playfield -}
 playfield :: (MonadIO m, MonadState Stella m) => Int -> m Bool
@@ -1045,39 +1074,39 @@ flipIf False x = 7-x
 
 {- INLINE stretchPlayer -}
 stretchPlayer :: Bool -> Word8 -> CInt -> Word8 -> Bool
-stretchPlayer reflect sizeCopies o grp0' =
+stretchPlayer reflect sizeCopies o bitmap =
     case sizeCopies of
         0b000 -> -- one copy
             if o >= 0 && o < 8
-                then testBit grp0' (flipIf reflect $ fromIntegral o)
+                then testBit bitmap (flipIf reflect $ fromIntegral o)
                 else False
         0b001 -> -- two copies close
             if o >= 0 && o < 8 || o >= 16 && o < 24
-                then testBit grp0' (flipIf reflect $ fromIntegral (o .&. 7))
+                then testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
                 else False
         0b010 -> -- two copies - med
             if o >= 0 && o < 8 || o >= 32 && o < 40
-                then testBit grp0' (flipIf reflect $ fromIntegral (o .&. 7))
+                then testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
                 else False
         0b011 -> -- three copies close
             if o >= 0 && o < 8 || o >= 16 && o < 24 || o >= 32 && o < 40
-                then testBit grp0' (flipIf reflect $ fromIntegral (o .&. 7))
+                then testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
                 else False
         0b100 -> -- two copies wide
             if o >= 0 && o < 8 || o >= 64 && o < 72
-                then testBit grp0' (flipIf reflect $ fromIntegral (o .&. 7))
+                then testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
                 else False
         0b101 -> -- double size player
             if o >= 0 && o < 16
-                then testBit grp0' (flipIf reflect $ fromIntegral ((o `shift` (-1)) .&. 7))
+                then testBit bitmap (flipIf reflect $ fromIntegral ((o `shift` (-1)) .&. 7))
                 else False
         0b110 -> -- three copies medium
             if o >= 0 && o < 8 || o >= 32 && o < 40 || o >= 64 && o < 72
-                then testBit grp0' (flipIf reflect $ fromIntegral (o .&. 7))
+                then testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
                 else False
         0b111 -> -- quad sized player
             if o >= 0 && o < 32
-                then testBit grp0' (flipIf reflect $ (fromIntegral ((o `shift` (-2)) .&. 7)))
+                then testBit bitmap (flipIf reflect $ (fromIntegral ((o `shift` (-2)) .&. 7)))
                 else False
 
 -- Stella programmer's guide p.40
@@ -1319,6 +1348,15 @@ compositeAndCollide x = do
 stellaTick :: (MonadIO m, MonadState Stella m) => Int -> m ()
 stellaTick 0 = return ()
 stellaTick n = do
+    xbreak' <- use xbreak
+    ybreak' <- use ybreak
+    hpos' <- use hpos
+    vpos' <- use vpos
+    when (hpos' == fromIntegral xbreak' && vpos' == fromIntegral ybreak') $ do
+        dumpStella
+        xbreak .= (-1)
+        ybreak .= (-1)
+
     -- Interval timer
     x <- use intim
     y <- use interval
@@ -1338,8 +1376,6 @@ stellaTick n = do
             interval .= 1
     
     -- Display
-    hpos' <- use hpos
-    vpos' <- use vpos
     when (vpos' >= picy && vpos' < picy+192 && hpos' >= picx) $ do
         surface <- use tvSurface
         ptr <- liftIO $ surfacePixels surface
@@ -1427,6 +1463,13 @@ newtype MonadAtari a = M { unM :: StateT StateAtari IO a }
 
 --  XXX Do this! If reset occurs during horizontal blank, the object will appear at the left side of the television screen
 
+{- INLINE setBreak -}
+setBreak :: (MonadIO m, MonadState Stella m) =>
+               Int32 -> Int32 -> m ()
+setBreak x y = do
+    xbreak .= x+fromIntegral picx
+    ybreak .= y+fromIntegral picy
+
 {- INLINE usingStella -}
 usingStella :: MonadState StateAtari m =>
                StateT Stella m a -> m a
@@ -1492,8 +1535,7 @@ writeStella addr v =
         interval .= 1024
         subtimer .= 1024*3-1
         intim .= v
-       otherwise -> return ()
-        --liftIO $ putStrLn $ "writing TIA 0x" ++ showHex addr ""
+       otherwise -> return () -- liftIO $ putStrLn $ "writing TIA 0x" ++ showHex addr ""
 
 {- INLINE readStella -}
 readStella :: (MonadIO m, MonadState Stella m) =>
@@ -1539,7 +1581,7 @@ readStella addr =
         0x280 -> use swcha
         0x282 -> use swchb
         0x284 -> use intim
-        otherwise -> return 0
+        otherwise -> return 0 -- (liftIO $ putStrLn $ "reading TIA 0x" ++ showHex addr "") >> return 0
 
 -- http://www.qotile.net/minidig/docs/2600_mem_map.txt
 
@@ -1585,8 +1627,7 @@ instance Emu6502 MonadAtari where
                                 then do
                                     m <- use mem
                                     liftIO $ readArray m (fromIntegral addr)
-                                else return 0 --do
-                                    --error $ "Mystery read from " ++ showHex addr ""
+                                else error $ "Mystery read from " ++ showHex addr ""
 
 
     {- INLINE writeMemory -}
@@ -1604,9 +1645,7 @@ instance Emu6502 MonadAtari where
                                     then do
                                         m <- use mem
                                         liftIO $ writeArray m (fromIntegral addr) v
-                                    else do
-                                        return ()
-                                        --liftIO $ print $ "Mystery write to " ++ showHex addr ""
+                                    else error $ "Mystery write to " ++ showHex addr ""
 
     {- INLINE getPC -}
     getPC = use (regs . pc)
@@ -1709,10 +1748,7 @@ main = do
   window <- SDL.createWindow "SDL Tutorial" SDL.defaultWindow { SDL.windowInitialSize = V2 (scale*screenWidth) (scale*screenHeight) }
   SDL.showWindow window
   screenSurface <- SDL.getWindowSurface window
-  --renderer <- getRenderer window
 
-  -- helloWorld <- SDL.loadBMP "cat.bmp"
-  -- 160x192
   helloWorld <- createRGBSurface (V2 screenWidth screenHeight) RGB888
 
   memory <- newArray (0, 0x2000) 0 :: IO (IOUArray Int Word8)
@@ -1741,11 +1777,13 @@ main = do
       _subtimer = 0,
       _interval = 0,
       _lastClock = 0,
-      _stellaDebug = -1
+      _stellaDebug = -1,
+      _xbreak = -1,
+      _ybreak = -1
   }
   let state = S { _mem = memory,  _clock = 0, _regs = R initialPC 0 0 0 0 0xff,
-                    _debug = 8,
-                    _stella = stella}
+                   _debug = 8,
+                   _stella = stella}
 
   let loopUntil n = do
         stellaClock' <- usingStella $ use stellaClock
@@ -1754,6 +1792,7 @@ main = do
             loopUntil n
 
   --SDL.setHintWithPriority SDL.NormalPriority SDL.HintRenderVSync SDL.EnableVSync
+  -- https://hackage.haskell.org/package/sdl2-2.1.3
 
   let loop = do
         events <- liftIO $ SDL.pollEvents
@@ -1762,6 +1801,10 @@ main = do
 
         forM_ events $ \event ->
             case eventPayload event of
+                MouseButtonEvent (MouseButtonEventData win Pressed device ButtonLeft clicks pos) -> do
+                        liftIO $ print pos
+                        let P (V2 x y) = pos
+                        usingStella $ setBreak (x `div` fromIntegral scale) (y `div` fromIntegral scale)
                 KeyboardEvent (KeyboardEventData win motion rep sym) -> do
                     let pressed = isPressed motion
                     --liftIO $ print sym
