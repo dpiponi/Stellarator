@@ -915,7 +915,7 @@ newtype OReg = OReg Word16 deriving (Ord, Ix, Eq, Num)
 newtype IReg = IReg Word16 deriving (Ord, Ix, Eq, Num)
 
 nusiz0, nusiz1, colup0, colup1, pf0, pf1, pf2, enam0, enam1, enabl, hmp0, hmp1, hmm0, hmm1, hmbl :: OReg
-grp0, grp1, refp0, refp1, colupf, colubk, ctrlpf, resmp0, resmp1 :: OReg
+grp0, grp1, refp0, refp1, colupf, colubk, ctrlpf, resmp0, resmp1, vdelp0, vdelp1, vdelbl :: OReg
 vsync = 0x00
 nusiz0 = 0x04
 nusiz1 = 0x05
@@ -939,6 +939,9 @@ hmp1 = 0x21
 hmm0 = 0x22
 hmm1 = 0x23
 hmbl = 0x24
+vdelp0 = 0x25
+vdelp1 = 0x26
+vdelbl = 0x27
 resmp0 = 0x28
 resmp1 = 0x29
 
@@ -1036,11 +1039,23 @@ inBinary :: (Bits a) => Int -> a -> String
 inBinary 0 x = ""
 inBinary n x = inBinary (n-1) (x `shift` (-1)) ++ if testBit x 0 then "1" else "0"
 
+explainNusiz :: Word8 -> String
+explainNusiz nusiz =
+    case nusiz .&. 0b111 of
+        0b000 -> "one copy"
+        0b001 -> "two copies - close"
+        0b010 -> "two copies - med"
+        0b011 -> "three copies - close"
+        0b100 -> "two copies - wide"
+        0b101 -> "double size player"
+        0b110 -> "3 copies medium"
+        0b111 -> "quad sized player"
+
 dumpStella :: (MonadIO m, MonadState Stella m) => m ()
 dumpStella = do
     hpos' <- use hpos
     vpos' <- use vpos
-    liftIO $ putStrLn $ "hpos = " ++ show hpos' ++ " vpos = " ++ show vpos'
+    liftIO $ putStrLn $ "hpos = " ++ show hpos' ++ " (" ++ show (hpos'-picx) ++ ") vpos = " ++ show vpos' ++ " (" ++ show (vpos'-picy) ++ ")"
     grp0' <- getORegister grp0
     grp1' <- getORegister grp1
     liftIO $ putStrLn $ "GRP0 = " ++ showHex grp0' "" ++ "(" ++ inBinary 8 grp0' ++ ")"
@@ -1051,12 +1066,23 @@ dumpStella = do
     liftIO $ putStrLn $ "PF = " ++ reverse (inBinary 4 (pf0' `shift` (-4)))
                                 ++ inBinary 8 pf1'
                                 ++ reverse (inBinary 8 pf2')
+    nusiz0' <- getORegister nusiz0
+    nusiz1' <- getORegister nusiz1
+    liftIO $ putStrLn $ "NUSIZ0 = " ++ showHex nusiz0' "" ++ "(" ++ explainNusiz nusiz0' ++
+                        ") NUSIZ1 = " ++ showHex nusiz1' "" ++ "(" ++ explainNusiz nusiz1' ++ ")"
+    vdelp0' <- getORegister vdelp0
+    vdelp1' <- getORegister vdelp1
+    vdelbl' <- getORegister vdelbl
+    liftIO $ putStrLn $ "VDELP0 = " ++ showHex vdelp0' "" ++ " " ++
+                        "VDELP1 = " ++ showHex vdelp1' "" ++ " " ++
+                        "VDELBL = " ++ showHex vdelbl' ""
+    
 
 {- INLINE playfield -}
 playfield :: (MonadIO m, MonadState Stella m) => Int -> m Bool
 playfield i | i >= 0 && i < 4 = do
                 pf0' <- getORegister pf0
-                return $ testBit pf0' (4-i)
+                return $ testBit pf0' (i+4)
             | i >=4 && i < 12 = do
                 pf1' <- getORegister pf1
                 return $ testBit pf1' (11-i)
@@ -1315,7 +1341,7 @@ compositeAndCollide x = do
 
     -- Assemble colours
     pbackground <- Pixel True <$> getORegister colubk
-    pplayfield <- Pixel <$> playfield (fromIntegral $ x `shift` (-2)) <*> return playfieldColour
+    pplayfield <- Pixel <$> playfield (fromIntegral $ x `div` 4) <*> return playfieldColour
     pplayer0 <- Pixel <$> player0 <*> return colup0'
     pplayer1 <- Pixel <$> player1 <*> return colup1'
     pmissile0 <- Pixel <$> missile0 <*> return colup0'
@@ -1514,6 +1540,9 @@ writeStella addr v =
        0x22 -> putORegister hmm0 v                 -- HMM0
        0x23 -> putORegister hmm1 v                 -- HMM1
        0x24 -> putORegister hmbl v                 -- HMBL
+       0x25 -> putORegister vdelp0 v
+       0x26 -> putORegister vdelp1 v
+       0x27 -> putORegister vdelbl v
        0x28 -> putORegister resmp0 v
        0x29 -> putORegister resmp1 v
        0x2a -> stellaHmove               -- HMOVE
@@ -1802,6 +1831,10 @@ main = do
         forM_ events $ \event ->
             case eventPayload event of
                 MouseButtonEvent (MouseButtonEventData win Pressed device ButtonLeft clicks pos) -> do
+                        liftIO $ print pos
+                        let P (V2 x y) = pos
+                        usingStella $ setBreak (x `div` fromIntegral scale) (y `div` fromIntegral scale)
+                MouseMotionEvent (MouseMotionEventData win device [ButtonLeft] pos rel) -> do
                         liftIO $ print pos
                         let P (V2 x y) = pos
                         usingStella $ setBreak (x `div` fromIntegral scale) (y `div` fromIntegral scale)
