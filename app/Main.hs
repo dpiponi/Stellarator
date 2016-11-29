@@ -1774,7 +1774,7 @@ main :: IO ()
 main = do
   args <- cmdArgs clargs
   SDL.initialize [SDL.InitVideo]
-  window <- SDL.createWindow "SDL Tutorial" SDL.defaultWindow { SDL.windowInitialSize = V2 (scale*screenWidth) (scale*screenHeight) }
+  window <- SDL.createWindow "Stellarator" SDL.defaultWindow { SDL.windowInitialSize = V2 (scale*screenWidth) (scale*screenHeight) }
   SDL.showWindow window
   screenSurface <- SDL.getWindowSurface window
 
