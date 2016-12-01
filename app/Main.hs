@@ -40,6 +40,8 @@ import TIAColors
 import qualified Data.ByteString.Internal as BS (c2w, w2c)
 import qualified SDL
 
+--- START OF Core.hs ---
+
 class (Monad m, MonadIO m) => Emu6502 m where
     readMemory :: Word16 -> m Word8
     writeMemory :: Word16 -> Word8 -> m ()
@@ -76,13 +78,12 @@ class (Monad m, MonadIO m) => Emu6502 m where
     debugStr :: Int -> String -> m ()
     debugStrLn :: Int -> String -> m ()
 
--- Deliberately non-functioning INLINEs
-{- INLINE dumpRegisters -}
+{-# INLINABLE dumpRegisters #-}
 dumpRegisters :: Emu6502 m => m ()
 dumpRegisters = do
     -- XXX bring clock back
     --tClock <- use clock
-    --debugStr $ "clock = " ++ show tClock
+    --debugStr 9 $ "clock = " ++ show tClock
     regPC <- getPC
     debugStr 9 $ " pc = " ++ showHex regPC ""
     regP <- getP
@@ -103,7 +104,7 @@ dumpRegisters = do
     regS <- getS
     debugStrLn 9 $ " N = " ++ showHex regS ""
 
-{- INLINE dumpMemory -}
+{-# INLINABLE dumpMemory #-}
 dumpMemory :: Emu6502 m => m ()
 dumpMemory = do
     regPC <- getPC
@@ -115,398 +116,648 @@ dumpMemory = do
     debugStr 9 $ showHex b1 "" ++ " "
     debugStrLn 9 $ showHex b2 ""
 
-{- INLINE dumpState -}
+{-# INLINABLE dumpState #-}
 dumpState :: Emu6502 m => m ()
 dumpState = do
     dumpMemory
     dumpRegisters
 
-{- INLINE make16 -}
+{-# INLINE make16 #-}
 make16 :: Word8 -> Word8 -> Word16
 make16 lo hi = (i16 hi `shift` 8)+i16 lo
 
-{- INLINE read16 -}
+{-# INLINE incPC #-}
+incPC :: Emu6502 m => m ()
+incPC = addPC 1
+
+{-# INLINABLE read16 #-}
 read16 :: Emu6502 m => Word16 -> m Word16
 read16 addr = do
     lo <- readMemory addr
     hi <- readMemory (addr+1)
     return $ make16 lo hi
 
-{- INLINE read16zp -}
+{-# INLINABLE read16tick #-}
+read16tick :: Emu6502 m => Word16 -> m Word16
+read16tick addr = do
+    tick 1
+    lo <- readMemory addr
+    tick 1
+    hi <- readMemory (addr+1)
+    return $ make16 lo hi
+
+{-# INLINABLE read16zp #-}
 read16zp :: Emu6502 m => Word8 -> m Word16
 read16zp addr = do
     lo <- readMemory (i16 addr)
     hi <- readMemory (i16 addr+1)
     return $ make16 lo hi
 
+{-# INLINABLE read16zpTick #-}
+read16zpTick :: Emu6502 m => Word8 -> m Word16
+read16zpTick addr = do
+    tick 1
+    lo <- readMemory (i16 addr)
+    tick 1
+    hi <- readMemory (i16 addr+1)
+    return $ make16 lo hi
+
 -- http://www.emulator101.com/6502-addressing-modes.html
 
-{- INLINE i8 -}
+{-# INLINE i8 #-}
 i8 :: Integral a => a -> Word8
 i8 = fromIntegral
 
-{- INLINE i16 -}
+{-# INLINE i16 #-}
 i16 :: Integral a => a -> Word16
 i16 = fromIntegral
 
-{- INLINE iz -}
+{-# INLINE iz #-}
 iz :: Integral a => a -> Int
 iz = fromIntegral
 
-{-
-aboutToBrk :: Monad6502 Bool
-aboutToBrk = do
-    p0 <- getPC
-    ins <- readMemory (fromIntegral p0)
-    return $ ins == 0x00
--}
+-- Note, a 6502 performs a read or write *every* clock cycle
+-- regardless of what instruction is being executed.
 
-{- INLINE writeIndirectX -}
+-- 6 clock cycles...
+{-# INLINABLE writeIndirectX #-}
 writeIndirectX :: Emu6502 m => Word8 -> m ()
 writeIndirectX src = do
-    p0 <- getPC
-    offsetX <- getX
-    zpAddr <- readMemory (p0+1)
-    addr <- read16zp (zpAddr+offsetX)
-    writeMemory addr src
-    putPC $ p0+2
-    tick 6
+    tick 1
+    index <- getX
+    addr <- getPC >>= readMemory
 
-{- INLINE writeZeroPage -}
+    tick 1
+    discard $ readMemory (i16 addr)
+
+    addrX <- read16zpTick (addr+index)
+
+    tick 1
+    writeMemory addrX src
+    incPC
+
+-- 3 clock cycles
+{-# INLINABLE writeZeroPage #-}
 writeZeroPage :: Emu6502 m => Word8 -> m ()
 writeZeroPage src = do
-    p0 <- getPC
-    addr <- readMemory (p0+1)
-    writeMemory (i16 addr) src
-    putPC $ p0+2
-    tick 3
+    tick 1
+    addr <- getPC >>= readMemory
 
-{- INLINE writeAbsolute -}
+    tick 1
+    writeMemory (i16 addr) src
+    incPC
+
+-- 4 clock cycles
+{-# INLINABLE writeAbsolute #-}
 writeAbsolute :: Emu6502 m => Word8 -> m()
 writeAbsolute src = do
-    p0 <- getPC
-    addr <- read16 (p0+1)
-    writeMemory addr src
-    putPC $ p0+3
-    tick 4
+    addr <- getPC >>= read16tick
 
-{- INLINE writeIndirectY -}
+    tick 1
+    writeMemory addr src
+    addPC 2
+
+-- 6 clock cycles
+{-# INLINABLE writeIndirectY #-}
 writeIndirectY :: Emu6502 m => Word8 -> m ()
 writeIndirectY src = do
-    p0 <- getPC
-    offsetY <- getY
-    addr <- readMemory (p0+1) >>= read16zp
-    writeMemory (addr+i16 offsetY) src
-    putPC $ p0+2
-    tick 6
+    tick 1
+    index <- getY
+    addr' <- getPC >>= readMemory
 
-{- INLINE writeZeroPageX -}
+    addr <- read16zpTick addr'
+
+    let (halfAddrY, addrY) = halfSum addr index
+
+    tick 1
+    discard $ readMemory halfAddrY
+
+    tick 1
+    writeMemory addrY src
+    incPC
+
+-- 4 clock cycles
+{-# INLINABLE writeZeroPageX #-}
 writeZeroPageX :: Emu6502 m => Word8 -> m ()
 writeZeroPageX src = do
-    p0 <- getPC
-    offsetX <- getX
-    zpAddr <- readMemory (p0+1)
-    writeMemory (i16 $ zpAddr+offsetX) src
-    putPC $ p0+2
-    tick 4
+    tick 1
+    index <- getX
+    addr <- getPC >>= readMemory
 
-{- INLINE writeAbsoluteY -}
+    tick 1
+    discard $ readMemory (i16 addr)
+
+    tick 1
+    writeMemory (i16 $ addr+index) src
+    incPC
+
+-- 4 clock cycles
+{-# INLINABLE writeZeroPageY #-}
+writeZeroPageY :: Emu6502 m => Word8 -> m ()
+writeZeroPageY src = do
+    tick 1
+    index <- getY
+    addr <- getPC >>= readMemory
+
+    tick 1
+    discard $ readMemory (i16 addr)
+
+    tick 1
+    writeMemory (i16 $ addr+index) src
+    incPC
+
+-- 5 clock cycles
+{-# INLINABLE writeAbsoluteY #-}
 writeAbsoluteY :: Emu6502 m => Word8 -> m ()
 writeAbsoluteY src = do
-    p0 <- getPC
-    offsetY <- getY
-    baseAddr <- read16 (p0+1)
-    writeMemory (baseAddr+i16 offsetY) src
-    putPC $ p0+3
-    tick 5
+    index <- getY
+    addr <- getPC >>= read16tick
 
-{- INLINE writeAbsoluteX -}
+    tick 1
+    let (halfAddrY, addrY) = halfSum addr index
+    discard $ readMemory halfAddrY
+
+    tick 1
+    writeMemory addrY src
+    addPC 2
+
+-- 5 clock cycles
+{-# INLINABLE writeAbsoluteX #-}
 writeAbsoluteX :: Emu6502 m => Word8 -> m ()
 writeAbsoluteX src = do
-    p0 <- getPC
-    offsetX <- getX
-    baseAddr <- read16 (p0+1)
-    writeMemory (baseAddr+i16 offsetX) src
-    putPC $ p0+3
-    tick 5
+    index <- getX
+    addr <- getPC >>= read16tick
 
-{- INLINE putData -}
-putData :: Emu6502 m => Word8 -> Word8 -> m ()
-putData bbb src = do
+    tick 1
+    let (halfAddrX, addrX) = halfSum addr index
+    discard $ readMemory halfAddrX
+
+    tick 1
+    writeMemory addrX src
+    addPC 2
+
+-- 6 clock cycles
+{-# INLINABLE readIndirectX #-}
+readIndirectX :: Emu6502 m => m Word8
+readIndirectX = do
+    tick 1
+    index <- getX
+    addr <- getPC >>= readMemory
+
+    tick 1
+    discard $ readMemory (i16 addr)
+
+    addr <- read16zpTick (addr+index)
+
+    tick 1
+    incPC
+    readMemory addr
+
+-- 3 clock cycles
+{-# INLINABLE readZeroPage #-}
+readZeroPage :: Emu6502 m => m Word8
+readZeroPage = do
+    tick 1
+    addr <- getPC >>= readMemory
+
+    tick 1
+    src <- readMemory (i16 addr)
+    incPC
+    return src
+
+-- 2 clock cycles
+{-# INLINABLE readImmediate #-}
+readImmediate :: Emu6502 m => m Word8
+readImmediate = do
+    tick 1
+    src <- getPC >>= readMemory
+    incPC
+    return src
+
+-- XXX consider applicable ops like *>
+-- 4 clock cycles
+{-# INLINABLE readAbsolute #-}
+readAbsolute :: Emu6502 m => m Word8
+readAbsolute = do
+    p0 <- getPC
+    src <- (read16tick p0 <* tick 1) >>= readMemory
+    addPC 2
+    return src
+
+-- 5-6 clock cycles
+{-# INLINABLE readIndirectY #-}
+readIndirectY :: Emu6502 m => m Word8
+readIndirectY = do
+    tick 1
+    addr' <- getPC >>= readMemory
+
+    addr <- read16zpTick addr'
+
+    index <- getY
+    let (halfAddrY, addrY) = halfSum addr index
+
+    when (halfAddrY /= addrY) $ do
+        tick 1
+        discard $ readMemory halfAddrY
+
+    tick 1
+    src <- readMemory addrY
+    incPC
+    return src
+
+-- 4 clock cycles
+{-# INLINABLE readZeroPageX #-}
+readZeroPageX :: Emu6502 m => m Word8
+readZeroPageX = do
+    tick 1
+    index <- getX
+    addr <- getPC >>= readMemory
+
+    tick 1
+    discard $ readMemory (i16 addr)
+
+    tick 1
+    incPC
+    readMemory (i16 $ addr+index)
+
+-- 4 clock cycles
+{-# INLINABLE readZeroPageY #-}
+readZeroPageY :: Emu6502 m => m Word8
+readZeroPageY = do
+    tick 1
+    index <- getY
+    addr <- getPC >>= readMemory
+
+    tick 1
+    discard $ readMemory (i16 addr)
+
+    tick 1
+    incPC
+    readMemory (i16 $ addr+index)
+
+{-# inline halfSum #-}
+halfSum :: Word16 -> Word8 -> (Word16, Word16)
+halfSum addr index = 
+    let fullSum = addr+i16 index
+    in (make16 (lo addr+index) (hi addr), fullSum)
+
+{-# INLINABLE halfSignedSum #-}
+halfSignedSum :: Word16 -> Word8 -> (Word16, Word16)
+halfSignedSum addr index = 
+    let fullSum = if index < 0x80 then addr+i16 index else addr+i16 index-0x100
+    in (make16 (lo addr+index) (hi addr), fullSum)
+
+-- 4-5 clock cycles
+{-# INLINABLE readAbsoluteX #-}
+readAbsoluteX :: Emu6502 m => m Word8
+readAbsoluteX = do
+    index <- getX
+    addr <- getPC >>= read16tick
+    addPC 2
+
+    let (halfAddrX, addrX) = halfSum addr index
+    when (halfAddrX /= addrX) $ do
+            tick 1
+            discard $ readMemory halfAddrX
+
+    tick 1
+    readMemory addrX
+
+-- 4-5 clock cycles
+{-# INLINABLE readAbsoluteY #-}
+readAbsoluteY :: Emu6502 m => m Word8
+readAbsoluteY = do
+    index <- getY
+    addr <- getPC >>= read16tick
+    addPC 2
+
+    let (halfAddrY, addrY) = halfSum addr index
+    when ( halfAddrY /= addrY) $ do
+            tick 1
+            discard $ readMemory halfAddrY
+
+    tick 1
+    readMemory addrY
+
+-- 2-4 clock cycles
+{-# INLINABLE ins_bra #-}
+ins_bra :: Emu6502 m => m Bool -> Bool -> m ()
+ins_bra getFlag value = do
+    tick 1
+    offset <- getPC >>= readMemory
+    f <- getFlag
+    incPC
+
+    when (value == f) $ do
+        tick 1
+        discard $ getPC >>= readMemory
+
+        oldP <- getPC
+        let (halfAddr, addr) = halfSignedSum oldP offset
+        when (halfAddr /= addr) $ do
+                tick 1
+                discard $ readMemory halfAddr
+        putPC addr
+
+-- 2 clock cycles
+{-# INLINABLE ins_set #-}
+ins_set :: Emu6502 m => (Bool -> m ()) -> Bool -> m ()
+ins_set putFlag value = do
+    tick 1
+    discard $ getPC >>= readMemory
+    putFlag value
+
+-- 2 clock cycles
+{-# INLINABLE ins_nop #-}
+ins_nop :: Emu6502 m => m ()
+ins_nop = do
+    tick 1
+    discard $ getPC >>= readMemory
+
+-- 3 clock cycles
+{-# INLINABLE ins_jmp #-}
+ins_jmp :: Emu6502 m => m ()
+ins_jmp = getPC >>= read16tick >>= putPC
+
+{-# INLINE nonwhite #-}
+nonwhite :: Word8 -> String
+nonwhite ra | ra < 32 = "()"
+nonwhite ra = "'" ++ [BS.w2c ra] ++ "'"
+
+-- 5 clock cycles
+-- NB address wraps around in page XXX
+-- Aha! That's why ALIGN is used before addresses!
+{-# INLINABLE ins_jmp_indirect #-}
+ins_jmp_indirect :: Emu6502 m => m ()
+ins_jmp_indirect = do
+    getPC >>= read16tick >>= read16tick >>= putPC
+
+{-# INLINABLE uselessly #-}
+uselessly :: Emu6502 m => m () -> m ()
+uselessly = id
+
+-- 5 clock cycles
+{-# INLINABLE withZeroPage #-}
+withZeroPage :: Emu6502 m => (Word8 -> m Word8) -> m ()
+withZeroPage op = do
+    tick 1
+    addr <- getPC >>= readMemory
+
+    tick 1
+    src <- readMemory (i16 addr)
+
+    tick 1
+    uselessly $ writeMemory (i16 addr) src
+
+    tick 1
+    op src >>= writeMemory (i16 addr)
+    incPC
+
+-- 2 clock cycles
+{-# INLINABLE withAccumulator #-}
+withAccumulator :: Emu6502 m => (Word8 -> m Word8) -> m ()
+withAccumulator op = do
+    tick 1
+    discard $ getPC >>= readMemory
+    getA >>= op >>= putA
+
+-- 6 clock cycles
+{-# INLINE withAbsolute #-}
+withAbsolute :: Emu6502 m => (Word8 -> m Word8) -> m ()
+withAbsolute op = do
+    addr <- getPC >>= read16tick
+    
+    tick 1
+    src <- readMemory addr
+
+    tick 1
+    uselessly $ writeMemory addr src
+
+    tick 1
+    dst <- op src
+    addPC 2
+    writeMemory addr dst
+
+-- 6 clock cycles
+withZeroPageX :: Emu6502 m => (Word8 -> m Word8) -> m ()
+withZeroPageX op = do
+    tick 1
+    index <- getX
+    addr <- getPC >>= readMemory
+    let addrX = addr+index
+
+    tick 1
+    discard $ readMemory (i16 addr)
+
+    tick 1
+    src <- readMemory (i16 addrX)
+
+    tick 1
+    writeMemory (i16 addrX) src
+
+    tick 1
+    dst <- op src
+    writeMemory (i16 addrX) dst
+    incPC
+
+-- 6 clock cycles
+withZeroPageY :: Emu6502 m => (Word8 -> m Word8) -> m ()
+withZeroPageY op = do
+    tick 1
+    index <- getY
+    addr <- getPC >>= readMemory
+    let addrY = addr+index
+
+    tick 1
+    discard $ readMemory (i16 addr)
+
+    tick 1
+    src <- readMemory (i16 addrY)
+
+    tick 1
+    writeMemory (i16 addrY) src
+
+    tick 1
+    dst <- op src
+    writeMemory (i16 addrY) dst
+    incPC
+ 
+-- 7 clock cycles
+{-# INLINE withAbsoluteX #-}
+withAbsoluteX :: Emu6502 m => (Word8 -> m Word8) -> m ()
+withAbsoluteX op = do
+    p0 <- getPC
+    index <- getX
+    addr <- read16tick p0
+
+    let (halfAddrX, addrX) = halfSum addr index
+
+    tick 1
+    discard $ readMemory halfAddrX
+
+    tick 1
+    src <- readMemory addrX
+
+    tick 1
+    uselessly $ writeMemory addrX src
+
+    tick 1
+    addPC 2
+    dst <- op src
+    writeMemory addrX dst
+
+-- 7 clock cycles
+{-# INLINE withAbsoluteY #-}
+withAbsoluteY :: Emu6502 m => (Word8 -> m Word8) -> m ()
+withAbsoluteY op = do
+    p0 <- getPC
+    index <- getY
+    addr <- read16tick p0
+
+    let (halfAddrY, addrY) = halfSum addr index
+
+    tick 1
+    discard $ readMemory halfAddrY
+
+    tick 1
+    src <- readMemory addrY
+
+    tick 1
+    uselessly $ writeMemory addrY src
+
+    tick 1
+    addPC 2
+    dst <- op src
+    writeMemory addrY dst
+
+{-# INLINABLE getData01 #-}
+getData01 :: Emu6502 m => Word8 -> m Word8
+getData01 bbb = do
+    case bbb of
+        0b000 -> readIndirectX
+        0b001 -> readZeroPage
+        0b010 -> readImmediate
+        0b011 -> readAbsolute
+        0b100 -> readIndirectY
+        0b101 -> readZeroPageX
+        0b110 -> readAbsoluteY
+        0b111 -> readAbsoluteX
+
+{-# INLINABLE getData02 #-}
+getData02 :: Emu6502 m =>
+              Word8 -> Bool ->
+              (Word8 -> m ()) ->
+              m ()
+getData02 bbb useY op = case bbb of
+    0b000 -> readImmediate >>= op
+    0b001 -> readZeroPage >>= op
+    0b010 -> error "Must write back to A"
+    0b011 -> readAbsolute >>= op
+    0b101 -> if useY
+                then readZeroPageY >>= op
+                else readZeroPageX >>= op
+    0b111 -> if useY
+            then readAbsoluteY >>= op
+            else readAbsoluteX >>= op
+
+    otherwise -> error "Unknown addressing mode"
+
+-- Need to separate W and (RW/R) XXX XXX XXX
+{-# INLINABLE withData02 #-}
+withData02 :: Emu6502 m =>
+              Word8 -> Bool ->
+              (Word8 -> m Word8) ->
+              m ()
+withData02 bbb useY op = case bbb of
+    0b000 -> getPC >>= readMemory . ((-) 1) >>= illegal -- XXX reread mem. Should check in caller.
+    0b001 -> withZeroPage op
+    0b010 -> withAccumulator op
+    0b011 -> withAbsolute op
+    0b101 -> if useY then withZeroPageY op else withZeroPageX op
+    0b111 -> if useY then withAbsoluteY op else withAbsoluteX op
+
+    otherwise -> error "Unknown addressing mode"
+
+{-# INLINABLE putData02 #-}
+putData02 :: Emu6502 m => Word8 -> Bool -> Word8 -> m ()
+putData02 bbb useY src = case bbb of
+    0b000 -> error "No write immediate"
+    0b001 -> writeZeroPage src
+    0b010 -> error "No write accumulator"
+    0b011 -> writeAbsolute src
+    0b101 -> if useY then writeZeroPageY src else writeZeroPageX src
+    0b111 -> if useY then writeAbsoluteY src else writeAbsoluteX src
+
+    otherwise -> error "Unknown addressing mode"
+
+{-# INLINABLE putData01 #-}
+putData01 :: Emu6502 m => Word8 -> Word8 -> m ()
+putData01 bbb src = do
     p0 <- getPC
     case bbb of
         0b000 -> writeIndirectX src -- (zero page, X)
         0b001 -> writeZeroPage src
-        0b010 -> readMemory p0 >>= illegal -- XXX imm. check in caller
+        0b010 -> readMemory (p0-1) >>= illegal -- XXX imm. check in caller
         0b011 -> writeAbsolute src
         0b100 -> writeIndirectY src -- (zero page), Y
         0b101 -> writeZeroPageX src
         0b110 -> writeAbsoluteY src
         0b111 -> writeAbsoluteX src
 
-{- INLINE getData -}
-getData :: Emu6502 m => Word8 -> m Word8
-getData bbb = do
-    p0 <- getPC
-    case bbb of
-        -- (zero page, X)
-        0b000 -> do
-            offsetX <- getX
-            zpAddr <- readMemory (p0+1)
-            let addrAddr = zpAddr+offsetX
-            addr <- read16zp addrAddr
-            src <- readMemory addr
-            putPC $ p0+2
-            tick 6
-            return src
-        -- zero page
-        0b001 -> do
-            addr <- readMemory (p0+1)
-            src <- readMemory (i16 addr)
-            putPC $ p0+2
-            tick 3
-            return src
-        -- immediate
-        0b010 -> do
-            src <- readMemory (p0+1)
-            putPC $ p0+2
-            tick 2
-            return src
-        -- absolute
-        0b011 -> do
-            src <- read16 (p0+1) >>= readMemory
-            putPC $ p0+3
-            tick 4
-            return src
-        -- (zero page), Y
-        0b100 -> do
-            offsetY <- getY
-            addr <- readMemory (p0+1) >>= read16zp
-            let newAddr = addr+i16 offsetY
-            let carry = (newAddr .&. 0xff00) /= (addr .&. 0xff00)
-            src <- readMemory (addr+i16 offsetY)
-            putPC (p0+2)
-            tick $ if carry then 6 else 5
-            return src
-        -- zero page, X
-        0b101 -> do
-            offsetX <- getX
-            zpAddr <- readMemory (p0+1)
-            src <- readMemory (i16 $ zpAddr+offsetX)
-            putPC (p0+2)
-            tick 4
-            return src
-        -- absolute, Y
-        0b110 -> do
-            offsetY <- getY
-            baseAddr <- read16 (p0+1)
-            let addr = baseAddr+i16 offsetY
-            let carry = (addr .&. 0xff00) /= (baseAddr .&. 0xff00)
-            src <- readMemory addr
-            putPC $ p0+3
-            tick $ if carry then 5 else 4
-            return src
-        -- absolute, X
-        0b111 -> do
-            offsetX <- getX
-            baseAddr <- read16 (p0+1)
-            let addr = baseAddr+i16 offsetX
-            let carry = (addr .&. 0xff00) /= (baseAddr .&. 0xff00)
-            src <- readMemory addr
-            putPC $ p0+3
-            tick $ if carry then 5 else 4
-            return src
-
-{- INLINE ins_bra -}
-ins_bra :: Emu6502 m => m Bool -> Bool -> m ()
-ins_bra getFlag value = do
-    f <- getFlag
-    p0 <- getPC
-    let oldP = p0+2
-    if value && f || not value && not f
-        then do
-            debugStrLn 9 "Taking branch"
-            offset <- readMemory (p0+1) -- XXX or ^^^
-            let newP = if offset < 0x80 then oldP+i16 offset else oldP+i16 offset-0x100
-            tick $ if newP .&. 0xff00 == oldP .&. 0xff00 then 3 else 4
-            putPC newP
-        else do
-            debugStrLn 9 "Not taking branch"
-            tick 2
-            putPC oldP
-
-{- INLINE ins_set -}
-ins_set :: Emu6502 m => (Bool -> m ()) -> Bool -> m ()
-ins_set putFlag value = do
-    putFlag value
-    getPC >>= putPC . (+1)
-    tick 2
-
-{- INLINE ins_nop -}
-ins_nop :: Emu6502 m => m ()
-ins_nop = addPC 1 >> tick 2
-
-{- INLINE ins_jmp -}
-ins_jmp :: Emu6502 m => m ()
-ins_jmp = do
-    addr <- getPC >>= read16 . (+1)
-    putPC addr
-    tick 3
-
-{- INLINE nonwhite -}
-nonwhite :: Word8 -> String
-nonwhite ra | ra < 32 = "()"
-nonwhite ra = "'" ++ [BS.w2c ra] ++ "'"
-
-{- INLINE ins_jmp_indirect -}
-ins_jmp_indirect :: Emu6502 m => m ()
-ins_jmp_indirect = do
-    --p0 <- getPC
-    --addr <- read16 (p0+1)
-    --liftIO $ putStrLn $ "Indirect jmp 0x" ++ showHex addr ""
-    getPC >>= read16 . (+1) >>= read16 >>= putPC
-    tick 5
-
--- Need to separate R/W/RW XXX
-{- INLINE withData02 -}
-withData02 :: Emu6502 m =>
-              Word8 -> Bool -> Bool ->
-              (Word8 -> m Word8) ->
-              m ()
-withData02 bbb write useY op = case bbb of
-    -- immediate
-    0b000 -> if write
-                then do
-                    getPC >>= readMemory >>= illegal -- XXX reread mem. Should check in caller.
-                else do
-                    p0 <- getPC
-                    src <- readMemory (p0+1)
-                    putPC $ p0+2
-                    op src
-                    tick 2
-    -- zero page
-    0b001 -> do
-        p0 <- getPC
-        addr <- readMemory (p0+1)
-        if write
-            then do
-                readMemory (i16 addr) >>= op >>= writeMemory (i16 addr)
-                tick 5
-            else do
-                readMemory (i16 addr) >>= op
-                tick 3
-        putPC $ p0+2
-    -- accumulator -- XXX
-    0b010 -> do
-        p0 <- getPC
-        getA >>= op >>= putA
-        putPC $ p0+1
-        if write
-            then tick 2
-            else error "Must write back to A"
-    -- absolute
-    0b011 -> do
-        p0 <- getPC
-        addr <- read16 (p0+1)
-        dst <- readMemory addr >>= op
-        putPC $ p0+3
-        if write
-            then do
-                writeMemory addr dst
-                tick 6
-            else tick 4
-    -- zero page, X
-    0b101 -> do
-        p0 <- getPC
-        offsetX <- if useY then getY else getX
-        zpAddr <- readMemory (p0+1)
-        let addr = zpAddr+offsetX
-        src <- readMemory (i16 addr)
-        putPC $ p0+2
-        dst <- op src
-        if write
-            then do
-                writeMemory (i16 addr) dst
-                tick 6
-            else tick 4
-    -- absolute, X
-    0b111 -> do
-        p0 <- getPC
-        offsetX <- if useY then getY else getX
-        baseAddr <- read16 (p0+1)
-        let addr = baseAddr+i16 offsetX
-        let carry = (addr .&. 0xff00) /= (baseAddr .&. 0xff00)
-        src <- readMemory addr
-        putPC $ p0+3
-        dst <- op src
-        if write
-            then do
-                writeMemory addr dst
-                tick 7
-            else
-                tick $ if carry then 5 else 4
-
-    otherwise -> error "Unknown addressing mode"
-
-{- INLINE setN -}
+{-# INLINABLE setN #-}
 setN :: Emu6502 m => Word8 -> m ()
 setN r = putN $ r >= 0x80
 
-{- INLINE setZ -}
+{-# INLINABLE setZ #-}
 setZ :: Emu6502 m => Word8 -> m ()
 setZ r = putZ $ r == 0
 
-{- INLINE ins_ora -}
-ins_ora :: Emu6502 m => Word8 -> m ()
-ins_ora bbb = do
-    src <- getData bbb
+{-# INLINABLE setNZ #-}
+setNZ :: Emu6502 m => Word8 -> m Word8
+setNZ r = setN r >> setZ r >> return r
+
+{-# INLINABLE setNZ_ #-}
+setNZ_ :: Emu6502 m => Word8 -> m ()
+setNZ_ r = setN r >> setZ r
+
+{-# INLINABLE op_ora #-}
+op_ora :: Emu6502 m => Word8 -> m ()
+op_ora bbb = do
+    src <- getData01 bbb
     oldA <- getA
     let newA = oldA .|. src
     putA newA
-    setN newA
-    setZ newA
-    debugStrLn 9 $ "A = " ++ show newA
+    setNZ_ newA
 
-{- INLINE ins_and -}
-ins_and :: Emu6502 m => Word8 -> m ()
-ins_and bbb = do
-    src <- getData bbb
-    oldA <- getA
-    let newA = oldA .&. src
-    putA newA
-    setN newA
-    setZ newA
-    debugStrLn 9 $ "A = " ++ show newA
+{-# INLINABLE op_and #-}
+op_and :: Emu6502 m => Word8 -> m ()
+op_and bbb = do
+    src <- getData01 bbb
+    getA >>= setNZ . (src .&.) >>= putA
 
-{- INLINE ins_xor -}
-ins_xor :: Emu6502 m => Word8 -> m ()
-ins_xor bbb = do
-    src <- getData bbb
+{-# INLINABLE op_xor #-}
+op_xor :: Emu6502 m => Word8 -> m ()
+op_xor bbb = do
+    src <- getData01 bbb
     oldA <- getA
     let newA = oldA `xor` src
     putA newA
-    setN newA
-    setZ newA
+    setNZ newA
     debugStrLn 9 $ "A = " ++ show newA
 
-{- INLINE ins_lda -}
-ins_lda :: Emu6502 m => Word8 -> m ()
-ins_lda bbb = do
-    debugStrLn 9 $ "LDA instruction with address mode " ++ showHex bbb ""
-    newA <- getData bbb
-    putA newA
-    setN newA
-    setZ newA
-    debugStrLn 9 $ "A = " ++ show newA
+{-# INLINABLE op_lda #-}
+op_lda :: Emu6502 m => Word8 -> m ()
+op_lda bbb = do
+    getData01 bbb >>= setNZ >>= putA
 
-{- INLINE ins_sta -}
-ins_sta :: Emu6502 m => Word8 -> m ()
-ins_sta bbb = getA >>= putData bbb
+{-# INLINABLE op_sta #-}
+op_sta :: Emu6502 m => Word8 -> m ()
+op_sta bbb = getA >>= putData01 bbb
 
-{- INLINE ins_adc -}
-ins_adc :: Emu6502 m => Word8 -> m ()
-ins_adc bbb = do
-    src <- getData bbb
+{-# INLINABLE op_adc #-}
+op_adc :: Emu6502 m => Word8 -> m ()
+op_adc bbb = do
+    src <- getData01 bbb
     oldA <- getA
     carry <- getC
     let newA = fromIntegral oldA+fromIntegral src+if carry then 1 else 0 :: Word16
@@ -528,15 +779,14 @@ ins_adc bbb = do
             putC $ newA > 0xff
             putA $ fromIntegral (newA .&. 0xff)
 
-{- INLINE ins_sbc -}
-ins_sbc :: Emu6502 m => Word8 -> m ()
-ins_sbc bbb = do
-    src <- getData bbb
+{-# INLINABLE op_sbc #-}
+op_sbc :: Emu6502 m => Word8 -> m ()
+op_sbc bbb = do
+    src <- getData01 bbb
     oldA <- getA
     carry <- getC
     let newA = fromIntegral oldA-fromIntegral src-if carry then 0 else 1 :: Word16
-    setN $ i8 newA
-    setZ $ i8 newA
+    setNZ $ i8 newA
     putV $ (((i16 oldA `xor` i16 src) .&. 0x80) /= 0) && (((i16 oldA `xor` newA) .&. 0x80) /= 0)
     decimal <- getD
     if decimal
@@ -556,173 +806,168 @@ ins_sbc bbb = do
             putC $ newA < 0x100
     debugStrLn 9 $ "A = " ++ show newA
 
-{- INLINE ins_cmp -}
-ins_cmp :: Emu6502 m => Word8 -> m ()
-ins_cmp bbb = do
-    src <- getData bbb
+{-# INLINABLE op_cmp #-}
+op_cmp :: Emu6502 m => Word8 -> m ()
+op_cmp bbb = do
+    src <- getData01 bbb
     oldA <- getA
     let new = i16 oldA-i16 src
     putC $ new < 0x100
-    setN $ i8 new
-    setZ $ i8 new
+    setNZ_ $ i8 new
 
-{- INLINE ins_asl -}
-ins_asl :: Emu6502 m => Word8 -> m ()
-ins_asl bbb = withData02 bbb True False $ \src -> do
+{-# INLINABLE op_asl #-}
+op_asl :: Emu6502 m => Word8 -> m ()
+op_asl bbb = withData02 bbb False $ \src -> do
     putC $ src .&. 0x80 > 0
     let new = src `shift` 1
-    setN new
-    setZ new
-    return new
+    setNZ new
 
-{- INLINE ins_rol -}
-ins_rol :: Emu6502 m => Word8 -> m ()
-ins_rol bbb = withData02 bbb True False $ \src -> do
+{-# INLINABLE op_rol #-}
+op_rol :: Emu6502 m => Word8 -> m ()
+op_rol bbb = withData02 bbb False $ \src -> do
     fc <- getC
     putC $ src .&. 0x80 > 0
     let new = (src `shift` 1) + if fc then 1 else 0
-    setN new
-    setZ new
+    setNZ new
     return new
 
-{- INLINE ins_lsr -}
-ins_lsr :: Emu6502 m => Word8 -> m ()
-ins_lsr bbb = withData02 bbb True False $ \src -> do
+{-# INLINABLE op_lsr #-}
+op_lsr :: Emu6502 m => Word8 -> m ()
+op_lsr bbb = withData02 bbb False $ \src -> do
     putC $ src .&. 0x01 > 0
     let new = src `shift` (-1)
     putN False
     setZ new
     return new
 
-{- INLINE ins_ror -}
-ins_ror :: Emu6502 m => Word8 -> m ()
-ins_ror bbb = withData02 bbb True False $ \src -> do
+{-# INLINABLE op_ror #-}
+op_ror :: Emu6502 m => Word8 -> m ()
+op_ror bbb = withData02 bbb False $ \src -> do
     fc <- getC
     putC $ src .&. 0x01 > 0
     let new = (src `shift` (-1))+if fc then 0x80 else 0x00
-    setN new
-    setZ new
-    return new
+    setNZ new
 
-{- INLINE ins_stx -}
+{-# INLINABLE ins_stx #-}
 ins_stx :: Emu6502 m => Word8 -> m ()
-ins_stx bbb = withData02 bbb True True $ \_ -> getX
+ins_stx bbb = getX >>= putData02 bbb True
 
-{- INLINE ins_ldx -}
-ins_ldx :: Emu6502 m => Word8 -> m ()
-ins_ldx bbb = withData02 bbb False True $ \src -> do
+{-# INLINABLE op_ldx #-}
+op_ldx :: Emu6502 m => Word8 -> m ()
+op_ldx bbb = getData02 bbb True $ \src -> do
     putX src
-    setN src
-    setZ src
-    return 0 -- Unused, I hope
+    setNZ_ src
 
-{- INLINE ins_dec -}
-ins_dec :: Emu6502 m => Word8 -> m ()
-ins_dec bbb = withData02 bbb True False $ \src -> do
-    let new = src-1
-    setN new
-    setZ new
-    return new
+{-# INLINABLE op_dec #-}
+op_dec :: Emu6502 m => Word8 -> m ()
+op_dec bbb = withData02 bbb False $ \src -> setNZ (src-1)
 
-{- INLINE ins_inc -}
-ins_inc :: Emu6502 m => Word8 -> m ()
-ins_inc bbb = withData02 bbb True False $ \src -> do
-    let new = src+1
-    setN new
-    setZ new
-    return new
+{-# INLINABLE op_inc #-}
+op_inc :: Emu6502 m => Word8 -> m ()
+op_inc bbb = withData02 bbb False $ \src -> setNZ (src+1)
 
-{- INLINE ins_bit -}
-ins_bit :: Emu6502 m => Word8 -> m ()
-ins_bit bbb = withData02 bbb False False $ \src -> do
+{-# INLINABLE op_bit #-}
+op_bit :: Emu6502 m => Word8 -> m ()
+op_bit bbb = getData02 bbb False $ \src -> do
     ra <- getA
     setN src
     putV $ src .&. 0x40 > 0
     setZ $ ra .&. src
-    return 0 -- unused
 
-{- INLINE ins_sty -}
+{-# INLINABLE ins_sty #-}
 ins_sty :: Emu6502 m => Word8 -> m ()
-ins_sty bbb = withData02 bbb True False $ \_ -> getY
+ins_sty bbb = getY >>= putData02 bbb False
 
-{- INLINE ins_ldy -}
-ins_ldy :: Emu6502 m => Word8 -> m ()
-ins_ldy bbb = withData02 bbb False False $ \src -> do
+{-# INLINABLE op_ldy #-}
+op_ldy :: Emu6502 m => Word8 -> m ()
+op_ldy bbb = getData02 bbb False $ \src -> do
     putY src
-    setN src
-    setZ src
-    return 0 -- Unused, I hope
+    setNZ_ src
 
-{- INLINE ins_cpx -}
-ins_cpx :: Emu6502 m => Word8 -> m ()
-ins_cpx bbb = withData02 bbb False False $ \src -> do
+{-# INLINABLE op_cpx #-}
+op_cpx :: Emu6502 m => Word8 -> m ()
+op_cpx bbb = getData02 bbb False $ \src -> do
     rx <- getX
     let new = i16 rx-i16 src
-    setN $ i8 new
-    setZ $ i8 new
+    setNZ $ i8 new
     putC $ new < 0x100
-    return 0 -- unused
 
-{- INLINE ins_cpy -}
-ins_cpy :: Emu6502 m => Word8 -> m ()
-ins_cpy bbb = withData02 bbb False False $ \src -> do
+{-# INLINABLE op_cpy #-}
+op_cpy :: Emu6502 m => Word8 -> m ()
+op_cpy bbb = getData02 bbb False $ \src -> do
     ry <- getY
     let new = i16 ry-i16 src
     putC $ new < 0x100
-    setN $ i8 new
-    setZ $ i8 new
-    return 0 -- unused
+    setNZ_ $ i8 new
 
-{- INLINE ins_txs -}
+-- 2 clock cycles
+{-# INLINABLE ins_txs #-}
 ins_txs :: Emu6502 m => m ()
 ins_txs = do
+    tick 1
+    discard $ getPC >>= readMemory
     getX >>= putS
-    addPC 1
-    tick 2
 
-{- INLINE ins_transfer -}
+-- 2 clock cycles
+{-# INLINABLE ins_transfer #-}
 ins_transfer :: Emu6502 m =>
                      m Word8 -> (Word8 -> m ()) ->
                      m ()
 ins_transfer getReg putReg = do
-    v0 <- getReg
-    putReg v0
-    setN v0
-    setZ v0
-    addPC 1
-    tick 2
+    tick 1
+    discard $ getPC >>= readMemory
+    getReg >>= setNZ >>= putReg
 
-{- INLINE ins_incr -}
+-- 2 clock cycles
+{-# INLINABLE ins_incr #-}
 ins_incr :: Emu6502 m => m Word8 -> (Word8 -> m ()) -> m ()
 ins_incr getReg putReg = do
+    tick 1
+    discard $ getPC >>= readMemory
     v0 <- getReg
     let v1 = v0+1
-    setN v1
-    setZ v1
+    setNZ v1
     putReg v1
-    addPC 1
-    tick 2
 
-{- INLINE ins_decr -}
+-- 2 clock cycles
+{-# INLINABLE ins_decr #-}
 ins_decr :: Emu6502 m => m Word8 -> (Word8 -> m ()) -> m ()
 ins_decr getReg putReg = do
+    tick 1
+    discard $ getPC >>= readMemory
     v0 <- getReg
     let v1 = v0-1
-    setN v1
-    setZ v1
+    setNZ v1
     putReg v1
-    addPC 1
-    tick 2
 
-{- INLINE ins_brk -}
+discard :: Emu6502 m => m Word8 -> m ()
+discard = void
+
+-- 7 clock cycles
+{-# INLINABLE ins_brk #-}
 ins_brk :: Emu6502 m => m ()
 ins_brk = do
-    addPC 2
+    p0 <- getPC
+    incPC
+    discard $ readMemory p0
+
+    p0 <- getPC
+    incPC
+    push $ hi p0
+
+    incPC
+    push $ lo p0
+
     putB True
-    nmi True
+    incPC
+    getP >>= push . (.|. 0x20) -- always on bit
+    putI True
+
+    read16tick 0xfffe >>= putPC -- irq/brk XXX
 
 -- Am I using wrong address for IRQ. Should it be 0xfffe for IRQ, 0xfffa for NMI?
-{- INLINE irq -}
+-- XXX not supported correctly for now
+{-# INLINABLE irq #-}
 irq :: Emu6502 m => m ()
 irq = do
     fi <- getI
@@ -730,14 +975,14 @@ irq = do
         then nmi False
         else return ()
 
-{- INLINE push -}
+{-# INLINABLE push #-}
 push :: Emu6502 m => Word8 -> m ()
 push v = do
     sp <- getS
     writeMemory (0x100+i16 sp) v
     putS (sp-1)
 
-{- INLINE pull -}
+{-# INLINABLE pull #-}
 pull :: Emu6502 m => m Word8
 pull = do
     sp <- getS
@@ -745,74 +990,137 @@ pull = do
     putS sp'
     readMemory (0x100+i16 sp')
 
-{- INLINE ins_pha -}
+-- 3 clock cycles
+{-# INLINABLE ins_pha #-}
 ins_pha ::Emu6502 m => m ()
 ins_pha = do
-    getA >>= push
-    addPC 1
-    tick 3
+    tick 1
+    discard $ getPC >>= readMemory
 
-{- INLINE ins_php -}
+    tick 1
+    getA >>= push
+
+-- 3 clock cycles
+{-# INLINABLE ins_php #-}
 ins_php :: Emu6502 m => m ()
 ins_php = do
-    getP >>= push . (.|. 0x30)
-    addPC 1
-    tick 3
+    tick 1
+    discard $ getPC >>= readMemory
 
-{- INLINE ins_plp -}
+    tick 1
+    getP >>= push . (.|. 0x30)
+
+-- 4 clock cycles
+{-# INLINABLE ins_plp #-}
 ins_plp :: Emu6502 m => m ()
 ins_plp = do
-    pull >>= putP
-    addPC 1
-    tick 4
+    tick 1
+    p0 <- getPC
+    discard $ readMemory p0
 
-{- INLINE ins_pla -}
+    tick 1
+    s <- getS
+    discard $ readMemory (0x100+i16 s)
+
+    tick 1
+    pull >>= putP
+
+-- 4 clock cycles
+{-# INLINABLE ins_pla #-}
 ins_pla :: Emu6502 m => m ()
 ins_pla = do
-    v0 <- pull
-    putA v0
-    setN v0
-    setZ v0
-    addPC 1
-    tick 4
+    tick 1
+    p0 <- getPC
+    discard $ readMemory p0
 
-{- INLINE nmi -}
+    tick 1
+    s <- getS
+    discard $ readMemory (0x100+i16 s)
+
+    tick 1
+    pull >>= setNZ >>= putA
+
+{-# INLINABLE lo #-}
+lo :: Word16 -> Word8
+lo = i8
+
+{-# INLINABLE hi #-}
+hi :: Word16 -> Word8
+hi a = i8 (a `shift` (-8))
+
+{-# INLINABLE nmi #-}
 nmi :: Emu6502 m => Bool -> m ()
 nmi sw = do
     p0 <- getPC
-    push $ i8 (p0 `shift` (-8))
-    push $ i8 p0
+    push $ hi p0
+    push $ lo p0
     putB sw
     getP >>= push . (.|. 0x20) -- always on bit
     putI True
     read16 0xfffe >>= putPC -- irq/brk XXX
     tick 7
 
-{- INLINE ins_rti -}
+-- 6 clock cycles
+{-# INLINABLE ins_rti #-}
 ins_rti :: Emu6502 m => m ()
 ins_rti = do
-    pull >>= putP
-    make16 <$> pull <*> pull >>= putPC
-    tick 6
+    tick 1
+    p0 <- getPC
+    void $ readMemory p0
 
--- BBC stuff XXX
-{- INLINE ins_jsr -}
+    tick 1
+    s <- getS
+    discard $ readMemory (0x100 + fromIntegral s)
+
+    tick 1
+    pull >>= putP
+
+    make16 <$> (tick 1 >> pull) <*> (tick 1 >> pull) >>= putPC
+
+-- 6 clock cycles
+{-# INLINABLE ins_jsr #-}
 ins_jsr :: Emu6502 m => m ()
 ins_jsr = do
+    tick 1
     p0 <- getPC
-    getPC >>= read16 . (+1) >>= putPC
-    let p2 = p0+2
-    push $ i8 (p2 `shift` (-8))
-    push $ i8 p2
-    tick 6
+    pcl <- readMemory p0
+    incPC
 
-{- INLINE ins_rts -}
+    tick 1
+    s <- getS
+    discard $ readMemory (0x100 + fromIntegral s)
+
+    p2 <- getPC
+
+    tick 1
+    push $ hi p2
+
+    tick 1
+    push $ lo p2
+
+    tick 1
+    pch <- readMemory p2
+
+    putPC $ make16 pcl pch
+
+-- 6 clock cycles
+{-# INLINABLE ins_rts #-}
 ins_rts :: Emu6502 m => m ()
 ins_rts = do
-    make16 <$> pull <*> pull >>= putPC . (+1)
-    tick 6
+    tick 1
+    discard $ getPC >>= readMemory
 
-{- INLINE step -}
+    tick 1
+    s <- getS
+    discard $ readMemory (0x100+i16 s)
+
+    p0 <- make16 <$> (tick 1 >> pull) <*> (tick 1 >> pull)
+    
+    tick 1
+    discard $ readMemory p0
+    putPC (p0+1)
+
+{-# INLINABLE step #-}
 step :: Emu6502 m => m ()
 step = do
     debugStrLn 9 "------"
@@ -822,8 +1130,10 @@ step = do
     if p0 == 0x400 then liftIO $ putStrLn "Started!!!" else return ()
     if p0 == 0x3770 then liftIO $ putStrLn "Passed!!!" else return ()
     debugStrLn 9 $ "pc = " ++ showHex p0 ""
+    tick 1
     i <- readMemory p0
     debugStrLn 9 $ "instruction = " ++ showHex i ""
+    incPC
     case i of
         0x00 -> ins_brk
         0x08 -> ins_php
@@ -868,13 +1178,13 @@ step = do
                     let aaa = (i `shift` (-5)) .&. 0b111
                     let bbb = (i `shift` (-2)) .&. 0b111
                     case aaa of
-                        0b001 -> ins_bit bbb
+                        0b001 -> op_bit bbb
                         0b010 -> ins_jmp
                         0b011 -> ins_jmp_indirect
                         0b100 -> ins_sty bbb
-                        0b101 -> ins_ldy bbb
-                        0b110 -> ins_cpy bbb
-                        0b111 -> ins_cpx bbb
+                        0b101 -> op_ldy bbb
+                        0b110 -> op_cpy bbb
+                        0b111 -> op_cpx bbb
 
                         otherwise -> illegal i
 
@@ -883,14 +1193,14 @@ step = do
                     let bbb = (i `shift` (-2)) .&. 0b111
                     case aaa of
 
-                        0b000 -> ins_ora bbb
-                        0b001 -> ins_and bbb
-                        0b010 -> ins_xor bbb
-                        0b011 -> ins_adc bbb
-                        0b100 -> ins_sta bbb
-                        0b101 -> ins_lda bbb
-                        0b110 -> ins_cmp bbb
-                        0b111 -> ins_sbc bbb
+                        0b000 -> op_ora bbb
+                        0b001 -> op_and bbb
+                        0b010 -> op_xor bbb
+                        0b011 -> op_adc bbb
+                        0b100 -> op_sta bbb
+                        0b101 -> op_lda bbb
+                        0b110 -> op_cmp bbb
+                        0b111 -> op_sbc bbb
 
                         otherwise -> illegal i
                 0b10 -> do
@@ -898,18 +1208,20 @@ step = do
                     let bbb = (i `shift` (-2)) .&. 0b111
                     case aaa of
 
-                        0b000 -> ins_asl bbb
-                        0b001 -> ins_rol bbb
-                        0b010 -> ins_lsr bbb
-                        0b011 -> ins_ror bbb
+                        0b000 -> op_asl bbb
+                        0b001 -> op_rol bbb
+                        0b010 -> op_lsr bbb
+                        0b011 -> op_ror bbb
                         0b100 -> ins_stx bbb
-                        0b101 -> ins_ldx bbb
-                        0b110 -> ins_dec bbb
-                        0b111 -> ins_inc bbb
+                        0b101 -> op_ldx bbb
+                        0b110 -> op_dec bbb
+                        0b111 -> op_inc bbb
 
                 otherwise -> illegal i
     dumpState
     return ()
+
+-- END OF Core.hs
 
 newtype OReg = OReg Word16 deriving (Ord, Ix, Eq, Num)
 newtype IReg = IReg Word16 deriving (Ord, Ix, Eq, Num)
@@ -1735,14 +2047,14 @@ instance Emu6502 MonadAtari where
     {- INLINE addPC -}
     addPC n = regs . pc += fromIntegral n
 
-    {- INLINE debugStr -}
+    {- INLINE debugStr 9 -}
     debugStr n str = do
         d <- use debug
         if n <= d
             then liftIO $ putStr str
             else return ()
 
-    {- INLINE debugStrLn -}
+    {- INLINE debugStrLn 9 -}
     debugStrLn n str = do
         d <- use debug
         if n <= d
@@ -1751,7 +2063,6 @@ instance Emu6502 MonadAtari where
 
     {- INLINE illegal -}
     illegal i = error $ "Illegal opcode 0x" ++ showHex i ""
-
 
 data Args = Args { file :: String } deriving (Show, Data, Typeable)
 
