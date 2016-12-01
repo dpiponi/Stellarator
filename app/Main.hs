@@ -1226,8 +1226,8 @@ step = do
 newtype OReg = OReg Word16 deriving (Ord, Ix, Eq, Num)
 newtype IReg = IReg Word16 deriving (Ord, Ix, Eq, Num)
 
-nusiz0, nusiz1, colup0, colup1, pf0, pf1, pf2, enam0, enam1, enabl, hmp0, hmp1, hmm0, hmm1, hmbl :: OReg
-grp0, grp1, refp0, refp1, colupf, colubk, ctrlpf, resmp0, resmp1, vdelp0, vdelp1, vdelbl :: OReg
+nusiz0, nusiz1, colup0, colup1, pf0, pf1, pf2, enam0, enam1, hmp0, hmp1, hmm0, hmm1, hmbl :: OReg
+vsync, refp0, refp1, colupf, colubk, ctrlpf, resmp0, resmp1 :: OReg
 vsync = 0x00
 nusiz0 = 0x04
 nusiz1 = 0x05
@@ -1241,19 +1241,13 @@ refp1 = 0x0c
 pf0 = 0x0d
 pf1 = 0x0e
 pf2 = 0x0f
-grp0 = 0x1b
-grp1 = 0x1c
 enam0 = 0x1d
 enam1 = 0x1e
-enabl = 0x1f
 hmp0 = 0x20
 hmp1 = 0x21
 hmm0 = 0x22
 hmm1 = 0x23
 hmbl = 0x24
-vdelp0 = 0x25
-vdelp1 = 0x26
-vdelbl = 0x27
 resmp0 = 0x28
 resmp1 = 0x29
 
@@ -1277,6 +1271,20 @@ data IntervalTimer = IntervalTimer {
 
 $(makeLenses ''IntervalTimer)
 
+data Graphics = Graphics {
+    _delayP0 :: !Bool,
+    _delayP1 :: !Bool,
+    _delayBall :: !Bool,
+    _oldGrp0 :: !Word8,
+    _newGrp0 :: !Word8,
+    _oldGrp1 :: !Word8,
+    _newGrp1 :: !Word8,
+    _oldBall :: !Bool,
+    _newBall :: !Bool
+}
+
+$(makeLenses ''Graphics)
+
 data Stella = Stella {
      _oregisters :: IOUArray OReg Word8,
      _iregisters :: IOUArray IReg Word8,
@@ -1296,12 +1304,15 @@ data Stella = Stella {
     _stellaDebug :: !Int,
     _lastClock :: !Int64,
     _xbreak :: !Int32,
-    _ybreak :: !Int32
+    _ybreak :: !Int32,
+    _graphics :: Graphics
 }
 
 $(makeLenses ''Stella)
 
 {- INLINE stellaDebugStr -}
+stellaDebugStr :: (MonadIO m, MonadState Stella m) =>
+                  Int -> String -> m ()
 stellaDebugStr n str = do
     d <- use stellaDebug
     if n <= d
@@ -1313,6 +1324,8 @@ stellaDebugStr n str = do
         else return ()
 
 {- INLINE stellaDebugStrLn -}
+stellaDebugStrLn :: (MonadIO m, MonadState Stella m) =>
+                    Int -> String -> m ()
 stellaDebugStrLn n str = do
     d <- use stellaDebug
     if n <= d
@@ -1374,8 +1387,8 @@ dumpStella = do
     hpos' <- use hpos
     vpos' <- use vpos
     liftIO $ putStrLn $ "hpos = " ++ show hpos' ++ " (" ++ show (hpos'-picx) ++ ") vpos = " ++ show vpos' ++ " (" ++ show (vpos'-picy) ++ ")"
-    grp0' <- getORegister grp0
-    grp1' <- getORegister grp1
+    grp0' <- use (graphics . oldGrp0) -- XXX
+    grp1' <- use (graphics . oldGrp1) -- XXX
     liftIO $ putStrLn $ "GRP0 = " ++ showHex grp0' "" ++ "(" ++ inBinary 8 grp0' ++ ")"
     liftIO $ putStrLn $ "GRP1 = " ++ showHex grp1' "" ++ "(" ++ inBinary 8 grp1' ++ ")"
     pf0' <- getORegister pf0
@@ -1388,12 +1401,12 @@ dumpStella = do
     nusiz1' <- getORegister nusiz1
     liftIO $ putStrLn $ "NUSIZ0 = " ++ showHex nusiz0' "" ++ "(" ++ explainNusiz nusiz0' ++
                         ") NUSIZ1 = " ++ showHex nusiz1' "" ++ "(" ++ explainNusiz nusiz1' ++ ")"
-    vdelp0' <- getORegister vdelp0
-    vdelp1' <- getORegister vdelp1
-    vdelbl' <- getORegister vdelbl
-    liftIO $ putStrLn $ "VDELP0 = " ++ showHex vdelp0' "" ++ " " ++
-                        "VDELP1 = " ++ showHex vdelp1' "" ++ " " ++
-                        "VDELBL = " ++ showHex vdelbl' ""
+    vdelp0' <- use (graphics . delayP0)
+    vdelp1' <- use (graphics . delayP1)
+    vdelbl' <- use (graphics . delayBall)
+    liftIO $ putStrLn $ "VDELP0 = " ++ show vdelp0' ++ " " ++
+                        "VDELP1 = " ++ show vdelp1' ++ " " ++
+                        "VDELBL = " ++ show vdelbl'
     
 
 {- INLINE playfield -}
@@ -1461,7 +1474,10 @@ player0 = do
     ppos0' <- use ppos0
     let o = hpos'-ppos0' :: CInt
     sizeCopies <- (0b111 .&.) <$> getORegister nusiz0
-    grp0' <- getORegister grp0
+    delayP0' <- use (graphics . delayP0)
+    grp0' <- if delayP0'
+        then use (graphics . oldGrp0)
+        else use (graphics . newGrp0)
     refp0' <- getORegister refp0
     let reflected = testBit refp0' 3
     return $ stretchPlayer reflected sizeCopies o grp0'
@@ -1473,7 +1489,10 @@ player1 = do
     ppos1' <- use ppos1
     let o = hpos'-ppos1' :: CInt
     sizeCopies <- (0b111 .&.) <$> getORegister nusiz1
-    grp1' <- getORegister grp1
+    delayP1' <- use (graphics . delayP1)
+    grp1' <- if delayP1'
+        then use (graphics . oldGrp1)
+        else use (graphics . newGrp1)
     refp1' <- getORegister refp1
     return $ stretchPlayer (testBit refp1' 3) sizeCopies o grp1'
 
@@ -1513,8 +1532,11 @@ missile1 = do
 {- INLINE ball -}
 ball :: (MonadIO m, MonadState Stella m) => m Bool
 ball = do
-    enabl' <- getORegister enabl
-    if (enabl' .&. 0b10) /= 0
+    delayBall' <- use (graphics . delayBall)
+    enabl' <- if delayBall'
+        then use (graphics . oldBall)
+        else use (graphics . newBall)
+    if enabl'
         then do
             o <- (-) <$> use hpos <*> use bpos
             ctrlpf' <- getORegister ctrlpf
@@ -1880,19 +1902,24 @@ writeStella addr v =
        0x12 -> use hpos >>= (mpos0 .=)   -- RESM0
        0x13 -> use hpos >>= (mpos1 .=)   -- RESM1
        0x14 -> use hpos >>= (bpos .=)    -- RESBL
-       0x1b -> putORegister grp0 v                 -- GRP0
-       0x1c -> putORegister grp1 v                 -- GRP1
+       0x1b -> do -- GRP0
+                graphics . newGrp0 .= v
+                use (graphics . newGrp1) >>= (graphics . oldGrp1 .=)
+       0x1c -> do -- GRP1
+                graphics . newGrp1 .= v
+                use (graphics . newGrp0) >>= (graphics . oldGrp0 .=)
+                use (graphics . newBall) >>= (graphics . oldBall .=)
        0x1d -> putORegister enam0 v                -- ENAM0
        0x1e -> putORegister enam1 v                -- ENAM1
-       0x1f -> putORegister enabl v                -- ENABL
+       0x1f -> graphics . newBall .= testBit v 1   -- ENABL
        0x20 -> putORegister hmp0 v                 -- HMP0
        0x21 -> putORegister hmp1 v                 -- HMP1
        0x22 -> putORegister hmm0 v                 -- HMM0
        0x23 -> putORegister hmm1 v                 -- HMM1
        0x24 -> putORegister hmbl v                 -- HMBL
-       0x25 -> putORegister vdelp0 v
-       0x26 -> putORegister vdelp1 v
-       0x27 -> putORegister vdelbl v
+       0x25 -> graphics . delayP0 .= testBit v 0   -- VDELP0
+       0x26 -> graphics . delayP1 .= testBit v 0   -- VDELP1
+       0x27 -> graphics . delayBall .= testBit v 0   -- VDELBL
        0x28 -> putORegister resmp0 v
        0x29 -> putORegister resmp1 v
        0x2a -> stellaHmove               -- HMOVE
@@ -2156,6 +2183,17 @@ main = do
           _intim = 0,
           _subtimer = 0,
           _interval = 0
+      },
+      _graphics = Graphics {
+          _delayP0 = False,
+          _delayP1 = False,
+          _delayBall = False,
+          _oldGrp0 = 0,
+          _newGrp0 = 0,
+          _oldGrp1 = 0,
+          _newGrp1 = 0,
+          _oldBall = False,
+          _newBall = False
       },
       _lastClock = 0,
       _stellaDebug = -1,
