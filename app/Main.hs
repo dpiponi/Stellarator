@@ -1269,6 +1269,14 @@ cxppmm = 0x07
 inpt4 = 0x0c
 inpt5 = 0x0d
 
+data IntervalTimer = IntervalTimer {
+    _intim :: !Word8,
+    _subtimer :: !CInt,
+    _interval :: !CInt
+}
+
+$(makeLenses ''IntervalTimer)
+
 data Stella = Stella {
      _oregisters :: IOUArray OReg Word8,
      _iregisters :: IOUArray IReg Word8,
@@ -1284,9 +1292,7 @@ data Stella = Stella {
     _mpos0 :: !CInt,
     _mpos1 :: !CInt,
     _bpos :: !CInt,
-    _intim :: !Word8,
-    _subtimer :: !CInt,
-    _interval :: !CInt,
+    _intervalTimer :: IntervalTimer,
     _stellaDebug :: !Int,
     _lastClock :: !Int64,
     _xbreak :: !Int32,
@@ -1582,8 +1588,7 @@ stellaResmp1 = use ppos1 >>= (mpos1 .=) -- XXX
 stellaWsync :: (MonadIO m, MonadState Stella m) => m ()
 stellaWsync = do
     hpos' <- use hpos
-    stellaTick (228-fromIntegral hpos')
-    stellaDebugStrLn 0 $ "WSYNC (post)"
+    stellaTick (233-fromIntegral hpos') -- 228
 
 -- http://atariage.com/forums/topic/107527-atari-2600-vsyncvblank/
 
@@ -1683,19 +1688,7 @@ compositeAndCollide x = do
                             else mconcat [pball, pplayfield, pplayer1, pmissile1, pplayer0, pmissile0]
     return final
 
-stellaTick :: (MonadIO m, MonadState Stella m) => Int -> m ()
-stellaTick 0 = return ()
-stellaTick n = do
-    xbreak' <- use xbreak
-    ybreak' <- use ybreak
-    hpos' <- use hpos
-    vpos' <- use vpos
-    when (hpos' == fromIntegral xbreak' && vpos' == fromIntegral ybreak') $ do
-        dumpStella
-        xbreak .= (-1)
-        ybreak .= (-1)
-
-    -- Interval timer
+{-
     x <- use intim
     y <- use interval
     stellaDebugStrLn 0 $ "clock = " ++ show x
@@ -1712,6 +1705,41 @@ stellaTick n = do
         when (intim' == 0) $ do
             subtimer .= 3*1-1
             interval .= 1
+-}
+
+{-# INLINABLE timerTick #-}
+timerTick :: IntervalTimer -> IntervalTimer
+timerTick timer =
+    let subtimer' = timer ^. subtimer
+        subtimer'' = subtimer'-1
+    in if subtimer' /= 0
+        then timer & subtimer .~ subtimer''
+        else
+            let intim' = timer ^. intim
+                intim'' = intim'-1
+                interval' = timer ^. interval
+            in if intim' /= 0
+                then timer & intim .~ intim'' & subtimer .~ (3*interval'-1) 
+                else IntervalTimer intim'' (3*1-1) 1
+
+stellaTick :: (MonadIO m, MonadState Stella m) => Int -> m ()
+stellaTick 0 = return ()
+stellaTick n = do
+    xbreak' <- use xbreak
+    ybreak' <- use ybreak
+    hpos' <- use hpos
+    vpos' <- use vpos
+    when (hpos' == fromIntegral xbreak' && vpos' == fromIntegral ybreak') $ do
+        dumpStella
+        xbreak .= (-1)
+        ybreak .= (-1)
+
+    stellaClock += 1
+
+    -- Interval timer
+    oldIntervalTimer <- use intervalTimer
+    let newIntervalTimer = timerTick oldIntervalTimer
+    intervalTimer .= newIntervalTimer
     
     -- Display
     when (vpos' >= picy && vpos' < picy+192 && hpos' >= picx) $ do
@@ -1817,6 +1845,16 @@ usingStella m = do
     stella .= stella''
     return a
 
+{-
+usingIntervalTimer :: MonadState Stella m =>
+               StateT IntervalTimer m a -> m a
+usingIntervalTimer m = do
+    intervalTimer' <- use intervalTimer
+    (a, intervalTimer'') <- flip runStateT intervalTimer' m
+    intervalTimer .= intervalTimer''
+    return a
+-}
+
 {- INLINE writeStella -}
 writeStella :: (MonadIO m, MonadState Stella m) =>
                Word16 -> Word8 -> m ()
@@ -1860,22 +1898,23 @@ writeStella addr v =
        0x2a -> stellaHmove               -- HMOVE
        0x2b -> stellaHmclr               -- HMCLR
        0x2c -> stellaCxclr               -- CXCLR
+       -- XXX rewrite properly
        0x294 -> do                       -- TIM1T
-        interval .= 1
-        subtimer .= 1*3-1
-        intim .= v
+        intervalTimer . interval .= 1
+        intervalTimer . subtimer .= 1*3-1
+        intervalTimer . intim .= v
        0x295 -> do                       -- TIM8T
-        interval .= 8
-        subtimer .= 8*3-1
-        intim .= v
+        intervalTimer . interval .= 8
+        intervalTimer . subtimer .= 8*3-1
+        intervalTimer . intim .= v
        0x296 -> do                       -- TIM64T
-        interval .= 64
-        subtimer .= 64*3-1
-        intim .= v
+        intervalTimer . interval .= 64
+        intervalTimer . subtimer .= 64*3-1
+        intervalTimer . intim .= v
        0x297 -> do                       -- TIM1024T
-        interval .= 1024
-        subtimer .= 1024*3-1
-        intim .= v
+        intervalTimer . interval .= 1024
+        intervalTimer . subtimer .= 1024*3-1
+        intervalTimer . intim .= v
        otherwise -> return () -- liftIO $ putStrLn $ "writing TIA 0x" ++ showHex addr ""
 
 {- INLINE readStella -}
@@ -1921,7 +1960,7 @@ readStella addr =
         0x3c -> getIRegister inpt4
         0x280 -> use swcha
         0x282 -> use swchb
-        0x284 -> use intim
+        0x284 -> use (intervalTimer . intim)
         otherwise -> return 0 -- (liftIO $ putStrLn $ "reading TIA 0x" ++ showHex addr "") >> return 0
 
 -- http://www.qotile.net/minidig/docs/2600_mem_map.txt
@@ -2113,9 +2152,11 @@ main = do
       _swchb = 0b00001011,
       _mpos0 = 0, _mpos1 = 0,
       _bpos = 0,
-      _intim = 0,
-      _subtimer = 0,
-      _interval = 0,
+      _intervalTimer = IntervalTimer {
+          _intim = 0,
+          _subtimer = 0,
+          _interval = 0
+      },
       _lastClock = 0,
       _stellaDebug = -1,
       _xbreak = -1,
