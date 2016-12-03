@@ -11,22 +11,24 @@ module Main where
 import Binary
 import Control.Applicative
 import Control.Concurrent (threadDelay)
-import Control.Lens
+import Control.Lens hiding (_last)
 import Control.Monad
 import Control.Monad.State
 import Data.Array.IO
 import Data.Array.Unboxed
 import Data.Binary
+import System.Exit
 import Data.Binary.Get
 import Data.Bits hiding (bit)
 import Data.Bits.Lens
-import Data.ByteString as B hiding (putStr, putStrLn, getLine, length, elem, map, reverse)
+import Data.ByteString as B hiding (last, putStr, putStrLn, getLine, length, elem, map, reverse)
 import Data.Char
 import Data.Int
 import Data.Monoid
 import Data.Word
 import Foreign.C.Types
 import Foreign.Ptr
+import System.Random
 import Foreign.Storable
 import Numeric
 import SDL.Event
@@ -39,130 +41,10 @@ import System.IO
 import TIAColors
 import qualified Data.ByteString.Internal as BS (c2w, w2c)
 import qualified SDL
+import Debug.Trace
+import Prelude hiding (last)
+import Core
 
---- START OF Core.hs ---
-
-class (Monad m, MonadIO m) => Emu6502 m where
-    readMemory :: Word16 -> m Word8
-    writeMemory :: Word16 -> Word8 -> m ()
-    getPC :: m Word16
-    tick :: Int -> m ()
-    putC :: Bool -> m ()
-    getC :: m Bool
-    putZ :: Bool -> m ()
-    getZ :: m Bool
-    putI :: Bool -> m ()
-    getI :: m Bool
-    putD :: Bool -> m ()
-    getD :: m Bool
-    putB :: Bool -> m ()
-    getB :: m Bool
-    putV :: Bool -> m ()
-    getV :: m Bool
-    putN :: Bool -> m ()
-    getN :: m Bool
-    getA :: m Word8
-    putA :: Word8 -> m ()
-    getS :: m Word8
-    putS :: Word8 -> m ()
-    getX :: m Word8
-    putX :: Word8 -> m ()
-    getP :: m Word8
-    putP :: Word8 -> m ()
-    getY :: m Word8
-    putY :: Word8 -> m ()
-    putPC :: Word16 -> m ()
-    addPC :: Int -> m ()
-    illegal :: Word8 -> m ()
-
-    debugStr :: Int -> String -> m ()
-    debugStrLn :: Int -> String -> m ()
-
-{-# INLINABLE dumpRegisters #-}
-dumpRegisters :: Emu6502 m => m ()
-dumpRegisters = do
-    -- XXX bring clock back
-    --tClock <- use clock
-    --debugStr 9 $ "clock = " ++ show tClock
-    regPC <- getPC
-    debugStr 9 $ " pc = " ++ showHex regPC ""
-    regP <- getP
-    debugStr 9 $ " flags = " ++ showHex regP ""
-    debugStr 9 $ "(N=" ++ showHex ((regP `shift` (-7)) .&. 1) ""
-    debugStr 9 $ ",V=" ++ showHex ((regP `shift` (-6)) .&. 1) ""
-    debugStr 9 $ ",B=" ++ showHex (regP `shift` ((-4)) .&. 1) ""
-    debugStr 9 $ ",D=" ++ showHex (regP `shift` ((-3)) .&. 1) ""
-    debugStr 9 $ ",I=" ++ showHex (regP `shift` ((-2)) .&. 1) ""
-    debugStr 9 $ ",Z=" ++ showHex (regP `shift` ((-1)) .&. 1) ""
-    debugStr 9 $ ",C=" ++ showHex (regP .&. 1) ""
-    regA <- getA 
-    debugStr 9 $ ") A = " ++ showHex regA ""
-    regX <- getX
-    debugStr 9 $ " X = " ++ showHex regX ""
-    regY <- getY
-    debugStrLn 9 $ " Y = " ++ showHex regY ""
-    regS <- getS
-    debugStrLn 9 $ " N = " ++ showHex regS ""
-
-{-# INLINABLE dumpMemory #-}
-dumpMemory :: Emu6502 m => m ()
-dumpMemory = do
-    regPC <- getPC
-    b0 <- readMemory regPC
-    b1 <- readMemory (regPC+1)
-    b2 <- readMemory (regPC+2)
-    debugStr 9 $ "(PC) = "
-    debugStr 9 $ showHex b0 "" ++ " "
-    debugStr 9 $ showHex b1 "" ++ " "
-    debugStrLn 9 $ showHex b2 ""
-
-{-# INLINABLE dumpState #-}
-dumpState :: Emu6502 m => m ()
-dumpState = do
-    dumpMemory
-    dumpRegisters
-
-{-# INLINE make16 #-}
-make16 :: Word8 -> Word8 -> Word16
-make16 lo hi = (i16 hi `shift` 8)+i16 lo
-
-{-# INLINE incPC #-}
-incPC :: Emu6502 m => m ()
-incPC = addPC 1
-
-{-# INLINABLE read16 #-}
-read16 :: Emu6502 m => Word16 -> m Word16
-read16 addr = do
-    lo <- readMemory addr
-    hi <- readMemory (addr+1)
-    return $ make16 lo hi
-
-{-# INLINABLE read16tick #-}
-read16tick :: Emu6502 m => Word16 -> m Word16
-read16tick addr = do
-    tick 1
-    lo <- readMemory addr
-    tick 1
-    hi <- readMemory (addr+1)
-    return $ make16 lo hi
-
-{-# INLINABLE read16zp #-}
-read16zp :: Emu6502 m => Word8 -> m Word16
-read16zp addr = do
-    lo <- readMemory (i16 addr)
-    hi <- readMemory (i16 addr+1)
-    return $ make16 lo hi
-
-{-# INLINABLE read16zpTick #-}
-read16zpTick :: Emu6502 m => Word8 -> m Word16
-read16zpTick addr = do
-    tick 1
-    lo <- readMemory (i16 addr)
-    tick 1
-    hi <- readMemory (i16 addr+1)
-    return $ make16 lo hi
-
--- http://www.emulator101.com/6502-addressing-modes.html
 
 {-# INLINE i8 #-}
 i8 :: Integral a => a -> Word8
@@ -173,1055 +55,52 @@ i16 :: Integral a => a -> Word16
 i16 = fromIntegral
 
 {-# INLINE iz #-}
-iz :: Integral a => a -> Int
+iz :: Word16 -> Int -- or NUM
 iz = fromIntegral
 
--- Note, a 6502 performs a read or write *every* clock cycle
--- regardless of what instruction is being executed.
-
--- 6 clock cycles...
-{-# INLINABLE writeIndirectX #-}
-writeIndirectX :: Emu6502 m => Word8 -> m ()
-writeIndirectX src = do
-    tick 1
-    index <- getX
-    addr <- getPC >>= readMemory
-
-    tick 1
-    discard $ readMemory (i16 addr)
-
-    addrX <- read16zpTick (addr+index)
-
-    tick 1
-    writeMemory addrX src
-    incPC
-
--- 3 clock cycles
-{-# INLINABLE writeZeroPage #-}
-writeZeroPage :: Emu6502 m => Word8 -> m ()
-writeZeroPage src = do
-    tick 1
-    addr <- getPC >>= readMemory
-
-    tick 1
-    writeMemory (i16 addr) src
-    incPC
-
--- 4 clock cycles
-{-# INLINABLE writeAbsolute #-}
-writeAbsolute :: Emu6502 m => Word8 -> m()
-writeAbsolute src = do
-    addr <- getPC >>= read16tick
-
-    tick 1
-    writeMemory addr src
-    addPC 2
-
--- 6 clock cycles
-{-# INLINABLE writeIndirectY #-}
-writeIndirectY :: Emu6502 m => Word8 -> m ()
-writeIndirectY src = do
-    tick 1
-    index <- getY
-    addr' <- getPC >>= readMemory
-
-    addr <- read16zpTick addr'
-
-    let (halfAddrY, addrY) = halfSum addr index
-
-    tick 1
-    discard $ readMemory halfAddrY
-
-    tick 1
-    writeMemory addrY src
-    incPC
-
--- 4 clock cycles
-{-# INLINABLE writeZeroPageX #-}
-writeZeroPageX :: Emu6502 m => Word8 -> m ()
-writeZeroPageX src = do
-    tick 1
-    index <- getX
-    addr <- getPC >>= readMemory
-
-    tick 1
-    discard $ readMemory (i16 addr)
-
-    tick 1
-    writeMemory (i16 $ addr+index) src
-    incPC
-
--- 4 clock cycles
-{-# INLINABLE writeZeroPageY #-}
-writeZeroPageY :: Emu6502 m => Word8 -> m ()
-writeZeroPageY src = do
-    tick 1
-    index <- getY
-    addr <- getPC >>= readMemory
-
-    tick 1
-    discard $ readMemory (i16 addr)
-
-    tick 1
-    writeMemory (i16 $ addr+index) src
-    incPC
-
--- 5 clock cycles
-{-# INLINABLE writeAbsoluteY #-}
-writeAbsoluteY :: Emu6502 m => Word8 -> m ()
-writeAbsoluteY src = do
-    index <- getY
-    addr <- getPC >>= read16tick
-
-    tick 1
-    let (halfAddrY, addrY) = halfSum addr index
-    discard $ readMemory halfAddrY
-
-    tick 1
-    writeMemory addrY src
-    addPC 2
-
--- 5 clock cycles
-{-# INLINABLE writeAbsoluteX #-}
-writeAbsoluteX :: Emu6502 m => Word8 -> m ()
-writeAbsoluteX src = do
-    index <- getX
-    addr <- getPC >>= read16tick
-
-    tick 1
-    let (halfAddrX, addrX) = halfSum addr index
-    discard $ readMemory halfAddrX
-
-    tick 1
-    writeMemory addrX src
-    addPC 2
-
--- 6 clock cycles
-{-# INLINABLE readIndirectX #-}
-readIndirectX :: Emu6502 m => m Word8
-readIndirectX = do
-    tick 1
-    index <- getX
-    addr <- getPC >>= readMemory
-
-    tick 1
-    discard $ readMemory (i16 addr)
-
-    addr <- read16zpTick (addr+index)
-
-    tick 1
-    incPC
-    readMemory addr
-
--- 3 clock cycles
-{-# INLINABLE readZeroPage #-}
-readZeroPage :: Emu6502 m => m Word8
-readZeroPage = do
-    tick 1
-    addr <- getPC >>= readMemory
-
-    tick 1
-    src <- readMemory (i16 addr)
-    incPC
-    return src
-
--- 2 clock cycles
-{-# INLINABLE readImmediate #-}
-readImmediate :: Emu6502 m => m Word8
-readImmediate = do
-    tick 1
-    src <- getPC >>= readMemory
-    incPC
-    return src
-
--- XXX consider applicable ops like *>
--- 4 clock cycles
-{-# INLINABLE readAbsolute #-}
-readAbsolute :: Emu6502 m => m Word8
-readAbsolute = do
-    p0 <- getPC
-    src <- (read16tick p0 <* tick 1) >>= readMemory
-    addPC 2
-    return src
-
--- 5-6 clock cycles
-{-# INLINABLE readIndirectY #-}
-readIndirectY :: Emu6502 m => m Word8
-readIndirectY = do
-    tick 1
-    addr' <- getPC >>= readMemory
-
-    addr <- read16zpTick addr'
-
-    index <- getY
-    let (halfAddrY, addrY) = halfSum addr index
-
-    when (halfAddrY /= addrY) $ do
-        tick 1
-        discard $ readMemory halfAddrY
-
-    tick 1
-    src <- readMemory addrY
-    incPC
-    return src
-
--- 4 clock cycles
-{-# INLINABLE readZeroPageX #-}
-readZeroPageX :: Emu6502 m => m Word8
-readZeroPageX = do
-    tick 1
-    index <- getX
-    addr <- getPC >>= readMemory
-
-    tick 1
-    discard $ readMemory (i16 addr)
-
-    tick 1
-    incPC
-    readMemory (i16 $ addr+index)
-
--- 4 clock cycles
-{-# INLINABLE readZeroPageY #-}
-readZeroPageY :: Emu6502 m => m Word8
-readZeroPageY = do
-    tick 1
-    index <- getY
-    addr <- getPC >>= readMemory
-
-    tick 1
-    discard $ readMemory (i16 addr)
-
-    tick 1
-    incPC
-    readMemory (i16 $ addr+index)
-
-{-# inline halfSum #-}
-halfSum :: Word16 -> Word8 -> (Word16, Word16)
-halfSum addr index = 
-    let fullSum = addr+i16 index
-    in (make16 (lo addr+index) (hi addr), fullSum)
-
-{-# INLINABLE halfSignedSum #-}
-halfSignedSum :: Word16 -> Word8 -> (Word16, Word16)
-halfSignedSum addr index = 
-    let fullSum = if index < 0x80 then addr+i16 index else addr+i16 index-0x100
-    in (make16 (lo addr+index) (hi addr), fullSum)
-
--- 4-5 clock cycles
-{-# INLINABLE readAbsoluteX #-}
-readAbsoluteX :: Emu6502 m => m Word8
-readAbsoluteX = do
-    index <- getX
-    addr <- getPC >>= read16tick
-    addPC 2
-
-    let (halfAddrX, addrX) = halfSum addr index
-    when (halfAddrX /= addrX) $ do
-            tick 1
-            discard $ readMemory halfAddrX
-
-    tick 1
-    readMemory addrX
-
--- 4-5 clock cycles
-{-# INLINABLE readAbsoluteY #-}
-readAbsoluteY :: Emu6502 m => m Word8
-readAbsoluteY = do
-    index <- getY
-    addr <- getPC >>= read16tick
-    addPC 2
-
-    let (halfAddrY, addrY) = halfSum addr index
-    when ( halfAddrY /= addrY) $ do
-            tick 1
-            discard $ readMemory halfAddrY
-
-    tick 1
-    readMemory addrY
-
--- 2-4 clock cycles
-{-# INLINABLE ins_bra #-}
-ins_bra :: Emu6502 m => m Bool -> Bool -> m ()
-ins_bra getFlag value = do
-    tick 1
-    offset <- getPC >>= readMemory
-    f <- getFlag
-    incPC
-
-    when (value == f) $ do
-        tick 1
-        discard $ getPC >>= readMemory
-
-        oldP <- getPC
-        let (halfAddr, addr) = halfSignedSum oldP offset
-        when (halfAddr /= addr) $ do
-                tick 1
-                discard $ readMemory halfAddr
-        putPC addr
-
--- 2 clock cycles
-{-# INLINABLE ins_set #-}
-ins_set :: Emu6502 m => (Bool -> m ()) -> Bool -> m ()
-ins_set putFlag value = do
-    tick 1
-    discard $ getPC >>= readMemory
-    putFlag value
-
--- 2 clock cycles
-{-# INLINABLE ins_nop #-}
-ins_nop :: Emu6502 m => m ()
-ins_nop = do
-    tick 1
-    discard $ getPC >>= readMemory
-
--- 3 clock cycles
-{-# INLINABLE ins_jmp #-}
-ins_jmp :: Emu6502 m => m ()
-ins_jmp = getPC >>= read16tick >>= putPC
-
-{-# INLINE nonwhite #-}
-nonwhite :: Word8 -> String
-nonwhite ra | ra < 32 = "()"
-nonwhite ra = "'" ++ [BS.w2c ra] ++ "'"
-
--- 5 clock cycles
--- NB address wraps around in page XXX
--- Aha! That's why ALIGN is used before addresses!
-{-# INLINABLE ins_jmp_indirect #-}
-ins_jmp_indirect :: Emu6502 m => m ()
-ins_jmp_indirect = do
-    getPC >>= read16tick >>= read16tick >>= putPC
-
-{-# INLINABLE uselessly #-}
-uselessly :: Emu6502 m => m () -> m ()
-uselessly = id
-
--- 5 clock cycles
-{-# INLINABLE withZeroPage #-}
-withZeroPage :: Emu6502 m => (Word8 -> m Word8) -> m ()
-withZeroPage op = do
-    tick 1
-    addr <- getPC >>= readMemory
-
-    tick 1
-    src <- readMemory (i16 addr)
-
-    tick 1
-    uselessly $ writeMemory (i16 addr) src
-
-    tick 1
-    op src >>= writeMemory (i16 addr)
-    incPC
-
--- 2 clock cycles
-{-# INLINABLE withAccumulator #-}
-withAccumulator :: Emu6502 m => (Word8 -> m Word8) -> m ()
-withAccumulator op = do
-    tick 1
-    discard $ getPC >>= readMemory
-    getA >>= op >>= putA
-
--- 6 clock cycles
-{-# INLINE withAbsolute #-}
-withAbsolute :: Emu6502 m => (Word8 -> m Word8) -> m ()
-withAbsolute op = do
-    addr <- getPC >>= read16tick
-    
-    tick 1
-    src <- readMemory addr
-
-    tick 1
-    uselessly $ writeMemory addr src
-
-    tick 1
-    dst <- op src
-    addPC 2
-    writeMemory addr dst
-
--- 6 clock cycles
-withZeroPageX :: Emu6502 m => (Word8 -> m Word8) -> m ()
-withZeroPageX op = do
-    tick 1
-    index <- getX
-    addr <- getPC >>= readMemory
-    let addrX = addr+index
-
-    tick 1
-    discard $ readMemory (i16 addr)
-
-    tick 1
-    src <- readMemory (i16 addrX)
-
-    tick 1
-    writeMemory (i16 addrX) src
-
-    tick 1
-    dst <- op src
-    writeMemory (i16 addrX) dst
-    incPC
-
--- 6 clock cycles
-withZeroPageY :: Emu6502 m => (Word8 -> m Word8) -> m ()
-withZeroPageY op = do
-    tick 1
-    index <- getY
-    addr <- getPC >>= readMemory
-    let addrY = addr+index
-
-    tick 1
-    discard $ readMemory (i16 addr)
-
-    tick 1
-    src <- readMemory (i16 addrY)
-
-    tick 1
-    writeMemory (i16 addrY) src
-
-    tick 1
-    dst <- op src
-    writeMemory (i16 addrY) dst
-    incPC
- 
--- 7 clock cycles
-{-# INLINE withAbsoluteX #-}
-withAbsoluteX :: Emu6502 m => (Word8 -> m Word8) -> m ()
-withAbsoluteX op = do
-    p0 <- getPC
-    index <- getX
-    addr <- read16tick p0
-
-    let (halfAddrX, addrX) = halfSum addr index
-
-    tick 1
-    discard $ readMemory halfAddrX
-
-    tick 1
-    src <- readMemory addrX
-
-    tick 1
-    uselessly $ writeMemory addrX src
-
-    tick 1
-    addPC 2
-    dst <- op src
-    writeMemory addrX dst
-
--- 7 clock cycles
-{-# INLINE withAbsoluteY #-}
-withAbsoluteY :: Emu6502 m => (Word8 -> m Word8) -> m ()
-withAbsoluteY op = do
-    p0 <- getPC
-    index <- getY
-    addr <- read16tick p0
-
-    let (halfAddrY, addrY) = halfSum addr index
-
-    tick 1
-    discard $ readMemory halfAddrY
-
-    tick 1
-    src <- readMemory addrY
-
-    tick 1
-    uselessly $ writeMemory addrY src
-
-    tick 1
-    addPC 2
-    dst <- op src
-    writeMemory addrY dst
-
-{-# INLINABLE getData01 #-}
-getData01 :: Emu6502 m => Word8 -> m Word8
-getData01 bbb = do
-    case bbb of
-        0b000 -> readIndirectX
-        0b001 -> readZeroPage
-        0b010 -> readImmediate
-        0b011 -> readAbsolute
-        0b100 -> readIndirectY
-        0b101 -> readZeroPageX
-        0b110 -> readAbsoluteY
-        0b111 -> readAbsoluteX
-
-{-# INLINABLE getData02 #-}
-getData02 :: Emu6502 m =>
-              Word8 -> Bool ->
-              (Word8 -> m ()) ->
-              m ()
-getData02 bbb useY op = case bbb of
-    0b000 -> readImmediate >>= op
-    0b001 -> readZeroPage >>= op
-    0b010 -> error "Must write back to A"
-    0b011 -> readAbsolute >>= op
-    0b101 -> if useY
-                then readZeroPageY >>= op
-                else readZeroPageX >>= op
-    0b111 -> if useY
-            then readAbsoluteY >>= op
-            else readAbsoluteX >>= op
-
-    otherwise -> error "Unknown addressing mode"
-
--- Need to separate W and (RW/R) XXX XXX XXX
-{-# INLINABLE withData02 #-}
-withData02 :: Emu6502 m =>
-              Word8 -> Bool ->
-              (Word8 -> m Word8) ->
-              m ()
-withData02 bbb useY op = case bbb of
-    0b000 -> getPC >>= readMemory . ((-) 1) >>= illegal -- XXX reread mem. Should check in caller.
-    0b001 -> withZeroPage op
-    0b010 -> withAccumulator op
-    0b011 -> withAbsolute op
-    0b101 -> if useY then withZeroPageY op else withZeroPageX op
-    0b111 -> if useY then withAbsoluteY op else withAbsoluteX op
-
-    otherwise -> error "Unknown addressing mode"
-
-{-# INLINABLE putData02 #-}
-putData02 :: Emu6502 m => Word8 -> Bool -> Word8 -> m ()
-putData02 bbb useY src = case bbb of
-    0b000 -> error "No write immediate"
-    0b001 -> writeZeroPage src
-    0b010 -> error "No write accumulator"
-    0b011 -> writeAbsolute src
-    0b101 -> if useY then writeZeroPageY src else writeZeroPageX src
-    0b111 -> if useY then writeAbsoluteY src else writeAbsoluteX src
-
-    otherwise -> error "Unknown addressing mode"
-
-{-# INLINABLE putData01 #-}
-putData01 :: Emu6502 m => Word8 -> Word8 -> m ()
-putData01 bbb src = do
-    p0 <- getPC
-    case bbb of
-        0b000 -> writeIndirectX src -- (zero page, X)
-        0b001 -> writeZeroPage src
-        0b010 -> readMemory (p0-1) >>= illegal -- XXX imm. check in caller
-        0b011 -> writeAbsolute src
-        0b100 -> writeIndirectY src -- (zero page), Y
-        0b101 -> writeZeroPageX src
-        0b110 -> writeAbsoluteY src
-        0b111 -> writeAbsoluteX src
-
-{-# INLINABLE setN #-}
-setN :: Emu6502 m => Word8 -> m ()
-setN r = putN $ r >= 0x80
-
-{-# INLINABLE setZ #-}
-setZ :: Emu6502 m => Word8 -> m ()
-setZ r = putZ $ r == 0
-
-{-# INLINABLE setNZ #-}
-setNZ :: Emu6502 m => Word8 -> m Word8
-setNZ r = setN r >> setZ r >> return r
-
-{-# INLINABLE setNZ_ #-}
-setNZ_ :: Emu6502 m => Word8 -> m ()
-setNZ_ r = setN r >> setZ r
-
-{-# INLINABLE op_ora #-}
-op_ora :: Emu6502 m => Word8 -> m ()
-op_ora bbb = do
-    src <- getData01 bbb
-    oldA <- getA
-    let newA = oldA .|. src
-    putA newA
-    setNZ_ newA
-
-{-# INLINABLE op_and #-}
-op_and :: Emu6502 m => Word8 -> m ()
-op_and bbb = do
-    src <- getData01 bbb
-    getA >>= setNZ . (src .&.) >>= putA
-
-{-# INLINABLE op_xor #-}
-op_xor :: Emu6502 m => Word8 -> m ()
-op_xor bbb = do
-    src <- getData01 bbb
-    oldA <- getA
-    let newA = oldA `xor` src
-    putA newA
-    setNZ newA
-    debugStrLn 9 $ "A = " ++ show newA
-
-{-# INLINABLE op_lda #-}
-op_lda :: Emu6502 m => Word8 -> m ()
-op_lda bbb = do
-    getData01 bbb >>= setNZ >>= putA
-
-{-# INLINABLE op_sta #-}
-op_sta :: Emu6502 m => Word8 -> m ()
-op_sta bbb = getA >>= putData01 bbb
-
-{-# INLINABLE op_adc #-}
-op_adc :: Emu6502 m => Word8 -> m ()
-op_adc bbb = do
-    src <- getData01 bbb
-    oldA <- getA
-    carry <- getC
-    let newA = fromIntegral oldA+fromIntegral src+if carry then 1 else 0 :: Word16
-    decimal <- getD
-    setZ (i8 newA)
-    if decimal
-        then do
-            let adjustedA = if (oldA .&. 0xf) + (src .&. 0xf) + (if carry then 1 else 0) > 9
-                                then newA+6
-                                else newA
-            setN (i8 adjustedA)
-            putV $ (complement (fromIntegral oldA `xor` fromIntegral src) .&. 0x80) .&. ((fromIntegral oldA `xor` adjustedA) .&. 0x80) /= 0
-            let readjustedA = if adjustedA > 0x99 then adjustedA+96 else adjustedA
-            putC $ readjustedA > 0xff
-            putA $ fromIntegral (readjustedA .&. 0xff)
-        else do
-            setN (i8 newA)
-            putV $ (complement (fromIntegral oldA `xor` fromIntegral src) .&. 0x80) .&. ((fromIntegral oldA `xor` newA) .&. 0x80) /= 0
-            putC $ newA > 0xff
-            putA $ fromIntegral (newA .&. 0xff)
-
-{-# INLINABLE op_sbc #-}
-op_sbc :: Emu6502 m => Word8 -> m ()
-op_sbc bbb = do
-    src <- getData01 bbb
-    oldA <- getA
-    carry <- getC
-    let newA = fromIntegral oldA-fromIntegral src-if carry then 0 else 1 :: Word16
-    setNZ $ i8 newA
-    putV $ (((i16 oldA `xor` i16 src) .&. 0x80) /= 0) && (((i16 oldA `xor` newA) .&. 0x80) /= 0)
-    decimal <- getD
-    if decimal
-        then do
-            debugStrLn 9 $ "Decimal subtract oldA ="++showHex oldA "" ++ " src=" ++ showHex src ""
-            debugStrLn 9 $ "unadjusted = " ++ showHex newA ""
-            let adjustedA = if iz (oldA .&. 0xf)-(if carry then 0 else 1) < iz (src .&. 0xf)
-                                then newA - 6
-                                else newA
-            let readjustedA = if adjustedA > 0x99
-                                then adjustedA-0x60
-                                else adjustedA
-            putA $ fromIntegral (readjustedA .&. 0xff)
-            putC $ readjustedA < 0x100
-        else do
-            putA $ fromIntegral (newA .&. 0xff)
-            putC $ newA < 0x100
-    debugStrLn 9 $ "A = " ++ show newA
-
-{-# INLINABLE op_cmp #-}
-op_cmp :: Emu6502 m => Word8 -> m ()
-op_cmp bbb = do
-    src <- getData01 bbb
-    oldA <- getA
-    let new = i16 oldA-i16 src
-    putC $ new < 0x100
-    setNZ_ $ i8 new
-
-{-# INLINABLE op_asl #-}
-op_asl :: Emu6502 m => Word8 -> m ()
-op_asl bbb = withData02 bbb False $ \src -> do
-    putC $ src .&. 0x80 > 0
-    let new = src `shift` 1
-    setNZ new
-
-{-# INLINABLE op_rol #-}
-op_rol :: Emu6502 m => Word8 -> m ()
-op_rol bbb = withData02 bbb False $ \src -> do
-    fc <- getC
-    putC $ src .&. 0x80 > 0
-    let new = (src `shift` 1) + if fc then 1 else 0
-    setNZ new
-    return new
-
-{-# INLINABLE op_lsr #-}
-op_lsr :: Emu6502 m => Word8 -> m ()
-op_lsr bbb = withData02 bbb False $ \src -> do
-    putC $ src .&. 0x01 > 0
-    let new = src `shift` (-1)
-    putN False
-    setZ new
-    return new
-
-{-# INLINABLE op_ror #-}
-op_ror :: Emu6502 m => Word8 -> m ()
-op_ror bbb = withData02 bbb False $ \src -> do
-    fc <- getC
-    putC $ src .&. 0x01 > 0
-    let new = (src `shift` (-1))+if fc then 0x80 else 0x00
-    setNZ new
-
-{-# INLINABLE ins_stx #-}
-ins_stx :: Emu6502 m => Word8 -> m ()
-ins_stx bbb = getX >>= putData02 bbb True
-
-{-# INLINABLE op_ldx #-}
-op_ldx :: Emu6502 m => Word8 -> m ()
-op_ldx bbb = getData02 bbb True $ \src -> do
-    putX src
-    setNZ_ src
-
-{-# INLINABLE op_dec #-}
-op_dec :: Emu6502 m => Word8 -> m ()
-op_dec bbb = withData02 bbb False $ \src -> setNZ (src-1)
-
-{-# INLINABLE op_inc #-}
-op_inc :: Emu6502 m => Word8 -> m ()
-op_inc bbb = withData02 bbb False $ \src -> setNZ (src+1)
-
-{-# INLINABLE op_bit #-}
-op_bit :: Emu6502 m => Word8 -> m ()
-op_bit bbb = getData02 bbb False $ \src -> do
-    ra <- getA
-    setN src
-    putV $ src .&. 0x40 > 0
-    setZ $ ra .&. src
-
-{-# INLINABLE ins_sty #-}
-ins_sty :: Emu6502 m => Word8 -> m ()
-ins_sty bbb = getY >>= putData02 bbb False
-
-{-# INLINABLE op_ldy #-}
-op_ldy :: Emu6502 m => Word8 -> m ()
-op_ldy bbb = getData02 bbb False $ \src -> do
-    putY src
-    setNZ_ src
-
-{-# INLINABLE op_cpx #-}
-op_cpx :: Emu6502 m => Word8 -> m ()
-op_cpx bbb = getData02 bbb False $ \src -> do
-    rx <- getX
-    let new = i16 rx-i16 src
-    setNZ $ i8 new
-    putC $ new < 0x100
-
-{-# INLINABLE op_cpy #-}
-op_cpy :: Emu6502 m => Word8 -> m ()
-op_cpy bbb = getData02 bbb False $ \src -> do
-    ry <- getY
-    let new = i16 ry-i16 src
-    putC $ new < 0x100
-    setNZ_ $ i8 new
-
--- 2 clock cycles
-{-# INLINABLE ins_txs #-}
-ins_txs :: Emu6502 m => m ()
-ins_txs = do
-    tick 1
-    discard $ getPC >>= readMemory
-    getX >>= putS
-
--- 2 clock cycles
-{-# INLINABLE ins_transfer #-}
-ins_transfer :: Emu6502 m =>
-                     m Word8 -> (Word8 -> m ()) ->
-                     m ()
-ins_transfer getReg putReg = do
-    tick 1
-    discard $ getPC >>= readMemory
-    getReg >>= setNZ >>= putReg
-
--- 2 clock cycles
-{-# INLINABLE ins_incr #-}
-ins_incr :: Emu6502 m => m Word8 -> (Word8 -> m ()) -> m ()
-ins_incr getReg putReg = do
-    tick 1
-    discard $ getPC >>= readMemory
-    v0 <- getReg
-    let v1 = v0+1
-    setNZ v1
-    putReg v1
-
--- 2 clock cycles
-{-# INLINABLE ins_decr #-}
-ins_decr :: Emu6502 m => m Word8 -> (Word8 -> m ()) -> m ()
-ins_decr getReg putReg = do
-    tick 1
-    discard $ getPC >>= readMemory
-    v0 <- getReg
-    let v1 = v0-1
-    setNZ v1
-    putReg v1
-
-discard :: Emu6502 m => m Word8 -> m ()
-discard = void
-
--- 7 clock cycles
-{-# INLINABLE ins_brk #-}
-ins_brk :: Emu6502 m => m ()
-ins_brk = do
-    p0 <- getPC
-    incPC
-    discard $ readMemory p0
-
-    p0 <- getPC
-    incPC
-    push $ hi p0
-
-    incPC
-    push $ lo p0
-
-    putB True
-    incPC
-    getP >>= push . (.|. 0x20) -- always on bit
-    putI True
-
-    read16tick 0xfffe >>= putPC -- irq/brk XXX
-
--- Am I using wrong address for IRQ. Should it be 0xfffe for IRQ, 0xfffa for NMI?
--- XXX not supported correctly for now
-{-# INLINABLE irq #-}
-irq :: Emu6502 m => m ()
-irq = do
-    fi <- getI
-    if not fi
-        then nmi False
-        else return ()
-
-{-# INLINABLE push #-}
-push :: Emu6502 m => Word8 -> m ()
-push v = do
-    sp <- getS
-    writeMemory (0x100+i16 sp) v
-    putS (sp-1)
-
-{-# INLINABLE pull #-}
-pull :: Emu6502 m => m Word8
-pull = do
-    sp <- getS
-    let sp' = sp+1
-    putS sp'
-    readMemory (0x100+i16 sp')
-
--- 3 clock cycles
-{-# INLINABLE ins_pha #-}
-ins_pha ::Emu6502 m => m ()
-ins_pha = do
-    tick 1
-    discard $ getPC >>= readMemory
-
-    tick 1
-    getA >>= push
-
--- 3 clock cycles
-{-# INLINABLE ins_php #-}
-ins_php :: Emu6502 m => m ()
-ins_php = do
-    tick 1
-    discard $ getPC >>= readMemory
-
-    tick 1
-    getP >>= push . (.|. 0x30)
-
--- 4 clock cycles
-{-# INLINABLE ins_plp #-}
-ins_plp :: Emu6502 m => m ()
-ins_plp = do
-    tick 1
-    p0 <- getPC
-    discard $ readMemory p0
-
-    tick 1
-    s <- getS
-    discard $ readMemory (0x100+i16 s)
-
-    tick 1
-    pull >>= putP
-
--- 4 clock cycles
-{-# INLINABLE ins_pla #-}
-ins_pla :: Emu6502 m => m ()
-ins_pla = do
-    tick 1
-    p0 <- getPC
-    discard $ readMemory p0
-
-    tick 1
-    s <- getS
-    discard $ readMemory (0x100+i16 s)
-
-    tick 1
-    pull >>= setNZ >>= putA
-
-{-# INLINABLE lo #-}
-lo :: Word16 -> Word8
-lo = i8
-
-{-# INLINABLE hi #-}
-hi :: Word16 -> Word8
-hi a = i8 (a `shift` (-8))
-
-{-# INLINABLE nmi #-}
-nmi :: Emu6502 m => Bool -> m ()
-nmi sw = do
-    p0 <- getPC
-    push $ hi p0
-    push $ lo p0
-    putB sw
-    getP >>= push . (.|. 0x20) -- always on bit
-    putI True
-    read16 0xfffe >>= putPC -- irq/brk XXX
-    tick 7
-
--- 6 clock cycles
-{-# INLINABLE ins_rti #-}
-ins_rti :: Emu6502 m => m ()
-ins_rti = do
-    tick 1
-    p0 <- getPC
-    void $ readMemory p0
-
-    tick 1
-    s <- getS
-    discard $ readMemory (0x100 + fromIntegral s)
-
-    tick 1
-    pull >>= putP
-
-    make16 <$> (tick 1 >> pull) <*> (tick 1 >> pull) >>= putPC
-
--- 6 clock cycles
-{-# INLINABLE ins_jsr #-}
-ins_jsr :: Emu6502 m => m ()
-ins_jsr = do
-    tick 1
-    p0 <- getPC
-    pcl <- readMemory p0
-    incPC
-
-    tick 1
-    s <- getS
-    discard $ readMemory (0x100 + fromIntegral s)
-
-    p2 <- getPC
-
-    tick 1
-    push $ hi p2
-
-    tick 1
-    push $ lo p2
-
-    tick 1
-    pch <- readMemory p2
-
-    putPC $ make16 pcl pch
-
--- 6 clock cycles
-{-# INLINABLE ins_rts #-}
-ins_rts :: Emu6502 m => m ()
-ins_rts = do
-    tick 1
-    discard $ getPC >>= readMemory
-
-    tick 1
-    s <- getS
-    discard $ readMemory (0x100+i16 s)
-
-    p0 <- make16 <$> (tick 1 >> pull) <*> (tick 1 >> pull)
-    
-    tick 1
-    discard $ readMemory p0
-    putPC (p0+1)
-
-{-# INLINABLE step #-}
-step :: Emu6502 m => m ()
-step = do
-    debugStrLn 9 "------"
-    dumpState
-    p0 <- getPC
-    --if p0 == 0x3781 then debug .= True else return () -- XXX
-    if p0 == 0x400 then liftIO $ putStrLn "Started!!!" else return ()
-    if p0 == 0x3770 then liftIO $ putStrLn "Passed!!!" else return ()
-    debugStrLn 9 $ "pc = " ++ showHex p0 ""
-    tick 1
-    i <- readMemory p0
-    debugStrLn 9 $ "instruction = " ++ showHex i ""
-    incPC
-    case i of
-        0x00 -> ins_brk
-        0x08 -> ins_php
-        0x10 -> ins_bra getN False
-        0x18 -> ins_set putC False
-        0x20 -> ins_jsr
-        0x28 -> ins_plp
-        0x30 -> ins_bra getN True
-        0x38 -> ins_set putC True
-        0x40 -> ins_rti
-        0x48 -> ins_pha
-        0x50 -> ins_bra getV False
-        0x58 -> ins_set putI False
-        0x60 -> ins_rts
-        0x68 -> ins_pla
-        0x70 -> ins_bra getV True
-        0x78 -> ins_set putI True
-        0x88 -> ins_decr getY putY
-        0x8a -> ins_transfer getX putA
-        0x90 -> ins_bra getC False
-        0x98 -> ins_transfer getY putA
-        0x9a -> ins_txs
-        0xa8 -> ins_transfer getA putY
-        0xaa -> ins_transfer getA putX
-        0xb0 -> ins_bra getC True
-        0xb8 -> ins_set putV False
-        0xba -> ins_transfer getS putX
-        0xc8 -> ins_incr getY putY
-        0xca -> ins_decr getX putX
-        0xd0 -> ins_bra getZ False
-        0xd8 -> ins_set putD False
-        0xe8 -> ins_incr getX putX
-        0xea -> ins_nop
-        0xf0 -> ins_bra getZ True
-        0xf8 -> ins_set putD True
-
-        otherwise -> do
-            let cc = i .&. 0b11
-            debugStrLn 9 $ "cc = " ++ show cc
-            case cc of
-                0b00 -> do
-                    let aaa = (i `shift` (-5)) .&. 0b111
-                    let bbb = (i `shift` (-2)) .&. 0b111
-                    case aaa of
-                        0b001 -> op_bit bbb
-                        0b010 -> ins_jmp
-                        0b011 -> ins_jmp_indirect
-                        0b100 -> ins_sty bbb
-                        0b101 -> op_ldy bbb
-                        0b110 -> op_cpy bbb
-                        0b111 -> op_cpx bbb
-
-                        otherwise -> illegal i
-
-                0b01 -> do
-                    let aaa = (i `shift` (-5)) .&. 0b111
-                    let bbb = (i `shift` (-2)) .&. 0b111
-                    case aaa of
-
-                        0b000 -> op_ora bbb
-                        0b001 -> op_and bbb
-                        0b010 -> op_xor bbb
-                        0b011 -> op_adc bbb
-                        0b100 -> op_sta bbb
-                        0b101 -> op_lda bbb
-                        0b110 -> op_cmp bbb
-                        0b111 -> op_sbc bbb
-
-                        otherwise -> illegal i
-                0b10 -> do
-                    let aaa = (i `shift` (-5)) .&. 0b111
-                    let bbb = (i `shift` (-2)) .&. 0b111
-                    case aaa of
-
-                        0b000 -> op_asl bbb
-                        0b001 -> op_rol bbb
-                        0b010 -> op_lsr bbb
-                        0b011 -> op_ror bbb
-                        0b100 -> ins_stx bbb
-                        0b101 -> op_ldx bbb
-                        0b110 -> op_dec bbb
-                        0b111 -> op_inc bbb
-
-                otherwise -> illegal i
-    dumpState
-    return ()
-
--- END OF Core.hs
+{-# INLINABLE dumpRegisters #-}
+dumpRegisters :: Emu6502 m => m ()
+dumpRegisters = do
+    -- XXX bring clock back
+    --tClock <- use clock
+    --debugStr 9 $ "clock = " ++ show tClock
+    regPC <- getPC
+    debugStr 0 $ " pc = " ++ showHex regPC ""
+    regP <- getP
+    debugStr 0 $ " flags = " ++ showHex regP ""
+    debugStr 0 $ "(N=" ++ showHex ((regP `shift` (-7)) .&. 1) ""
+    debugStr 0 $ ",V=" ++ showHex ((regP `shift` (-6)) .&. 1) ""
+    debugStr 0 $ ",B=" ++ showHex (regP `shift` ((-4)) .&. 1) ""
+    debugStr 0 $ ",D=" ++ showHex (regP `shift` ((-3)) .&. 1) ""
+    debugStr 0 $ ",I=" ++ showHex (regP `shift` ((-2)) .&. 1) ""
+    debugStr 0 $ ",Z=" ++ showHex (regP `shift` ((-1)) .&. 1) ""
+    debugStr 0 $ ",C=" ++ showHex (regP .&. 1) ""
+    regA <- getA 
+    debugStr 0 $ ") A = " ++ showHex regA ""
+    regX <- getX
+    debugStr 0 $ " X = " ++ showHex regX ""
+    regY <- getY
+    debugStrLn 0 $ " Y = " ++ showHex regY ""
+    regS <- getS
+    debugStrLn 0 $ " N = " ++ showHex regS ""
+
+{-# INLINABLE dumpMemory #-}
+dumpMemory :: Emu6502 m => m ()
+dumpMemory = do
+    regPC <- getPC
+    b0 <- readMemory regPC
+    b1 <- readMemory (regPC+1)
+    b2 <- readMemory (regPC+2)
+    debugStr 0 $ "(PC) = "
+    debugStr 0 $ showHex b0 "" ++ " "
+    debugStr 0 $ showHex b1 "" ++ " "
+    debugStrLn 0 $ showHex b2 ""
+
+{-# INLINABLE dumpState #-}
+dumpState :: Emu6502 m => m ()
+dumpState = do
+    dumpMemory
+    dumpRegisters
 
 newtype OReg = OReg Word16 deriving (Ord, Ix, Eq, Num)
 newtype IReg = IReg Word16 deriving (Ord, Ix, Eq, Num)
@@ -1285,40 +164,87 @@ data Graphics = Graphics {
 
 $(makeLenses ''Graphics)
 
+data Sprites = Sprites {
+    _s_ppos0 :: !CInt,
+    _s_ppos1 :: !CInt,
+    _s_mpos0 :: !CInt,
+    _s_mpos1 :: !CInt,
+    _s_bpos :: !CInt
+}
+
+$(makeLenses ''Sprites)
+
+data StellaClock = Clock {
+    _now :: !Int64,
+    _last :: !Int64
+}
+
+$(makeLenses ''StellaClock)
+
+data StellaDebug = Debug {
+    _debugLevel :: !Int,
+    _xbreak :: !Int32,
+    _ybreak :: !Int32
+}
+
+$(makeLenses '' StellaDebug)
+
 data Stella = Stella {
      _oregisters :: IOUArray OReg Word8,
      _iregisters :: IOUArray IReg Word8,
-    _stellaClock :: !Int64,
-    _hpos :: !CInt,
-    _vpos :: !CInt,
-    _tvSurface :: !Surface,
+
     _vblank :: !Word8,
-    _ppos0 :: !CInt,
-    _ppos1 :: !CInt,
     _swcha :: !Word8,
     _swchb :: !Word8,
-    _mpos0 :: !CInt,
-    _mpos1 :: !CInt,
-    _bpos :: !CInt,
-    _intervalTimer :: IntervalTimer,
-    _stellaDebug :: !Int,
-    _lastClock :: !Int64,
-    _xbreak :: !Int32,
-    _ybreak :: !Int32,
-    _graphics :: Graphics
+
+    _stellaDebug :: StellaDebug,
+
+    _backSurface :: !Surface,
+    _frontSurface :: !Surface,
+    _frontWindow :: !SDL.Window,
+
+    _stellaClock :: StellaClock,
+    _position :: (CInt, CInt),
+    _graphics :: Graphics,
+    _sprites :: Sprites,
+    _intervalTimer :: IntervalTimer
 }
 
 $(makeLenses ''Stella)
+
+{-# INLINE hpos #-}
+{-# INLINE vpos #-}
+hpos, vpos :: Lens' Stella CInt
+hpos = position . _1
+vpos = position . _2
+
+{-# INLINE ppos0 #-}
+{-# INLINE ppos1 #-}
+{-# INLINE mpos0 #-}
+{-# INLINE mpos1 #-}
+{-# INLINE bpos #-}
+ppos0, ppos1, mpos0, mpos1, bpos :: Lens' Stella CInt
+ppos0 = sprites . s_ppos0
+ppos1 = sprites . s_ppos1
+mpos0 = sprites . s_mpos0
+mpos1 = sprites . s_mpos1
+bpos = sprites . s_bpos
+
+{-# INLINE nowClock #-}
+{-# INLINE lastClock #-}
+nowClock, lastClock :: Lens' Stella Int64
+nowClock = stellaClock . now
+lastClock = stellaClock . last
 
 {- INLINE stellaDebugStr -}
 stellaDebugStr :: (MonadIO m, MonadState Stella m) =>
                   Int -> String -> m ()
 stellaDebugStr n str = do
-    d <- use stellaDebug
+    d <- use (stellaDebug . debugLevel)
     if n <= d
         then do
             before <- use lastClock
-            now <- use stellaClock
+            now <- use nowClock
             liftIO $ putStr $ show now ++ " +" ++ show (now-before) ++ ": " ++ str
             lastClock .= now
         else return ()
@@ -1327,40 +253,40 @@ stellaDebugStr n str = do
 stellaDebugStrLn :: (MonadIO m, MonadState Stella m) =>
                     Int -> String -> m ()
 stellaDebugStrLn n str = do
-    d <- use stellaDebug
+    d <- use (stellaDebug . debugLevel)
     if n <= d
         then do
             before <- use lastClock
-            now <- use stellaClock
+            now <- use nowClock
             liftIO $ putStrLn $ show now ++ " +" ++ show (now-before) ++ ": " ++ str
             lastClock .= now
         else return ()
 
-{- INLINE putORegister -}
+{-# INLINE putORegister #-}
 putORegister :: (MonadIO m, MonadState Stella m) => OReg -> Word8 -> m ()
 putORegister i v = do
     r <- use oregisters
     liftIO $ writeArray r i v
 
-{- INLINE getORegister -}
+{-# INLINE getORegister #-}
 getORegister :: (MonadIO m, MonadState Stella m) => OReg -> m Word8
 getORegister i = do
     r <- use oregisters
     liftIO $ readArray r i
 
-{- INLINE putIRegister -}
+{-# INLINE putIRegister #-}
 putIRegister :: (MonadIO m, MonadState Stella m) => IReg -> Word8 -> m ()
 putIRegister i v = do
     r <- use iregisters
     liftIO $ writeArray r i v
 
-{- INLINE getIRegister -}
+{-# INLINE getIRegister #-}
 getIRegister :: (MonadIO m, MonadState Stella m) => IReg -> m Word8
 getIRegister i = do
     r <- use iregisters
     liftIO $ readArray r i
 
-{- INLINE orIRegister -}
+{-# INLINE orIRegister #-}
 orIRegister :: (MonadIO m, MonadState Stella m) => IReg -> Word8 -> m ()
 orIRegister i v = do
     r <- use iregisters
@@ -1384,6 +310,7 @@ explainNusiz nusiz =
 
 dumpStella :: (MonadIO m, MonadState Stella m) => m ()
 dumpStella = do
+    liftIO $ putStrLn "--------"
     hpos' <- use hpos
     vpos' <- use vpos
     liftIO $ putStrLn $ "hpos = " ++ show hpos' ++ " (" ++ show (hpos'-picx) ++ ") vpos = " ++ show vpos' ++ " (" ++ show (vpos'-picy) ++ ")"
@@ -1401,6 +328,19 @@ dumpStella = do
     nusiz1' <- getORegister nusiz1
     liftIO $ putStrLn $ "NUSIZ0 = " ++ showHex nusiz0' "" ++ "(" ++ explainNusiz nusiz0' ++
                         ") NUSIZ1 = " ++ showHex nusiz1' "" ++ "(" ++ explainNusiz nusiz1' ++ ")"
+    enam0' <- getORegister enam0
+    enam1' <- getORegister enam1
+    enablOld <- use (graphics . oldBall)
+    enablNew <- use (graphics . newBall)
+    liftIO $ putStr $ "ENAM0 = " ++ show (testBit enam0' 1)
+    liftIO $ putStr $ " ENAM1 = " ++ show (testBit enam1' 1)
+    liftIO $ putStrLn $ " ENABL = " ++ show (enablOld, enablNew)
+    mpos0' <- use mpos0
+    mpos1' <- use mpos1
+    hmm0' <- getORegister hmm0
+    hmm1' <- getORegister hmm1
+    liftIO $ putStr $ "missile0 @ " ++ show mpos0' ++ "(" ++ show (clockMove hmm0') ++ ")"
+    liftIO $ putStrLn $ " missile1 @ " ++ show mpos1' ++ "(" ++ show (clockMove hmm1') ++ ")"
     vdelp0' <- use (graphics . delayP0)
     vdelp1' <- use (graphics . delayP1)
     vdelbl' <- use (graphics . delayBall)
@@ -1411,15 +351,9 @@ dumpStella = do
 
 {- INLINE playfield -}
 playfield :: (MonadIO m, MonadState Stella m) => Int -> m Bool
-playfield i | i >= 0 && i < 4 = do
-                pf0' <- getORegister pf0
-                return $ testBit pf0' (i+4)
-            | i >=4 && i < 12 = do
-                pf1' <- getORegister pf1
-                return $ testBit pf1' (11-i)
-            | i >= 12 && i < 20 = do
-                pf2' <- getORegister pf2
-                return $ testBit pf2' (i-12)
+playfield i | i >= 0 && i < 4 = flip testBit (i+4) <$> getORegister pf0
+            | i >=4 && i < 12 = flip testBit (11-i) <$> getORegister pf1
+            | i >= 12 && i < 20 = flip testBit (i-12) <$> getORegister pf2
 playfield i | i >= 20 && i < 40 = do
                 ctrlpf' <- getORegister ctrlpf
                 playfield $ if testBit ctrlpf' 0 then 39-i else i-20
@@ -1470,24 +404,19 @@ stretchPlayer reflect sizeCopies o bitmap =
 {- INLINE player0 -}
 player0 :: (MonadIO m, MonadState Stella m) => m Bool
 player0 = do
-    hpos' <- use hpos
-    ppos0' <- use ppos0
-    let o = hpos'-ppos0' :: CInt
+    o <- (-) <$> use hpos <*> use ppos0
     sizeCopies <- (0b111 .&.) <$> getORegister nusiz0
     delayP0' <- use (graphics . delayP0)
     grp0' <- if delayP0'
         then use (graphics . oldGrp0)
         else use (graphics . newGrp0)
     refp0' <- getORegister refp0
-    let reflected = testBit refp0' 3
-    return $ stretchPlayer reflected sizeCopies o grp0'
+    return $ stretchPlayer (testBit refp0' 3) sizeCopies o grp0'
 
 {- INLINE player1 -}
 player1 :: (MonadIO m, MonadState Stella m) => m Bool
 player1 = do
-    hpos' <- use hpos
-    ppos1' <- use ppos1
-    let o = hpos'-ppos1' :: CInt
+    o <- (-) <$> use hpos <*> use ppos1
     sizeCopies <- (0b111 .&.) <$> getORegister nusiz1
     delayP1' <- use (graphics . delayP1)
     grp1' <- if delayP1'
@@ -1496,38 +425,42 @@ player1 = do
     refp1' <- getORegister refp1
     return $ stretchPlayer (testBit refp1' 3) sizeCopies o grp1'
 
+missileSize :: Word8 -> CInt
+missileSize nusiz = 1 `shift` (fromIntegral ((nusiz `shift` (-4)) .&. 0b11))
+
 -- Stella programmer's guide p.22
 {- INLINE missile0 -}
 missile0 :: (MonadIO m, MonadState Stella m) => m Bool
 missile0 = do
     enam0' <- getORegister enam0
     resmp0' <- getORegister resmp0
-    if testBit enam0' 1
+    if testBit resmp0' 1
         then do
-            hpos' <- use hpos
-            when (testBit resmp0' 1) $ use hpos >>= (mpos0 .=)
-            mpos0' <- use mpos0
-            let o = hpos'-mpos0' :: CInt
-            nusiz0' <- getORegister nusiz0
-            let missileSize = 1 `shift` (fromIntegral ((nusiz0' `shift` (fromIntegral $ -4)) .&. 0b11))
-            return $ o >= 0 && o < missileSize
-        else return False
+            use hpos >>= (mpos0 .=)
+            return False
+        else if testBit enam0' 1
+            then do
+                o <- (-) <$> use hpos <*> use mpos0
+                nusiz0' <- getORegister nusiz0
+                return $ o >= 0 && o < missileSize nusiz0'
+            else return False
+
 
 {- INLINE missile1 -}
 missile1 :: (MonadIO m, MonadState Stella m) => m Bool
 missile1 = do
     enam1' <- getORegister enam1
     resmp1' <- getORegister resmp1
-    if testBit enam1' 1
-        then do
-            hpos' <- use hpos 
-            when (testBit resmp1' 1) $ use hpos >>= (mpos1 .=) -- XXX may need to do this on resmp
-            mpos1' <- use mpos1
-            let o = hpos'-mpos1' :: CInt
-            nusiz1' <- getORegister nusiz1
-            let missileSize = 1 `shift` (fromIntegral ((nusiz1' `shift` (fromIntegral $ -4)) .&. 0b11))
-            return $ o >= 0 && o < missileSize
-        else return False
+    if (testBit resmp1' 1)
+        then do 
+            use hpos >>= (mpos1 .=) -- XXX may need to do this on resmp
+            return False
+        else if testBit enam1' 1
+            then do
+                o <- (-) <$> use hpos <*> use mpos1
+                nusiz1' <- getORegister nusiz1
+                return $ o >= 0 && o < missileSize nusiz1'
+            else return False
 
 {- INLINE ball -}
 ball :: (MonadIO m, MonadState Stella m) => m Bool
@@ -1547,7 +480,7 @@ ball = do
 screenWidth, screenHeight :: CInt
 (screenWidth, screenHeight) = (160, 192)
 
-{- INLINE clockMove -}
+{-# INLINE clockMove #-}
 clockMove :: Word8 -> CInt
 clockMove i = fromIntegral ((fromIntegral i :: Int8) `shift` (-4))
 
@@ -1586,17 +519,20 @@ stellaHmove = do
     ppos0 .= wrap160 (ppos0'-clockMove poffset0)
 
     poffset1 <- getORegister hmp1
-    ppos1 -= clockMove poffset1
+    ppos1' <- use ppos1
+    ppos1 .= wrap160 (ppos1'-clockMove poffset1)
 
     moffset0 <- getORegister hmm0
-    mpos0 -= clockMove moffset0
+    mpos0' <- use mpos0
+    mpos0 .= wrap160 (mpos0'-clockMove moffset0) -- XXX do rest
 
     moffset1 <- getORegister hmm1
     mpos1' <- use mpos1
     mpos1 .= wrap160 (mpos1'-clockMove moffset1) -- XXX do rest
 
     boffset <- getORegister hmbl
-    bpos -= clockMove boffset
+    bpos' <- use bpos
+    bpos .= wrap160 (bpos'-clockMove boffset)
 
 {- INLINE stellaResmp0 -}
 stellaResmp0 :: (MonadIO m, MonadState Stella m) => m ()
@@ -1610,12 +546,29 @@ stellaResmp1 = use ppos1 >>= (mpos1 .=) -- XXX
 stellaWsync :: (MonadIO m, MonadState Stella m) => m ()
 stellaWsync = do
     hpos' <- use hpos
-    stellaTick (233-fromIntegral hpos') -- 228
+    --stellaTick (233-fromIntegral hpos') -- 228
+    stellaTick (228-fromIntegral hpos') 
 
 -- http://atariage.com/forums/topic/107527-atari-2600-vsyncvblank/
 
+xscale, yscale :: CInt
+xscale = 5
+yscale = 3
+
+renderDisplay :: StateT Stella IO ()
+renderDisplay = do
+    backSurface' <- use backSurface
+    frontSurface' <- use frontSurface
+    window' <- use frontWindow
+    liftIO $ unlockSurface backSurface'
+    liftIO $ SDL.surfaceBlitScaled backSurface' Nothing frontSurface'
+                (Just (Rectangle (P (V2 0 0))
+                    (V2 (screenWidth*xscale) (screenHeight*yscale))))
+    liftIO $ lockSurface backSurface'
+    liftIO $ SDL.updateWindowSurface window'
+
 {- INLINE stellaVsync -}
-stellaVsync :: (MonadIO m, MonadState Stella m) => Word8 -> m ()
+stellaVsync :: Word8 -> StateT Stella IO ()
 stellaVsync v = do
     stellaDebugStrLn 0 $ "VSYNC " ++ showHex v ""
     oldv <- getORegister vsync
@@ -1623,6 +576,7 @@ stellaVsync v = do
             hpos .= 0
             vpos .= 0
     putORegister vsync v
+    renderDisplay
 
 {- INLINE stellaVblank -}
 stellaVblank :: (MonadIO m, MonadState Stella m) => Word8 -> m ()
@@ -1636,15 +590,6 @@ stellaVblank v = do
         i <- getIRegister inpt5
         putIRegister inpt5 (setBit i 7)
 
-    --liftIO $ putStrLn $ show vold ++ " -> " ++ show v
-    {-
-    if (vold .&. 0b00000010 /= 0) && (v .&. 0b00000010 == 0)
-        then do
-            --liftIO $ print "VBLANK"
-            hpos .= 0
-            vpos .= 0
-        else return ()
-    -}
     vblank .= v
 
 -- player0
@@ -1657,7 +602,7 @@ picx = 68
 data Pixel = Pixel { plogic :: !Bool, pcolor :: !Word8 }
 
 instance Monoid Pixel where
-    {- INLINE mappend -}
+    {-# INLINE mappend #-}
     mempty = Pixel False 0
     _ `mappend` pixel@(Pixel True _) = pixel
     pixel `mappend` (Pixel False _) = pixel
@@ -1687,47 +632,30 @@ compositeAndCollide x = do
     pmissile1 <- Pixel <$> missile1 <*> return colup1'
     pball <- Pixel <$> ball <*> getORegister colupf
 
-    orIRegister cxm0p $ bit 7 (plogic pmissile0 && plogic pplayer1) .|.
-                        bit 6 (plogic pmissile0 && plogic pplayer0)
-    orIRegister cxm1p $ bit 7 (plogic pmissile1 && plogic pplayer0) .|.
-                        bit 6 (plogic pmissile1 && plogic pplayer1)
-    orIRegister cxp0fb $ bit 7 (plogic pplayer0 && plogic pplayfield) .|.
-                         bit 6 (plogic pplayer0 && plogic pball)
-    orIRegister cxp1fb $ bit 7 (plogic pplayer1 && plogic pplayfield) .|.
-                         bit 6 (plogic pplayer1 && plogic pball)
-    orIRegister cxm0fb $ bit 7 (plogic pmissile0 && plogic pplayfield) .|.
-                         bit 6 (plogic pmissile0 && plogic pball)
-    orIRegister cxm1fb $ bit 7 (plogic pmissile1 && plogic pplayfield) .|.
-                         bit 6 (plogic pmissile1 && plogic pball)
-    orIRegister cxblpf $ bit 7 (plogic pball && plogic pplayfield)
-    orIRegister cxppmm $ bit 7 (plogic pplayer0 && plogic pplayer1) .|.
-                         bit 6 (plogic pmissile0 && plogic pmissile1)
-    
+    let lmissile0 = plogic pmissile0
+    let lmissile1 = plogic pmissile1
+    let lplayer0 = plogic pplayer0
+    let lplayer1 = plogic pplayer1
+    let lball = plogic pball
+    let lplayfield = plogic pplayfield
+
+    orIRegister cxm0p $ bit 7 (lmissile0 && lplayer1) .|.  bit 6 (lmissile0 && lplayer0)
+    orIRegister cxm1p $ bit 7 (lmissile1 && lplayer0) .|.  bit 6 (lmissile1 && lplayer1)
+    orIRegister cxp0fb $ bit 7 (lplayer0 && lplayfield) .|.  bit 6 (lplayer0 && lball)
+    orIRegister cxp1fb $ bit 7 (lplayer1 && lplayfield) .|.  bit 6 (lplayer1 && lball)
+    orIRegister cxm0fb $ bit 7 (lmissile0 && lplayfield) .|.  bit 6 (lmissile0 && lball)
+    orIRegister cxm1fb $ bit 7 (lmissile1 && lplayfield) .|.  bit 6 (lmissile1 && lball)
+    orIRegister cxblpf $ bit 7 (lball && lplayfield)
+    orIRegister cxppmm $ bit 7 (lplayer0 && lplayer1) .|.  bit 6 (lmissile0 && lmissile1)
+
     -- Get ordering priority
     let Pixel _ final = pbackground `mappend`
                         if testBit ctrlpf' 2
-                            then mconcat [pplayer1, pmissile1, pplayer0, pmissile0, pplayfield, pball]
-                            else mconcat [pball, pplayfield, pplayer1, pmissile1, pplayer0, pmissile0]
+                            --then mconcat [pplayer1, pmissile1, pplayer0, pmissile0, pplayfield, pball]
+                            ----else mconcat [pball, pplayfield, pplayer1, pmissile1, pplayer0, pmissile0]
+                            then pplayer1 `mappend` pmissile1 `mappend` pplayer0 `mappend` pmissile0 `mappend` pplayfield `mappend` pball
+                            else pball `mappend` pplayfield `mappend` pplayer1 `mappend` pmissile1 `mappend` pplayer0 `mappend` pmissile0
     return final
-
-{-
-    x <- use intim
-    y <- use interval
-    stellaDebugStrLn 0 $ "clock = " ++ show x
-    stellaClock += 1
-    subtimer' <- use subtimer
-    let subtimer'' = subtimer'-1
-    subtimer .= subtimer''
-    when (subtimer' == 0) $ do
-        interval' <- use interval
-        subtimer .= 3*interval'-1
-        intim' <- use intim
-        let intim'' = intim'-1
-        intim .= intim''
-        when (intim' == 0) $ do
-            subtimer .= 3*1-1
-            interval .= 1
--}
 
 {-# INLINABLE timerTick #-}
 timerTick :: IntervalTimer -> IntervalTimer
@@ -1744,19 +672,30 @@ timerTick timer =
                 then timer & intim .~ intim'' & subtimer .~ (3*interval'-1) 
                 else IntervalTimer intim'' (3*1-1) 1
 
+{-# INLINABLE updatePos #-}
+updatePos :: (CInt, CInt) -> (CInt, CInt)
+updatePos (hpos, vpos) =
+    let hpos' = hpos+1
+    in if hpos' < picx+160
+        then (hpos', vpos)
+        else let vpos' = vpos+1
+             in if vpos' < picy+192
+                then (0, vpos')
+                else (0, 0)
+
 stellaTick :: (MonadIO m, MonadState Stella m) => Int -> m ()
 stellaTick 0 = return ()
 stellaTick n = do
-    xbreak' <- use xbreak
-    ybreak' <- use ybreak
+    xbreak' <- use (stellaDebug . xbreak)
+    ybreak' <- use (stellaDebug . ybreak)
     hpos' <- use hpos
-    vpos' <- use vpos
+    vpos' <- use (vpos)
     when (hpos' == fromIntegral xbreak' && vpos' == fromIntegral ybreak') $ do
         dumpStella
-        xbreak .= (-1)
-        ybreak .= (-1)
+        stellaDebug . xbreak .= (-1)
+        stellaDebug . ybreak .= (-1)
 
-    stellaClock += 1
+    nowClock += 1
 
     -- Interval timer
     oldIntervalTimer <- use intervalTimer
@@ -1765,7 +704,7 @@ stellaTick n = do
     
     -- Display
     when (vpos' >= picy && vpos' < picy+192 && hpos' >= picx) $ do
-        surface <- use tvSurface
+        surface <- use backSurface
         ptr <- liftIO $ surfacePixels surface
         let ptr' = castPtr ptr :: Ptr Word32
         let x = hpos'-picx
@@ -1775,27 +714,12 @@ stellaTick n = do
         final <- compositeAndCollide x
 
         liftIO $ pokeElemOff ptr' (fromIntegral i) (lut!(final `shift` (-1)))
-    hpos += 1
-    hpos' <- use hpos
-    when (hpos' >= picx+160) $ do
-        hpos .= 0
-        vpos += 1
-        vpos' <- use vpos
-        when (vpos' >= picy+192) $ vpos .= 0
-    stellaTick (n-1)
 
-renderFrame :: (MonadIO m, MonadState Stella m) => m ()
-renderFrame = do
-    surface <- use tvSurface
-    ptr <- liftIO $ surfacePixels surface
-    let ptr' = castPtr ptr :: Ptr Word32
-    liftIO $ lockSurface surface
-    forM_ [0..screenHeight-1] $ \row -> do
-        forM_ [0..screenWidth-1] $ \col -> do
-            let i = screenWidth*row+col
-            liftIO $ pokeElemOff ptr' (fromIntegral i) (fromIntegral col)
-            return ()
-    liftIO $ unlockSurface surface
+    position' <- use position
+    let position'' = updatePos position'
+    position .= position''
+
+    stellaTick (n-1)
 
 data Registers = R {
     _pc :: !Word16,
@@ -1806,42 +730,42 @@ data Registers = R {
     _s :: !Word8
 }
 
-makeLenses ''Registers
+$(makeLenses ''Registers)
 
-{- INLINE flagC -}
+{-# INLINE flagC #-}
 flagC :: Lens' Registers Bool
 flagC = p . bitAt 0
 
-{- INLINE flagZ -}
+{-# INLINE flagZ #-}
 flagZ :: Lens' Registers Bool
 flagZ = p . bitAt 1
 
-{- INLINE flagI -}
+{-# INLINE flagI #-}
 flagI :: Lens' Registers Bool
 flagI = p . bitAt 2
 
-{- INLINE flagD -}
+{-# INLINE flagD #-}
 flagD :: Lens' Registers Bool
 flagD = p . bitAt 3
 
-{- INLINE flagB -}
+{-# INLINE flagB #-}
 flagB :: Lens' Registers Bool
 flagB = p . bitAt 4
 
-{- INLINE flagV -}
+{-# INLINE flagV #-}
 flagV :: Lens' Registers Bool
 flagV = p . bitAt 6
 
-{- INLINE flagN -}
+{-# INLINE flagN #-}
 flagN :: Lens' Registers Bool
 flagN = p . bitAt 7
 
 data StateAtari = S {
+    _stella :: Stella,
     _mem :: IOUArray Int Word8,
-    _clock :: !Int,
     _regs :: !Registers,
-    _debug :: !Int,
-    _stella :: Stella
+    _clock :: !Int,
+    _debug :: !Int
 }
 
 makeLenses ''StateAtari
@@ -1855,31 +779,19 @@ newtype MonadAtari a = M { unM :: StateT StateAtari IO a }
 setBreak :: (MonadIO m, MonadState Stella m) =>
                Int32 -> Int32 -> m ()
 setBreak x y = do
-    xbreak .= x+fromIntegral picx
-    ybreak .= y+fromIntegral picy
+    stellaDebug . xbreak .= x+fromIntegral picx
+    stellaDebug . ybreak .= y+fromIntegral picy
 
-{- INLINE usingStella -}
-usingStella :: MonadState StateAtari m =>
-               StateT Stella m a -> m a
+{-# INLINE usingStella #-}
+usingStella :: StateT Stella IO a -> MonadAtari a
 usingStella m = do
     stella' <- use stella
-    (a, stella'') <- flip runStateT stella' m
+    (a, stella'') <- liftIO $ flip runStateT stella' m
     stella .= stella''
     return a
 
-{-
-usingIntervalTimer :: MonadState Stella m =>
-               StateT IntervalTimer m a -> m a
-usingIntervalTimer m = do
-    intervalTimer' <- use intervalTimer
-    (a, intervalTimer'') <- flip runStateT intervalTimer' m
-    intervalTimer .= intervalTimer''
-    return a
--}
-
-{- INLINE writeStella -}
-writeStella :: (MonadIO m, MonadState Stella m) =>
-               Word16 -> Word8 -> m ()
+{- INLINABLE writeStella -}
+writeStella :: Word16 -> Word8 -> StateT Stella IO ()
 writeStella addr v = 
     case addr of
        0x00 -> stellaVsync v             -- VSYNC
@@ -1897,11 +809,11 @@ writeStella addr v =
        0x0d -> putORegister pf0 v                  -- PF0
        0x0e -> putORegister pf1 v                  -- PF1
        0x0f -> putORegister pf2 v                  -- PF2
-       0x10 -> use hpos >>= (ppos0 .=)   -- RESP0
-       0x11 -> use hpos >>= (ppos1 .=)   -- RESP1
-       0x12 -> use hpos >>= (mpos0 .=)   -- RESM0
-       0x13 -> use hpos >>= (mpos1 .=)   -- RESM1
-       0x14 -> use hpos >>= (bpos .=)    -- RESBL
+       0x10 -> use hpos >>= ((ppos0 .=) . (+5))   -- RESP0
+       0x11 -> use hpos >>= ((ppos1 .=) . (+5))   -- RESP1
+       0x12 -> use hpos >>= (mpos0 .=) . (+4)   -- RESM0
+       0x13 -> use hpos >>= (mpos1 .=) . (+4)   -- RESM1
+       0x14 -> use hpos >>= (bpos .=) . (+4)    -- RESBL
        0x1b -> do -- GRP0
                 graphics . newGrp0 .= v
                 use (graphics . newGrp1) >>= (graphics . oldGrp1 .=)
@@ -1944,7 +856,7 @@ writeStella addr v =
         intervalTimer . intim .= v
        otherwise -> return () -- liftIO $ putStrLn $ "writing TIA 0x" ++ showHex addr ""
 
-{- INLINE readStella -}
+{- INLINABLE readStella -}
 readStella :: (MonadIO m, MonadState Stella m) =>
               Word16 -> m Word8
 readStella addr = 
@@ -2027,13 +939,13 @@ instance Emu6502 MonadAtari where
                 else if isRAM addr
                         then do
                             m <- use mem
-                            liftIO $ readArray m (fromIntegral addr .&. 0xff)
+                            liftIO $ readArray m (iz addr .&. 0xff)
                         else if isRIOT addr
                             then usingStella $ readStella (0x280+(addr .&. 0x1f))
                             else if addr >= 0x1000
                                 then do
                                     m <- use mem
-                                    liftIO $ readArray m (fromIntegral addr)
+                                    liftIO $ readArray m (iz addr)
                                 else error $ "Mystery read from " ++ showHex addr ""
 
 
@@ -2045,72 +957,72 @@ instance Emu6502 MonadAtari where
                 else if isRAM addr
                         then do
                             m <- use mem
-                            liftIO $ writeArray m (fromIntegral addr .&. 0xff) v
+                            liftIO $ writeArray m (iz addr .&. 0xff) v
                         else if isRIOT addr
                                 then usingStella $ writeStella (0x280+(addr .&. 0x1f)) v
                                 else if addr >= 0x1000
                                     then do
                                         m <- use mem
-                                        liftIO $ writeArray m (fromIntegral addr) v
+                                        liftIO $ writeArray m (iz addr) v
                                     else error $ "Mystery write to " ++ showHex addr ""
 
-    {- INLINE getPC -}
+    {-# INLINE getPC #-}
     getPC = use (regs . pc)
-    {- INLINE tick -}
+    {-# INLINE tick #-}
     tick n = do
         clock += n
         usingStella $ stellaTick (3*n)
-    {- INLINE putC -}
+    {-# INLINE putC #-}
     putC b = regs . flagC .= b
-    {- INLINE getC -}
+    {-# INLINE getC #-}
     getC = use (regs . flagC)
-    {- INLINE putZ -}
+    {-# INLINE putZ #-}
     putZ b = regs . flagZ .= b
-    {- INLINE getZ -}
+    {-# INLINE getZ #-}
     getZ = use (regs . flagZ)
-    {- INLINE putI -}
+    {-# INLINE putI #-}
     putI b = regs . flagI .= b
-    {- INLINE getI -}
+    {-# INLINE getI #-}
     getI = use (regs . flagI)
-    {- INLINE putD -}
+    {-# INLINE putD #-}
     putD b = regs . flagD .= b
-    {- INLINE getD -}
+    {-# INLINE getD #-}
     getD = use (regs . flagD)
-    {- INLINE putB -}
+    {-# INLINE putB #-}
     putB b = regs . flagB .= b
-    {- INLINE getB -}
+    {-# INLINE getB #-}
     getB = use (regs . flagB)
-    {- INLINE putV -}
+    {-# INLINE putV #-}
     putV b = regs . flagV .= b
-    {- INLINE getV -}
+    {-# INLINE getV #-}
     getV = use (regs . flagV)
-    {- INLINE putN -}
+    {-# INLINE putN #-}
     putN b = regs . flagN .= b
-    {- INLINE getN -}
+    {-# INLINE getN #-}
     getN = use (regs . flagN)
-    {- INLINE getA -}
+    {-# INLINE getA #-}
     getA = use (regs . a)
-    {- INLINE putA -}
+    {-# INLINE putA #-}
     putA r = regs . a .= r
-    {- INLINE getS -}
+    {-# INLINE getS #-}
     getS = use (regs . s)
-    {- INLINE putS -}
+    {-# INLINE putS #-}
     putS r = regs . s .= r
-    {- INLINE getX -}
+    {-# INLINE getX #-}
     getX = use (regs . x)
-    {- INLINE putX -}
+    {-# INLINE putX #-}
     putX r = regs . x .= r
-    {- INLINE getP -}
+    {-# INLINE getP #-}
     getP = use (regs . p)
-    {- INLINE putP -}
+    {-# INLINE putP #-}
     putP r = regs . p .= r
-    {- INLINE getY -}
+    {-# INLINE getY #-}
     getY = use (regs . y)
-    {- INLINE putY -}
+    {-# INLINE putY #-}
     putY r = regs . y .= r
-    {- INLINE putPC -}
+    {-# INLINE putPC #-}
     putPC r = regs . pc .= r
-    {- INLINE addPC -}
+    {-# INLINE addPC #-}
     addPC n = regs . pc += fromIntegral n
 
     {- INLINE debugStr 9 -}
@@ -2139,46 +1051,75 @@ times :: (Integral n, Monad m) => n -> m a -> m ()
 times 0 _ = return ()
 times n m = m >> times (n-1) m
 
-scale :: CInt
-scale = 4
-
 {- INLINE isPressed -}
 isPressed :: InputMotion -> Bool
 isPressed Pressed = True
 isPressed Released = False
 
-main :: IO ()
-main = do
-  args <- cmdArgs clargs
-  SDL.initialize [SDL.InitVideo]
-  window <- SDL.createWindow "Stellarator" SDL.defaultWindow { SDL.windowInitialSize = V2 (scale*screenWidth) (scale*screenHeight) }
-  SDL.showWindow window
-  screenSurface <- SDL.getWindowSurface window
+handleEvent :: Event -> MonadAtari ()
+handleEvent event =
+    case eventPayload event of
+        MouseButtonEvent
+            (MouseButtonEventData win Pressed device ButtonLeft clicks pos) -> do
+            liftIO $ print pos
+            let P (V2 x y) = pos
+            usingStella $ setBreak (x `div` fromIntegral xscale) (y `div` fromIntegral yscale)
+        MouseMotionEvent
+            (MouseMotionEventData win device [ButtonLeft] pos rel) -> do
+            liftIO $ print pos
+            let P (V2 x y) = pos
+            usingStella $ setBreak (x `div` fromIntegral xscale) (y `div` fromIntegral yscale)
+        KeyboardEvent
+            (KeyboardEventData win motion rep sym) -> do
+            handleKey motion sym
 
-  helloWorld <- createRGBSurface (V2 screenWidth screenHeight) RGB888
+        otherwise -> return ()
 
-  memory <- newArray (0, 0x2000) 0 :: IO (IOUArray Int Word8)
-  readBinary memory (file args) 0x1000
-  pclo <- readArray memory 0x1ffc
-  pchi <- readArray memory 0x1ffd
-  let initialPC = fromIntegral pclo+(fromIntegral pchi `shift` 8)
+handleKey :: InputMotion -> Keysym -> MonadAtari ()
+handleKey motion sym =
+    let pressed = isPressed motion
+    in case keysymScancode sym of
+        SDL.Scancode1 -> dumpState
+        SDL.ScancodeUp -> usingStella $ swcha . bitAt 4 .= not pressed
+        SDL.ScancodeDown -> usingStella $ swcha . bitAt 5 .= not pressed
+        SDL.ScancodeLeft -> usingStella $ swcha . bitAt 6 .= not pressed
+        SDL.ScancodeRight -> usingStella $ swcha . bitAt 7 .= not pressed
+        SDL.ScancodeC -> usingStella $ swchb . bitAt 1 .= not pressed
+        SDL.ScancodeV -> usingStella $ swchb . bitAt 0 .= not pressed
+        SDL.ScancodeSpace -> usingStella $ do
+            latch <- use (vblank . bitAt 6)
+            case (latch, pressed) of
+                (False, _) -> do
+                    inpt4' <- getIRegister inpt4
+                    putIRegister inpt4 ((clearBit inpt4' 7) .|. bit 7 (not pressed))
+                (True, False) -> return ()
+                (True, True) -> do
+                    inpt4' <- getIRegister inpt4
+                    putIRegister inpt4 (clearBit inpt4' 7)
+        SDL.ScancodeEscape -> liftIO $ exitSuccess
+        otherwise -> return ()
 
-  oregs <- newArray (0, 0x3f) 0
-  iregs <- newArray (0, 0x0d) 0
-  let stella = Stella {
+initState :: IOUArray OReg Word8 ->
+             IOUArray IReg Word8 ->
+             Surface -> Surface ->
+             SDL.Window -> Stella
+initState oregs iregs helloWorld screenSurface window = Stella {
       _oregisters = oregs,
       _iregisters = iregs,
-      _stellaClock = 0,
-      _hpos = 0,
-      _vpos = 0,
-      _tvSurface = helloWorld,
+      _position = (0, 0),
+      _backSurface = helloWorld,
+      _frontSurface = screenSurface,
+      _frontWindow = window,
       _vblank = 0,
-      _ppos0 = 9999,
-      _ppos1 = 9999,
+      _sprites = Sprites {
+          _s_ppos0 = 9999,
+          _s_ppos1 = 9999,
+          _s_mpos0 = 0,
+          _s_mpos1 = 0,
+          _s_bpos = 0
+      },
       _swcha = 0xff,
       _swchb = 0b00001011,
-      _mpos0 = 0, _mpos1 = 0,
-      _bpos = 0,
       _intervalTimer = IntervalTimer {
           _intim = 0,
           _subtimer = 0,
@@ -2195,19 +1136,44 @@ main = do
           _oldBall = False,
           _newBall = False
       },
-      _lastClock = 0,
-      _stellaDebug = -1,
-      _xbreak = -1,
-      _ybreak = -1
+      _stellaClock = Clock {
+          _now = 0,
+          _last = 0
+      },
+      _stellaDebug = Debug {
+          _debugLevel = -1,
+          _xbreak = -1,
+          _ybreak = -1
+      }
   }
+
+main :: IO ()
+main = do
+  args <- cmdArgs clargs
+  SDL.initialize [SDL.InitVideo]
+  window <- SDL.createWindow "Stellarator" SDL.defaultWindow { SDL.windowInitialSize = V2 (xscale*screenWidth) (yscale*screenHeight) }
+  SDL.showWindow window
+  screenSurface <- SDL.getWindowSurface window
+
+  helloWorld <- createRGBSurface (V2 screenWidth screenHeight) RGB888
+
+  memory <- newArray (0, 0x2000) 0 :: IO (IOUArray Int Word8)
+  readBinary memory (file args) 0x1000
+  pclo <- readArray memory 0x1ffc
+  pchi <- readArray memory 0x1ffd
+  let initialPC = fromIntegral pclo+(fromIntegral pchi `shift` 8)
+
+  oregs <- newArray (0, 0x3f) 0
+  iregs <- newArray (0, 0x0d) 0
+  let stella = initState oregs iregs helloWorld screenSurface window
   let state = S { _mem = memory,  _clock = 0, _regs = R initialPC 0 0 0 0 0xff,
                    _debug = 8,
                    _stella = stella}
 
   let loopUntil n = do
-        stellaClock' <- usingStella $ use stellaClock
+        stellaClock' <- usingStella $ use nowClock
         when (stellaClock' < n) $ do
-            unM step
+            step
             loopUntil n
 
   --SDL.setHintWithPriority SDL.NormalPriority SDL.HintRenderVSync SDL.EnableVSync
@@ -2217,50 +1183,13 @@ main = do
         events <- liftIO $ SDL.pollEvents
 
         let quit = elem SDL.QuitEvent $ map SDL.eventPayload events
-
-        forM_ events $ \event ->
-            case eventPayload event of
-                MouseButtonEvent (MouseButtonEventData win Pressed device ButtonLeft clicks pos) -> do
-                        liftIO $ print pos
-                        let P (V2 x y) = pos
-                        usingStella $ setBreak (x `div` fromIntegral scale) (y `div` fromIntegral scale)
-                MouseMotionEvent (MouseMotionEventData win device [ButtonLeft] pos rel) -> do
-                        liftIO $ print pos
-                        let P (V2 x y) = pos
-                        usingStella $ setBreak (x `div` fromIntegral scale) (y `div` fromIntegral scale)
-                KeyboardEvent (KeyboardEventData win motion rep sym) -> do
-                    let pressed = isPressed motion
-                    --liftIO $ print sym
-                    case keysymScancode sym of
-                        SDL.ScancodeUp -> usingStella $ swcha . bitAt 4 .= not pressed
-                        SDL.ScancodeDown -> usingStella $ swcha . bitAt 5 .= not pressed
-                        SDL.ScancodeLeft -> usingStella $ swcha . bitAt 6 .= not pressed
-                        SDL.ScancodeRight -> usingStella $ swcha . bitAt 7 .= not pressed
-                        SDL.ScancodeC -> usingStella $ swchb . bitAt 1 .= not pressed
-                        SDL.ScancodeV -> usingStella $ swchb . bitAt 0 .= not pressed
-                        SDL.ScancodeSpace -> usingStella $ do
-                            latch <- use (vblank . bitAt 6)
-                            case (latch, pressed) of
-                                (False, _) -> do
-                                    inpt4' <- getIRegister inpt4
-                                    putIRegister inpt4 ((clearBit inpt4' 7) .|. bit 7 (not pressed))
-                                (True, False) -> return ()
-                                (True, True) -> do
-                                    inpt4' <- getIRegister inpt4
-                                    putIRegister inpt4 (clearBit inpt4' 7)
-                otherwise -> return ()
-
-        liftIO $ lockSurface screenSurface
-        stellaClock' <- usingStella $ use stellaClock
-        loopUntil (stellaClock' + 50000)
-        liftIO $ unlockSurface screenSurface
-
-        liftIO $ SDL.surfaceBlitScaled helloWorld Nothing screenSurface (Just (Rectangle (P (V2 0 0)) (V2 (screenWidth*scale) (screenHeight*scale))))
-        liftIO $ SDL.updateWindowSurface window
+        forM_ events handleEvent
+        stellaClock' <- usingStella $ use nowClock
+        loopUntil (stellaClock' + 10000)
 
         loop
 
-  flip runStateT state $ do
+  flip runStateT state $ unM $ do
     -- Joystick buttons not pressed
     usingStella $ putIRegister inpt4 0x80
     usingStella $ putIRegister inpt5 0x80
