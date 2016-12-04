@@ -59,7 +59,7 @@ iz :: Word16 -> Int -- or NUM
 iz = fromIntegral
 
 {-# INLINABLE dumpRegisters #-}
-dumpRegisters :: Monad6502 ()
+dumpRegisters :: Emu6502 m => m ()
 dumpRegisters = do
     -- XXX bring clock back
     --tClock <- use clock
@@ -85,7 +85,7 @@ dumpRegisters = do
     debugStrLn 0 $ " N = " ++ showHex regS ""
 
 {-# INLINABLE dumpMemory #-}
-dumpMemory :: Monad6502 ()
+dumpMemory :: Emu6502 m => m ()
 dumpMemory = do
     regPC <- getPC
     b0 <- readMemory regPC
@@ -97,7 +97,7 @@ dumpMemory = do
     debugStrLn 0 $ showHex b2 ""
 
 {-# INLINABLE dumpState #-}
-dumpState :: Monad6502 ()
+dumpState :: Emu6502 m => m ()
 dumpState = do
     dumpMemory
     dumpRegisters
@@ -721,6 +721,18 @@ stellaTick n = do
 
     stellaTick (n-1)
 
+
+data Registers = R {
+    _pc :: !Word16,
+    _p :: !Word8,
+    _a :: !Word8,
+    _x :: !Word8,
+    _y :: !Word8,
+    _s :: !Word8
+}
+
+$(makeLenses ''Registers)
+
 data StateAtari = S {
     _stella :: Stella,
     _mem :: IOUArray Int Word8,
@@ -733,6 +745,118 @@ makeLenses ''StateAtari
 
 newtype MonadAtari a = M { unM :: StateT StateAtari IO a }
     deriving (Functor, Applicative, Monad, MonadState StateAtari, MonadIO)
+
+instance Emu6502 MonadAtari where
+    {- INLINE readMemory -}
+    readMemory addr' =
+        let addr = addr' .&. 0b1111111111111 in -- 6507
+            if isTIA addr
+                then usingStella $ readStella (addr .&. 0x3f)
+                else if isRAM addr
+                        then do
+                            m <- use mem
+                            liftIO $ readArray m (iz addr .&. 0xff)
+                        else if isRIOT addr
+                            then usingStella $ readStella (0x280+(addr .&. 0x1f))
+                            else if addr >= 0x1000
+                                then do
+                                    m <- use mem
+                                    liftIO $ readArray m (iz addr)
+                                else error $ "Mystery read from " ++ showHex addr ""
+
+
+    {- INLINE writeMemory -}
+    writeMemory addr' v =
+        let addr = addr' .&. 0b1111111111111 in -- 6507
+            if isTIA addr
+                then usingStella $ writeStella (addr .&. 0x3f) v
+                else if isRAM addr
+                        then do
+                            m <- use mem
+                            liftIO $ writeArray m (iz addr .&. 0xff) v
+                        else if isRIOT addr
+                                then usingStella $ writeStella (0x280+(addr .&. 0x1f)) v
+                                else if addr >= 0x1000
+                                    then do
+                                        m <- use mem
+                                        liftIO $ writeArray m (iz addr) v
+                                    else error $ "Mystery write to " ++ showHex addr ""
+
+    {-# INLINE getPC #-}
+    getPC = use (regs . pc)
+    {-# INLINE tick #-}
+    tick n = do
+        clock += n
+        usingStella $ stellaTick (3*n)
+    {-# INLINE putC #-}
+    putC b = regs . flagC .= b
+    {-# INLINE getC #-}
+    getC = use (regs . flagC)
+    {-# INLINE putZ #-}
+    putZ b = regs . flagZ .= b
+    {-# INLINE getZ #-}
+    getZ = use (regs . flagZ)
+    {-# INLINE putI #-}
+    putI b = regs . flagI .= b
+    {-# INLINE getI #-}
+    getI = use (regs . flagI)
+    {-# INLINE putD #-}
+    putD b = regs . flagD .= b
+    {-# INLINE getD #-}
+    getD = use (regs . flagD)
+    {-# INLINE putB #-}
+    putB b = regs . flagB .= b
+    {-# INLINE getB #-}
+    getB = use (regs . flagB)
+    {-# INLINE putV #-}
+    putV b = regs . flagV .= b
+    {-# INLINE getV #-}
+    getV = use (regs . flagV)
+    {-# INLINE putN #-}
+    putN b = regs . flagN .= b
+    {-# INLINE getN #-}
+    getN = use (regs . flagN)
+    {-# INLINE getA #-}
+    getA = use (regs . a)
+    {-# INLINE putA #-}
+    putA r = regs . a .= r
+    {-# INLINE getS #-}
+    getS = use (regs . s)
+    {-# INLINE putS #-}
+    putS r = regs . s .= r
+    {-# INLINE getX #-}
+    getX = use (regs . x)
+    {-# INLINE putX #-}
+    putX r = regs . x .= r
+    {-# INLINE getP #-}
+    getP = use (regs . p)
+    {-# INLINE putP #-}
+    putP r = regs . p .= r
+    {-# INLINE getY #-}
+    getY = use (regs . y)
+    {-# INLINE putY #-}
+    putY r = regs . y .= r
+    {-# INLINE putPC #-}
+    putPC r = regs . pc .= r
+    {-# INLINE addPC #-}
+    addPC n = regs . pc += fromIntegral n
+
+    {- INLINE debugStr 9 -}
+    debugStr n str = do
+        d <- use debug
+        if n <= d
+            then liftIO $ putStr str
+            else return ()
+
+    {- INLINE debugStrLn 9 -}
+    debugStrLn n str = do
+        d <- use debug
+        if n <= d
+            then liftIO $ putStrLn str
+            else return ()
+
+    {- INLINE illegal -}
+    illegal i = error $ "Illegal opcode 0x" ++ showHex i ""
 
 --  XXX Do this! If reset occurs during horizontal blank, the object will appear at the left side of the television screen
 
@@ -891,121 +1015,34 @@ isRIOT a = testBit a 7 && testBit a 9 && not (testBit a 12)
 isROM :: Word16 -> Bool
 isROM a = testBit a 12
 
-{-# INLINE referringToStella #-}
-referringToStella :: IORef Stella -> StateT Stella IO a -> IO a
-referringToStella ref action = do
-    
 
-{- INLINE readMemory -}
-readMemory stellaRef addr' =
-    let addr = addr' .&. 0b1111111111111 in -- 6507
-        if isTIA addr
-            then usingStella $ readStella (addr .&. 0x3f)
-            else if isRAM addr
-                    then do
-                        m <- use mem
-                        liftIO $ readArray m (iz addr .&. 0xff)
-                    else if isRIOT addr
-                        then usingStella $ readStella (0x280+(addr .&. 0x1f))
-                        else if addr >= 0x1000
-                            then do
-                                m <- use mem
-                                liftIO $ readArray m (iz addr)
-                            else error $ "Mystery read from " ++ showHex addr ""
+{-# INLINE flagC #-}
+flagC :: Lens' Registers Bool
+flagC = p . bitAt 0
 
+{-# INLINE flagZ #-}
+flagZ :: Lens' Registers Bool
+flagZ = p . bitAt 1
 
-{- INLINE writeMemory -}
-writeMemory stellaRef addr' v =
-    let addr = addr' .&. 0b1111111111111 in -- 6507
-        if isTIA addr
-            then usingStella $ writeStella (addr .&. 0x3f) v
-            else if isRAM addr
-                    then do
-                        m <- use mem
-                        liftIO $ writeArray m (iz addr .&. 0xff) v
-                    else if isRIOT addr
-                            then usingStella $ writeStella (0x280+(addr .&. 0x1f)) v
-                            else if addr >= 0x1000
-                                then do
-                                    m <- use mem
-                                    liftIO $ writeArray m (iz addr) v
-                                else error $ "Mystery write to " ++ showHex addr ""
+{-# INLINE flagI #-}
+flagI :: Lens' Registers Bool
+flagI = p . bitAt 2
 
-    {-# INLINE getPC #-}
-    getPC = use (regs . pc)
-    {-# INLINE tick #-}
-    tick n = do
-        clock += n
-        usingStella $ stellaTick (3*n)
-    {-# INLINE putC #-}
-    putC b = regs . flagC .= b
-    {-# INLINE getC #-}
-    getC = use (regs . flagC)
-    {-# INLINE putZ #-}
-    putZ b = regs . flagZ .= b
-    {-# INLINE getZ #-}
-    getZ = use (regs . flagZ)
-    {-# INLINE putI #-}
-    putI b = regs . flagI .= b
-    {-# INLINE getI #-}
-    getI = use (regs . flagI)
-    {-# INLINE putD #-}
-    putD b = regs . flagD .= b
-    {-# INLINE getD #-}
-    getD = use (regs . flagD)
-    {-# INLINE putB #-}
-    putB b = regs . flagB .= b
-    {-# INLINE getB #-}
-    getB = use (regs . flagB)
-    {-# INLINE putV #-}
-    putV b = regs . flagV .= b
-    {-# INLINE getV #-}
-    getV = use (regs . flagV)
-    {-# INLINE putN #-}
-    putN b = regs . flagN .= b
-    {-# INLINE getN #-}
-    getN = use (regs . flagN)
-    {-# INLINE getA #-}
-    getA = use (regs . a)
-    {-# INLINE putA #-}
-    putA r = regs . a .= r
-    {-# INLINE getS #-}
-    getS = use (regs . s)
-    {-# INLINE putS #-}
-    putS r = regs . s .= r
-    {-# INLINE getX #-}
-    getX = use (regs . x)
-    {-# INLINE putX #-}
-    putX r = regs . x .= r
-    {-# INLINE getP #-}
-    getP = use (regs . p)
-    {-# INLINE putP #-}
-    putP r = regs . p .= r
-    {-# INLINE getY #-}
-    getY = use (regs . y)
-    {-# INLINE putY #-}
-    putY r = regs . y .= r
-    {-# INLINE putPC #-}
-    putPC r = regs . pc .= r
-    {-# INLINE addPC #-}
-    addPC n = regs . pc += fromIntegral n
+{-# INLINE flagD #-}
+flagD :: Lens' Registers Bool
+flagD = p . bitAt 3
 
-    {- INLINE debugStr 9 -}
-    debugStr n str = do
-        d <- use debug
-        if n <= d
-            then liftIO $ putStr str
-            else return ()
+{-# INLINE flagB #-}
+flagB :: Lens' Registers Bool
+flagB = p . bitAt 4
 
-    {- INLINE debugStrLn 9 -}
-    debugStrLn n str = do
-        d <- use debug
-        if n <= d
-            then liftIO $ putStrLn str
-            else return ()
+{-# INLINE flagV #-}
+flagV :: Lens' Registers Bool
+flagV = p . bitAt 6
 
-    {- INLINE illegal -}
-    illegal i = error $ "Illegal opcode 0x" ++ showHex i ""
+{-# INLINE flagN #-}
+flagN :: Lens' Registers Bool
+flagN = p . bitAt 7
 
 data Args = Args { file :: String } deriving (Show, Data, Typeable)
 
