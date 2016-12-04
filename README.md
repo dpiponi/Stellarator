@@ -6,7 +6,7 @@ Work in progress...
 It'll run Adventure if you have the rom. Try:
 stack build && stack exec Stellarator-exe -- -f adventure.rom
 
-![Adventure screenshot](docs/adventure.png?raw=true "Adventure Screenshot")
+![Adventure screenshot](docs/adventure.gif?raw=true "Adventure Screenshot")
 
 As you can see, there are visual artifacts and the aspect ratio isn't right yet.
 I've made no attempt to get timing right yet.
