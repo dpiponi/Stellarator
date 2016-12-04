@@ -1188,56 +1188,55 @@ initState oregs iregs helloWorld screenSurface window = Stella {
 
 main :: IO ()
 main = do
-  args <- cmdArgs clargs
-  SDL.initialize [SDL.InitVideo]
-  window <- SDL.createWindow "Stellarator" SDL.defaultWindow { SDL.windowInitialSize = V2 (xscale*screenWidth) (yscale*screenHeight) }
-  SDL.showWindow window
-  screenSurface <- SDL.getWindowSurface window
+    args <- cmdArgs clargs
+    SDL.initialize [SDL.InitVideo]
+    window <- SDL.createWindow "Stellarator" SDL.defaultWindow { SDL.windowInitialSize = V2 (xscale*screenWidth) (yscale*screenHeight) }
+    SDL.showWindow window
+    screenSurface <- SDL.getWindowSurface window
 
-  helloWorld <- createRGBSurface (V2 screenWidth screenHeight) RGB888
+    helloWorld <- createRGBSurface (V2 screenWidth screenHeight) RGB888
 
-  memory <- newArray (0, 0x2000) 0 :: IO (IOUArray Int Word8)
-  readBinary memory (file args) 0x1000
-  pclo <- readArray memory 0x1ffc
-  pchi <- readArray memory 0x1ffd
-  let initialPC = fromIntegral pclo+(fromIntegral pchi `shift` 8)
+    memory <- newArray (0, 0x2000) 0 :: IO (IOUArray Int Word8)
+    readBinary memory (file args) 0x1000
+    pclo <- readArray memory 0x1ffc
+    pchi <- readArray memory 0x1ffd
+    let initialPC = fromIntegral pclo+(fromIntegral pchi `shift` 8)
 
-  oregs <- newArray (0, 0x3f) 0
-  --iregs <- newArray (0, 0x0d) 0
-  iregs <- newArray (0, 0x300) 0 -- XXX no need for that many really
-  let stella = initState oregs iregs helloWorld screenSurface window
-  let state = S { _mem = memory,  _clock = 0, _regs = R initialPC 0 0 0 0 0xff,
-                   _debug = 8,
-                   _stella = stella}
+    oregs <- newArray (0, 0x3f) 0
+    --iregs <- newArray (0, 0x0d) 0
+    iregs <- newArray (0, 0x300) 0 -- XXX no need for that many really
+    let stella = initState oregs iregs helloWorld screenSurface window
+    let state = S { _mem = memory,  _clock = 0, _regs = R initialPC 0 0 0 0 0xff,
+                   _debug = 8, _stella = stella}
 
-  let loopUntil n = do
-        stellaClock' <- usingStella $ use nowClock
-        when (stellaClock' < n) $ do
-            step
-            loopUntil n
+    let loopUntil n = do
+            stellaClock' <- usingStella $ use nowClock
+            when (stellaClock' < n) $ do
+                step
+                loopUntil n
 
-  --SDL.setHintWithPriority SDL.NormalPriority SDL.HintRenderVSync SDL.EnableVSync
-  -- https://hackage.haskell.org/package/sdl2-2.1.3
+    --SDL.setHintWithPriority SDL.NormalPriority SDL.HintRenderVSync SDL.EnableVSync
+    -- https://hackage.haskell.org/package/sdl2-2.1.3
 
-  let loop = do
-        events <- liftIO $ SDL.pollEvents
+    let loop = do
+            events <- liftIO $ SDL.pollEvents
 
-        let quit = elem SDL.QuitEvent $ map SDL.eventPayload events
-        forM_ events handleEvent
-        stellaClock' <- usingStella $ use nowClock
-        loopUntil (stellaClock' + 10000)
+            let quit = elem SDL.QuitEvent $ map SDL.eventPayload events
+            forM_ events handleEvent
+            stellaClock' <- usingStella $ use nowClock
+            loopUntil (stellaClock' + 10000)
 
+            loop
+
+    flip runStateT state $ unM $ do
+        -- Joystick buttons not pressed
+        usingStella $ do
+            putIRegister inpt4 0x80
+            putIRegister inpt5 0x80
+            putIRegister swcha 0b11111111
+            putIRegister swchb 0b00001011
         loop
 
-  flip runStateT state $ unM $ do
-    -- Joystick buttons not pressed
-    usingStella $ do
-        putIRegister inpt4 0x80
-        putIRegister inpt5 0x80
-        putIRegister swcha 0b11111111
-        putIRegister swchb 0b00001011
-    loop
-
-  SDL.destroyWindow window
-  SDL.freeSurface helloWorld
-  SDL.quit
+    SDL.destroyWindow window
+    SDL.freeSurface helloWorld
+    SDL.quit
