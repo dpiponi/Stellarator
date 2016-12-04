@@ -59,7 +59,7 @@ iz :: Word16 -> Int -- or NUM
 iz = fromIntegral
 
 {-# INLINABLE dumpRegisters #-}
-dumpRegisters :: Emu6502 m => m ()
+dumpRegisters :: Monad6502 ()
 dumpRegisters = do
     -- XXX bring clock back
     --tClock <- use clock
@@ -85,7 +85,7 @@ dumpRegisters = do
     debugStrLn 0 $ " N = " ++ showHex regS ""
 
 {-# INLINABLE dumpMemory #-}
-dumpMemory :: Emu6502 m => m ()
+dumpMemory :: Monad6502 ()
 dumpMemory = do
     regPC <- getPC
     b0 <- readMemory regPC
@@ -97,7 +97,7 @@ dumpMemory = do
     debugStrLn 0 $ showHex b2 ""
 
 {-# INLINABLE dumpState #-}
-dumpState :: Emu6502 m => m ()
+dumpState :: Monad6502 ()
 dumpState = do
     dumpMemory
     dumpRegisters
@@ -721,45 +721,6 @@ stellaTick n = do
 
     stellaTick (n-1)
 
-data Registers = R {
-    _pc :: !Word16,
-    _p :: !Word8,
-    _a :: !Word8,
-    _x :: !Word8,
-    _y :: !Word8,
-    _s :: !Word8
-}
-
-$(makeLenses ''Registers)
-
-{-# INLINE flagC #-}
-flagC :: Lens' Registers Bool
-flagC = p . bitAt 0
-
-{-# INLINE flagZ #-}
-flagZ :: Lens' Registers Bool
-flagZ = p . bitAt 1
-
-{-# INLINE flagI #-}
-flagI :: Lens' Registers Bool
-flagI = p . bitAt 2
-
-{-# INLINE flagD #-}
-flagD :: Lens' Registers Bool
-flagD = p . bitAt 3
-
-{-# INLINE flagB #-}
-flagB :: Lens' Registers Bool
-flagB = p . bitAt 4
-
-{-# INLINE flagV #-}
-flagV :: Lens' Registers Bool
-flagV = p . bitAt 6
-
-{-# INLINE flagN #-}
-flagN :: Lens' Registers Bool
-flagN = p . bitAt 7
-
 data StateAtari = S {
     _stella :: Stella,
     _mem :: IOUArray Int Word8,
@@ -930,41 +891,45 @@ isRIOT a = testBit a 7 && testBit a 9 && not (testBit a 12)
 isROM :: Word16 -> Bool
 isROM a = testBit a 12
 
-instance Emu6502 MonadAtari where
-    {- INLINE readMemory -}
-    readMemory addr' =
-        let addr = addr' .&. 0b1111111111111 in -- 6507
-            if isTIA addr
-                then usingStella $ readStella (addr .&. 0x3f)
-                else if isRAM addr
-                        then do
-                            m <- use mem
-                            liftIO $ readArray m (iz addr .&. 0xff)
-                        else if isRIOT addr
-                            then usingStella $ readStella (0x280+(addr .&. 0x1f))
+{-# INLINE referringToStella #-}
+referringToStella :: IORef Stella -> StateT Stella IO a -> IO a
+referringToStella ref action = do
+    
+
+{- INLINE readMemory -}
+readMemory stellaRef addr' =
+    let addr = addr' .&. 0b1111111111111 in -- 6507
+        if isTIA addr
+            then usingStella $ readStella (addr .&. 0x3f)
+            else if isRAM addr
+                    then do
+                        m <- use mem
+                        liftIO $ readArray m (iz addr .&. 0xff)
+                    else if isRIOT addr
+                        then usingStella $ readStella (0x280+(addr .&. 0x1f))
+                        else if addr >= 0x1000
+                            then do
+                                m <- use mem
+                                liftIO $ readArray m (iz addr)
+                            else error $ "Mystery read from " ++ showHex addr ""
+
+
+{- INLINE writeMemory -}
+writeMemory stellaRef addr' v =
+    let addr = addr' .&. 0b1111111111111 in -- 6507
+        if isTIA addr
+            then usingStella $ writeStella (addr .&. 0x3f) v
+            else if isRAM addr
+                    then do
+                        m <- use mem
+                        liftIO $ writeArray m (iz addr .&. 0xff) v
+                    else if isRIOT addr
+                            then usingStella $ writeStella (0x280+(addr .&. 0x1f)) v
                             else if addr >= 0x1000
                                 then do
                                     m <- use mem
-                                    liftIO $ readArray m (iz addr)
-                                else error $ "Mystery read from " ++ showHex addr ""
-
-
-    {- INLINE writeMemory -}
-    writeMemory addr' v =
-        let addr = addr' .&. 0b1111111111111 in -- 6507
-            if isTIA addr
-                then usingStella $ writeStella (addr .&. 0x3f) v
-                else if isRAM addr
-                        then do
-                            m <- use mem
-                            liftIO $ writeArray m (iz addr .&. 0xff) v
-                        else if isRIOT addr
-                                then usingStella $ writeStella (0x280+(addr .&. 0x1f)) v
-                                else if addr >= 0x1000
-                                    then do
-                                        m <- use mem
-                                        liftIO $ writeArray m (iz addr) v
-                                    else error $ "Mystery write to " ++ showHex addr ""
+                                    liftIO $ writeArray m (iz addr) v
+                                else error $ "Mystery write to " ++ showHex addr ""
 
     {-# INLINE getPC #-}
     getPC = use (regs . pc)
