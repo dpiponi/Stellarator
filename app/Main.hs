@@ -45,7 +45,6 @@ import Debug.Trace
 import Prelude hiding (last)
 import Core
 
-
 {-# INLINE i8 #-}
 i8 :: Integral a => a -> Word8
 i8 = fromIntegral
@@ -106,8 +105,9 @@ newtype OReg = OReg Word16 deriving (Ord, Ix, Eq, Num)
 newtype IReg = IReg Word16 deriving (Ord, Ix, Eq, Num)
 
 nusiz0, nusiz1, colup0, colup1, pf0, pf1, pf2, enam0, enam1, hmp0, hmp1, hmm0, hmm1, hmbl :: OReg
-vsync, refp0, refp1, colupf, colubk, ctrlpf, resmp0, resmp1 :: OReg
+vblank, vsync, refp0, refp1, colupf, colubk, ctrlpf, resmp0, resmp1 :: OReg
 vsync = 0x00
+vblank = 0x01
 nusiz0 = 0x04
 nusiz1 = 0x05
 colup0 = 0x06
@@ -193,7 +193,7 @@ data Stella = Stella {
      _oregisters :: IOUArray OReg Word8,
      _iregisters :: IOUArray IReg Word8,
 
-    _vblank :: !Word8,
+    --_vblank :: !Word8,
     _swcha :: !Word8,
     _swchb :: !Word8,
 
@@ -582,7 +582,8 @@ stellaVsync v = do
 stellaVblank :: (MonadIO m, MonadState Stella m) => Word8 -> m ()
 stellaVblank v = do
     stellaDebugStrLn 0 $ "VBLANK " ++ showHex v ""
-    vold <- use vblank
+    vold <- getORegister vblank
+    --vold <- use vblank
     -- Set latches for INPT4 and INPT5
     when (testBit v 6) $ do
         i <- getIRegister inpt4 -- XXX write modifyIRegister
@@ -590,7 +591,8 @@ stellaVblank v = do
         i <- getIRegister inpt5
         putIRegister inpt5 (setBit i 7)
 
-    vblank .= v
+    --vblank .= v
+    putORegister vblank v
 
 -- player0
 
@@ -1089,7 +1091,8 @@ handleKey motion sym =
         SDL.ScancodeC -> usingStella $ swchb . bitAt 1 .= not pressed
         SDL.ScancodeV -> usingStella $ swchb . bitAt 0 .= not pressed
         SDL.ScancodeSpace -> usingStella $ do
-            latch <- use (vblank . bitAt 6)
+            vblank' <- getORegister vblank
+            let latch = testBit vblank' 6
             case (latch, pressed) of
                 (False, _) -> do
                     inpt4' <- getIRegister inpt4
@@ -1112,7 +1115,7 @@ initState oregs iregs helloWorld screenSurface window = Stella {
       _backSurface = helloWorld,
       _frontSurface = screenSurface,
       _frontWindow = window,
-      _vblank = 0,
+      -- _vblank = 0,
       _sprites = Sprites {
           _s_ppos0 = 9999,
           _s_ppos1 = 9999,
