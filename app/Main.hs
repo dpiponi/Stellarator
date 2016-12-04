@@ -193,28 +193,39 @@ data StellaDebug = Debug {
 
 $(makeLenses '' StellaDebug)
 
+data StellaSDL = StellaSDL {
+    _sdlBackSurface :: !Surface,
+    _sdlFrontSurface :: !Surface,
+    _sdlFrontWindow :: !SDL.Window
+}
+
+$(makeLenses '' StellaSDL)
+
 data Stella = Stella {
      _oregisters :: IOUArray OReg Word8,
      _iregisters :: IOUArray IReg Word8,
 
-    --_vblank :: !Word8,
-    --_swcha :: !Word8,
-    --_swchb :: !Word8,
-
     _stellaDebug :: StellaDebug,
+    _stellaSDL :: StellaSDL,
 
-    _backSurface :: !Surface,
-    _frontSurface :: !Surface,
-    _frontWindow :: !SDL.Window,
-
-    _stellaClock :: StellaClock,
     _position :: (CInt, CInt),
+    _stellaClock :: StellaClock,
     _graphics :: Graphics,
     _sprites :: Sprites,
     _intervalTimer :: IntervalTimer
 }
 
 $(makeLenses ''Stella)
+
+{-# INLINE backSurface #-}
+{-# INLINE frontSurface #-}
+{-# INLINE frontWindow #-}
+backSurface :: Lens' Stella Surface
+frontSurface :: Lens' Stella Surface
+frontWindow :: Lens' Stella SDL.Window
+backSurface = stellaSDL . sdlBackSurface
+frontSurface = stellaSDL . sdlFrontSurface
+frontWindow = stellaSDL . sdlFrontWindow
 
 {-# INLINE hpos #-}
 {-# INLINE vpos #-}
@@ -1126,10 +1137,11 @@ initState oregs iregs helloWorld screenSurface window = Stella {
       _oregisters = oregs,
       _iregisters = iregs,
       _position = (0, 0),
-      _backSurface = helloWorld,
-      _frontSurface = screenSurface,
-      _frontWindow = window,
-      -- _vblank = 0,
+      _stellaSDL = StellaSDL {
+          _sdlBackSurface = helloWorld,
+          _sdlFrontSurface = screenSurface,
+          _sdlFrontWindow = window
+      },
       _sprites = Sprites {
           _s_ppos0 = 9999,
           _s_ppos1 = 9999,
@@ -1137,8 +1149,6 @@ initState oregs iregs helloWorld screenSurface window = Stella {
           _s_mpos1 = 0,
           _s_bpos = 0
       },
-      -- _swcha = 0xff,
-      -- _swchb = 0b00001011,
       _intervalTimer = IntervalTimer {
           _intim = 0,
           _subtimer = 0,
