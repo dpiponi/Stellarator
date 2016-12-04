@@ -5,6 +5,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE BangPatterns #-}
 
 module Main where
 
@@ -299,8 +300,7 @@ putIRegister i v = do
 modifyIRegister :: (MonadIO m, MonadState Stella m) => IReg -> (Word8 -> Word8) -> m ()
 modifyIRegister i f = do
     r <- use iregisters
-    x <- liftIO $ readArray r i
-    liftIO $ writeArray r i (f x)
+    liftIO $ (readArray r i >>= writeArray r i . f)
 
 {-# INLINE getIRegister #-}
 getIRegister :: (MonadIO m, MonadState Stella m) => IReg -> m Word8
@@ -631,6 +631,7 @@ instance Monoid Pixel where
     _ `mappend` pixel@(Pixel True _) = pixel
     pixel `mappend` (Pixel False _) = pixel
 
+{-# INLINE bit #-}
 bit :: Int -> Bool -> Word8
 bit n t = if t then 1 `shift` n else 0
 
@@ -641,45 +642,73 @@ compositeAndCollide x = do
     colupf' <- getORegister colupf
     colup0' <- getORegister colup0
     colup1' <- getORegister colup1
+    colubk' <- getORegister colubk
     let playfieldColour = if testBit ctrlpf' 1
             then if x < 80
                 then colup0'
                 else colup1'
-            else colupf'
+            else colupf' -- does ball get this too?
 
+{-
     -- Assemble colours
-    pbackground <- Pixel True <$> getORegister colubk
+    pbackground <- Pixel True <$> return colubk'
     pplayfield <- Pixel <$> playfield (fromIntegral $ x `div` 4) <*> return playfieldColour
     pplayer0 <- Pixel <$> player0 <*> return colup0'
     pplayer1 <- Pixel <$> player1 <*> return colup1'
     pmissile0 <- Pixel <$> missile0 <*> return colup0'
     pmissile1 <- Pixel <$> missile1 <*> return colup1'
     pball <- Pixel <$> ball <*> getORegister colupf
+-}
 
-    let lmissile0 = plogic pmissile0
-    let lmissile1 = plogic pmissile1
-    let lplayer0 = plogic pplayer0
-    let lplayer1 = plogic pplayer1
-    let lball = plogic pball
-    let lplayfield = plogic pplayfield
+    lmissile0 <- missile0
+    lmissile1 <- missile1
+    lplayer0 <- player0
+    lplayer1 <- player1
+    lball <- ball
+    lplayfield <- playfield (fromIntegral $ x `div` 4)
 
-    orIRegister cxm0p $ bit 7 (lmissile0 && lplayer1) .|.  bit 6 (lmissile0 && lplayer0)
-    orIRegister cxm1p $ bit 7 (lmissile1 && lplayer0) .|.  bit 6 (lmissile1 && lplayer1)
-    orIRegister cxp0fb $ bit 7 (lplayer0 && lplayfield) .|.  bit 6 (lplayer0 && lball)
-    orIRegister cxp1fb $ bit 7 (lplayer1 && lplayfield) .|.  bit 6 (lplayer1 && lball)
-    orIRegister cxm0fb $ bit 7 (lmissile0 && lplayfield) .|.  bit 6 (lmissile0 && lball)
-    orIRegister cxm1fb $ bit 7 (lmissile1 && lplayfield) .|.  bit 6 (lmissile1 && lball)
-    orIRegister cxblpf $ bit 7 (lball && lplayfield)
-    orIRegister cxppmm $ bit 7 (lplayer0 && lplayer1) .|.  bit 6 (lmissile0 && lmissile1)
+    let playball = bit 7 lplayfield .|. bit 6 lball
 
-    -- Get ordering priority
+    when lmissile0 $ do
+        orIRegister cxm0p $ bit 7 lplayer1 .|. bit 6 lplayer0
+        orIRegister cxm0fb playball
+        orIRegister cxppmm $ bit 6 lmissile1
+    when lmissile1 $ do
+        orIRegister cxm1p $ bit 7 lplayer0 .|. bit 6 lplayer1
+        orIRegister cxm1fb playball
+    when lplayer0 $ do
+        orIRegister cxp0fb playball
+        orIRegister cxppmm $ bit 7 lplayer1
+    when lplayer1 $ orIRegister cxp1fb playball
+    when lball $ orIRegister cxblpf $ bit 7 lplayfield
+
+{-
     let Pixel _ final = pbackground `mappend`
                         if testBit ctrlpf' 2
-                            --then mconcat [pplayer1, pmissile1, pplayer0, pmissile0, pplayfield, pball]
-                            ----else mconcat [pball, pplayfield, pplayer1, pmissile1, pplayer0, pmissile0]
                             then pplayer1 `mappend` pmissile1 `mappend` pplayer0 `mappend` pmissile0 `mappend` pplayfield `mappend` pball
                             else pball `mappend` pplayfield `mappend` pplayer1 `mappend` pmissile1 `mappend` pplayer0 `mappend` pmissile0
     return final
+-}
+    return $ if testBit ctrlpf' 2
+                then if lball
+                    then colupf'
+                    else if lplayfield
+                        then playfieldColour
+                        else if lmissile0 || lplayer0
+                            then colup0'
+                            else if lmissile1 || lplayer1
+                                then colup1'
+                                else colubk'
+                else if lmissile0 || lplayer0
+                    then colup0'
+                    else if lmissile1 || lplayer1
+                        then colup1'
+                        else if lplayfield
+                            then playfieldColour
+                            else if lball
+                                then colupf'
+                                else colubk'
+
 
 {-# INLINABLE timerTick #-}
 timerTick :: IntervalTimer -> IntervalTimer
@@ -712,36 +741,29 @@ stellaTick 0 = return ()
 stellaTick n = do
     xbreak' <- use (stellaDebug . xbreak)
     ybreak' <- use (stellaDebug . ybreak)
-    hpos' <- use hpos
-    vpos' <- use (vpos)
+    (hpos', vpos') <- use position
     when (hpos' == fromIntegral xbreak' && vpos' == fromIntegral ybreak') $ do
         dumpStella
         stellaDebug . xbreak .= (-1)
         stellaDebug . ybreak .= (-1)
 
     nowClock += 1
-
-    -- Interval timer
-    oldIntervalTimer <- use intervalTimer
-    let newIntervalTimer = timerTick oldIntervalTimer
-    intervalTimer .= newIntervalTimer
+    intervalTimer %= timerTick
     
     -- Display
     when (vpos' >= picy && vpos' < picy+192 && hpos' >= picx) $ do
-        surface <- use backSurface
-        ptr <- liftIO $ surfacePixels surface
-        let ptr' = castPtr ptr :: Ptr Word32
-        let x = hpos'-picx
-        let y = vpos'-picy
-        let i = screenWidth*y+x
+        !surface <- use backSurface
+        !ptr <- liftIO $ surfacePixels surface
+        let !ptr' = castPtr ptr :: Ptr Word32
+        let !x = hpos'-picx
+        let !y = vpos'-picy
+        let !i = screenWidth*y+x
 
         final <- compositeAndCollide x
 
         liftIO $ pokeElemOff ptr' (fromIntegral i) (lut!(final `shift` (-1)))
 
-    position' <- use position
-    let position'' = updatePos position'
-    position .= position''
+    position %= updatePos
 
     stellaTick (n-1)
 
@@ -1221,10 +1243,11 @@ main = do
 
   flip runStateT state $ unM $ do
     -- Joystick buttons not pressed
-    usingStella $ putIRegister inpt4 0x80
-    usingStella $ putIRegister inpt5 0x80
-    usingStella $ putIRegister swcha 0b11111111
-    usingStella $ putIRegister swchb 0b00001011
+    usingStella $ do
+        putIRegister inpt4 0x80
+        putIRegister inpt5 0x80
+        putIRegister swcha 0b11111111
+        putIRegister swchb 0b00001011
     loop
 
   SDL.destroyWindow window
