@@ -142,6 +142,10 @@ cxppmm = 0x07
 inpt4 = 0x0c
 inpt5 = 0x0d
 
+swcha, swchb :: IReg
+swcha = 0x280
+swchb = 0x282
+
 data IntervalTimer = IntervalTimer {
     _intim :: !Word8,
     _subtimer :: !CInt,
@@ -194,8 +198,8 @@ data Stella = Stella {
      _iregisters :: IOUArray IReg Word8,
 
     --_vblank :: !Word8,
-    _swcha :: !Word8,
-    _swchb :: !Word8,
+    --_swcha :: !Word8,
+    --_swchb :: !Word8,
 
     _stellaDebug :: StellaDebug,
 
@@ -279,6 +283,13 @@ putIRegister :: (MonadIO m, MonadState Stella m) => IReg -> Word8 -> m ()
 putIRegister i v = do
     r <- use iregisters
     liftIO $ writeArray r i v
+
+{-# INLINE modifyIRegister #-}
+modifyIRegister :: (MonadIO m, MonadState Stella m) => IReg -> (Word8 -> Word8) -> m ()
+modifyIRegister i f = do
+    r <- use iregisters
+    x <- liftIO $ readArray r i
+    liftIO $ writeArray r i (f x)
 
 {-# INLINE getIRegister #-}
 getIRegister :: (MonadIO m, MonadState Stella m) => IReg -> m Word8
@@ -984,8 +995,8 @@ readStella addr =
         0x36 -> getIRegister cxblpf
         0x37 -> getIRegister cxppmm
         0x3c -> getIRegister inpt4
-        0x280 -> use swcha
-        0x282 -> use swchb
+        0x280 -> getIRegister swcha
+        0x282 -> getIRegister swchb
         0x284 -> use (intervalTimer . intim)
         otherwise -> return 0 -- (liftIO $ putStrLn $ "reading TIA 0x" ++ showHex addr "") >> return 0
 
@@ -1079,17 +1090,20 @@ handleEvent event =
 
         otherwise -> return ()
 
+setBitTo :: Int -> Bool -> Word8 -> Word8
+setBitTo i b a = if b then setBit a i else clearBit a i
+
 handleKey :: InputMotion -> Keysym -> MonadAtari ()
-handleKey motion sym =
+handleKey motion sym = do
     let pressed = isPressed motion
-    in case keysymScancode sym of
+    case keysymScancode sym of
         SDL.Scancode1 -> dumpState
-        SDL.ScancodeUp -> usingStella $ swcha . bitAt 4 .= not pressed
-        SDL.ScancodeDown -> usingStella $ swcha . bitAt 5 .= not pressed
-        SDL.ScancodeLeft -> usingStella $ swcha . bitAt 6 .= not pressed
-        SDL.ScancodeRight -> usingStella $ swcha . bitAt 7 .= not pressed
-        SDL.ScancodeC -> usingStella $ swchb . bitAt 1 .= not pressed
-        SDL.ScancodeV -> usingStella $ swchb . bitAt 0 .= not pressed
+        SDL.ScancodeUp -> usingStella $ modifyIRegister swcha (setBitTo 4 (not pressed))
+        SDL.ScancodeDown -> usingStella $ modifyIRegister swcha (setBitTo 5 (not pressed))
+        SDL.ScancodeLeft -> usingStella $ modifyIRegister swcha (setBitTo 6 (not pressed))
+        SDL.ScancodeRight -> usingStella $ modifyIRegister swcha (setBitTo 7 (not pressed))
+        SDL.ScancodeC -> usingStella $ modifyIRegister swchb (setBitTo 1 (not pressed))
+        SDL.ScancodeV -> usingStella $ modifyIRegister swchb (setBitTo 0 (not pressed))
         SDL.ScancodeSpace -> usingStella $ do
             vblank' <- getORegister vblank
             let latch = testBit vblank' 6
@@ -1123,8 +1137,8 @@ initState oregs iregs helloWorld screenSurface window = Stella {
           _s_mpos1 = 0,
           _s_bpos = 0
       },
-      _swcha = 0xff,
-      _swchb = 0b00001011,
+      -- _swcha = 0xff,
+      -- _swchb = 0b00001011,
       _intervalTimer = IntervalTimer {
           _intim = 0,
           _subtimer = 0,
@@ -1169,7 +1183,8 @@ main = do
   let initialPC = fromIntegral pclo+(fromIntegral pchi `shift` 8)
 
   oregs <- newArray (0, 0x3f) 0
-  iregs <- newArray (0, 0x0d) 0
+  --iregs <- newArray (0, 0x0d) 0
+  iregs <- newArray (0, 0x300) 0 -- XXX no need for that many really
   let stella = initState oregs iregs helloWorld screenSurface window
   let state = S { _mem = memory,  _clock = 0, _regs = R initialPC 0 0 0 0 0xff,
                    _debug = 8,
@@ -1198,6 +1213,8 @@ main = do
     -- Joystick buttons not pressed
     usingStella $ putIRegister inpt4 0x80
     usingStella $ putIRegister inpt5 0x80
+    usingStella $ putIRegister swcha 0b11111111
+    usingStella $ putIRegister swchb 0b00001011
     loop
 
   SDL.destroyWindow window
