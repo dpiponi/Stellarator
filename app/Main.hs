@@ -290,6 +290,10 @@ getORegister i = do
     r <- use oregisters
     liftIO $ readArray r i
 
+{-# INLINE fastGetORegister #-}
+fastGetORegister :: (MonadIO m, MonadState Stella m) => IOUArray OReg Word8 -> OReg -> m Word8
+fastGetORegister r i = liftIO $ readArray r i
+
 {-# INLINE putIRegister #-}
 putIRegister :: (MonadIO m, MonadState Stella m) => IReg -> Word8 -> m ()
 putIRegister i v = do
@@ -302,6 +306,10 @@ modifyIRegister i f = do
     r <- use iregisters
     liftIO $ (readArray r i >>= writeArray r i . f)
 
+{-# INLINE fastModifyIRegister #-}
+fastModifyIRegister :: IOUArray IReg Word8 -> IReg -> (Word8 -> Word8) -> IO ()
+fastModifyIRegister r i f = readArray r i >>= writeArray r i . f
+
 {-# INLINE getIRegister #-}
 getIRegister :: (MonadIO m, MonadState Stella m) => IReg -> m Word8
 getIRegister i = do
@@ -310,9 +318,11 @@ getIRegister i = do
 
 {-# INLINE orIRegister #-}
 orIRegister :: (MonadIO m, MonadState Stella m) => IReg -> Word8 -> m ()
-orIRegister i v = do
-    r <- use iregisters
-    liftIO $ readArray r i >>= writeArray r i . (v .|.)
+orIRegister i v = modifyIRegister i (v .|.)
+
+{-# INLINE fastOrIRegister #-}
+fastOrIRegister :: IOUArray IReg Word8 -> IReg -> Word8 -> IO ()
+fastOrIRegister r i v = fastModifyIRegister r i (v .|.)
 
 inBinary :: (Bits a) => Int -> a -> String
 inBinary 0 x = ""
@@ -372,13 +382,11 @@ dumpStella = do
     
 
 {- INLINE playfield -}
-playfield :: (MonadIO m, MonadState Stella m) => Int -> m Bool
-playfield i | i >= 0 && i < 4 = flip testBit (i+4) <$> getORegister pf0
-            | i >=4 && i < 12 = flip testBit (11-i) <$> getORegister pf1
-            | i >= 12 && i < 20 = flip testBit (i-12) <$> getORegister pf2
-playfield i | i >= 20 && i < 40 = do
-                ctrlpf' <- getORegister ctrlpf
-                playfield $ if testBit ctrlpf' 0 then 39-i else i-20
+playfield :: (MonadIO m, MonadState Stella m) => IOUArray OReg Word8 -> Word8 -> Int -> m Bool
+playfield r ctrlpf' i | i >= 0 && i < 4 = flip testBit (i+4) <$> fastGetORegister r pf0
+                      | i >=4 && i < 12 = flip testBit (11-i) <$> fastGetORegister r pf1
+                      | i >= 12 && i < 20 = flip testBit (i-12) <$> fastGetORegister r pf2
+playfield r ctrlpf' i | i >= 20 && i < 40 = playfield r ctrlpf' $ if testBit ctrlpf' 0 then 39-i else i-20
 
 {-# INLINE flipIf #-}
 flipIf :: Bool -> Int -> Int
@@ -424,27 +432,29 @@ stretchPlayer reflect sizeCopies o bitmap =
 
 -- Stella programmer's guide p.40
 {- INLINE player0 -}
-player0 :: (MonadIO m, MonadState Stella m) => m Bool
-player0 = do
-    o <- (-) <$> use hpos <*> use ppos0
-    sizeCopies <- (0b111 .&.) <$> getORegister nusiz0
-    delayP0' <- use (graphics . delayP0)
-    grp0' <- if delayP0'
-        then use (graphics . oldGrp0)
-        else use (graphics . newGrp0)
-    refp0' <- getORegister refp0
+player0 :: (MonadIO m, MonadState Stella m) => IOUArray OReg Word8 -> Graphics -> CInt -> m Bool
+player0 r graphics' hpos' = do
+    ppos0' <- use ppos0
+    let o = hpos'-ppos0'
+    sizeCopies <- (0b111 .&.) <$> fastGetORegister r nusiz0
+    let !delayP0' = graphics' ^. delayP0
+    let !grp0' = if delayP0'
+        then graphics' ^.oldGrp0
+        else graphics' ^. newGrp0
+    refp0' <- fastGetORegister r refp0
     return $ stretchPlayer (testBit refp0' 3) sizeCopies o grp0'
 
 {- INLINE player1 -}
-player1 :: (MonadIO m, MonadState Stella m) => m Bool
-player1 = do
-    o <- (-) <$> use hpos <*> use ppos1
-    sizeCopies <- (0b111 .&.) <$> getORegister nusiz1
-    delayP1' <- use (graphics . delayP1)
-    grp1' <- if delayP1'
-        then use (graphics . oldGrp1)
-        else use (graphics . newGrp1)
-    refp1' <- getORegister refp1
+player1 :: (MonadIO m, MonadState Stella m) => IOUArray OReg Word8 -> Graphics -> CInt -> m Bool
+player1 r graphics' hpos' = do
+    ppos1' <- use ppos1
+    let o = hpos'-ppos1'
+    sizeCopies <- (0b111 .&.) <$> fastGetORegister r nusiz1
+    let !delayP1' = graphics' ^. delayP1
+    let !grp1' = if delayP1'
+        then graphics' ^. oldGrp1
+        else graphics' ^. newGrp1
+    refp1' <- fastGetORegister r refp1
     return $ stretchPlayer (testBit refp1' 3) sizeCopies o grp1'
 
 missileSize :: Word8 -> CInt
@@ -452,49 +462,51 @@ missileSize nusiz = 1 `shift` (fromIntegral ((nusiz `shift` (-4)) .&. 0b11))
 
 -- Stella programmer's guide p.22
 {- INLINE missile0 -}
-missile0 :: (MonadIO m, MonadState Stella m) => m Bool
-missile0 = do
-    enam0' <- getORegister enam0
-    resmp0' <- getORegister resmp0
+missile0 :: (MonadIO m, MonadState Stella m) => IOUArray OReg Word8 -> CInt -> m Bool
+missile0 r hpos' = do
+    enam0' <- fastGetORegister r enam0
+    resmp0' <- fastGetORegister r resmp0
     if testBit resmp0' 1
         then do
-            use hpos >>= (mpos0 .=)
+            mpos0 .= hpos'
             return False
         else if testBit enam0' 1
             then do
-                o <- (-) <$> use hpos <*> use mpos0
-                nusiz0' <- getORegister nusiz0
+                mpos0' <- use mpos0
+                let o = hpos'-mpos0'
+                nusiz0' <- fastGetORegister r nusiz0
                 return $ o >= 0 && o < missileSize nusiz0'
             else return False
 
 
 {- INLINE missile1 -}
-missile1 :: (MonadIO m, MonadState Stella m) => m Bool
-missile1 = do
-    enam1' <- getORegister enam1
-    resmp1' <- getORegister resmp1
+missile1 :: (MonadIO m, MonadState Stella m) => IOUArray OReg Word8 -> CInt -> m Bool
+missile1 r hpos' = do
+    enam1' <- fastGetORegister r enam1
+    resmp1' <- fastGetORegister r resmp1
     if (testBit resmp1' 1)
         then do 
-            use hpos >>= (mpos1 .=) -- XXX may need to do this on resmp
+            mpos1 .= hpos'
             return False
         else if testBit enam1' 1
             then do
-                o <- (-) <$> use hpos <*> use mpos1
-                nusiz1' <- getORegister nusiz1
+                mpos1' <- use mpos1
+                let o = hpos'-mpos1'
+                nusiz1' <- fastGetORegister r nusiz1
                 return $ o >= 0 && o < missileSize nusiz1'
             else return False
 
 {- INLINE ball -}
-ball :: (MonadIO m, MonadState Stella m) => m Bool
-ball = do
-    delayBall' <- use (graphics . delayBall)
-    enabl' <- if delayBall'
-        then use (graphics . oldBall)
-        else use (graphics . newBall)
+ball :: (MonadIO m, MonadState Stella m) => Graphics -> Word8 -> CInt -> m Bool
+ball graphics' ctrlpf' hpos' = do
+    let delayBall' = graphics' ^. delayBall
+    let enabl' = if delayBall'
+        then graphics' ^. oldBall
+        else graphics' ^. newBall
     if enabl'
         then do
-            o <- (-) <$> use hpos <*> use bpos
-            ctrlpf' <- getORegister ctrlpf
+            bpos' <- use bpos
+            let o = hpos'-bpos'
             let ballSize = 1 `shift` (fromIntegral ((ctrlpf' `shift` (fromIntegral $ -4)) .&. 0b11))
             return $ o >= 0 && o < ballSize
         else return False
@@ -616,20 +628,10 @@ stellaVblank v = do
     --vblank .= v
     putORegister vblank v
 
--- player0
-
 picy :: CInt
 picy = 40
 picx :: CInt
 picx = 68
-
-data Pixel = Pixel { plogic :: !Bool, pcolor :: !Word8 }
-
-instance Monoid Pixel where
-    {-# INLINE mappend #-}
-    mempty = Pixel False 0
-    _ `mappend` pixel@(Pixel True _) = pixel
-    pixel `mappend` (Pixel False _) = pixel
 
 {-# INLINE bit #-}
 bit :: Int -> Bool -> Word8
@@ -638,57 +640,44 @@ bit n t = if t then 1 `shift` n else 0
 {- INLINE compositeAndCollide -}
 compositeAndCollide :: (MonadIO m, MonadState Stella m) => CInt -> m Word8
 compositeAndCollide x = do
-    ctrlpf' <- getORegister ctrlpf
-    colupf' <- getORegister colupf
-    colup0' <- getORegister colup0
-    colup1' <- getORegister colup1
-    colubk' <- getORegister colubk
-    let playfieldColour = if testBit ctrlpf' 1
+    r <- use oregisters
+    ctrlpf' <- fastGetORegister r ctrlpf
+    colupf' <- fastGetORegister r colupf
+    colup0' <- fastGetORegister r colup0
+    colup1' <- fastGetORegister r colup1
+    colubk' <- fastGetORegister r colubk
+    let !playfieldColour = if testBit ctrlpf' 1
             then if x < 80
                 then colup0'
                 else colup1'
             else colupf' -- does ball get this too?
 
-{-
-    -- Assemble colours
-    pbackground <- Pixel True <$> return colubk'
-    pplayfield <- Pixel <$> playfield (fromIntegral $ x `div` 4) <*> return playfieldColour
-    pplayer0 <- Pixel <$> player0 <*> return colup0'
-    pplayer1 <- Pixel <$> player1 <*> return colup1'
-    pmissile0 <- Pixel <$> missile0 <*> return colup0'
-    pmissile1 <- Pixel <$> missile1 <*> return colup1'
-    pball <- Pixel <$> ball <*> getORegister colupf
--}
+    graphics' <- use graphics
+    hpos' <- use hpos
+    lmissile0 <- missile0 r hpos'
+    lmissile1 <- missile1 r hpos'
+    lplayer0 <- player0 r graphics' hpos'
+    lplayer1 <- player1 r graphics' hpos'
+    lball <- ball graphics' ctrlpf' hpos'
+    lplayfield <- playfield r ctrlpf' (fromIntegral $ x `div` 4)
 
-    lmissile0 <- missile0
-    lmissile1 <- missile1
-    lplayer0 <- player0
-    lplayer1 <- player1
-    lball <- ball
-    lplayfield <- playfield (fromIntegral $ x `div` 4)
+    let !playball = bit 7 lplayfield .|. bit 6 lball
 
-    let playball = bit 7 lplayfield .|. bit 6 lball
+    ir <- use iregisters
+    liftIO $ do
+        when lmissile0 $ do
+            fastOrIRegister ir cxm0p $ bit 7 lplayer1 .|. bit 6 lplayer0
+            fastOrIRegister ir cxm0fb playball
+            fastOrIRegister ir cxppmm $ bit 6 lmissile1
+        when lmissile1 $ do
+            fastOrIRegister ir cxm1p $ bit 7 lplayer0 .|. bit 6 lplayer1
+            fastOrIRegister ir cxm1fb playball
+        when lplayer0 $ do
+            fastOrIRegister ir cxp0fb playball
+            fastOrIRegister ir cxppmm $ bit 7 lplayer1
+        when lplayer1 $ fastOrIRegister ir cxp1fb playball
+        when lball $ fastOrIRegister ir cxblpf $ bit 7 lplayfield
 
-    when lmissile0 $ do
-        orIRegister cxm0p $ bit 7 lplayer1 .|. bit 6 lplayer0
-        orIRegister cxm0fb playball
-        orIRegister cxppmm $ bit 6 lmissile1
-    when lmissile1 $ do
-        orIRegister cxm1p $ bit 7 lplayer0 .|. bit 6 lplayer1
-        orIRegister cxm1fb playball
-    when lplayer0 $ do
-        orIRegister cxp0fb playball
-        orIRegister cxppmm $ bit 7 lplayer1
-    when lplayer1 $ orIRegister cxp1fb playball
-    when lball $ orIRegister cxblpf $ bit 7 lplayfield
-
-{-
-    let Pixel _ final = pbackground `mappend`
-                        if testBit ctrlpf' 2
-                            then pplayer1 `mappend` pmissile1 `mappend` pplayer0 `mappend` pmissile0 `mappend` pplayfield `mappend` pball
-                            else pball `mappend` pplayfield `mappend` pplayer1 `mappend` pmissile1 `mappend` pplayer0 `mappend` pmissile0
-    return final
--}
     return $ if testBit ctrlpf' 2
                 then if lball
                     then colupf'
@@ -759,7 +748,7 @@ stellaTick n = do
         let !y = vpos'-picy
         let !i = screenWidth*y+x
 
-        final <- compositeAndCollide x
+        !final <- compositeAndCollide x
 
         liftIO $ pokeElemOff ptr' (fromIntegral i) (lut!(final `shift` (-1)))
 
