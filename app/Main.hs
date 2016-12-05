@@ -188,8 +188,9 @@ $(makeLenses ''StellaClock)
 
 data StellaDebug = Debug {
     _debugLevel :: !Int,
-    _xbreak :: !Int32,
-    _ybreak :: !Int32
+    _posbreak :: (CInt, CInt)
+    -- _xbreak :: !Int32,
+    -- _ybreak :: !Int32
 }
 
 $(makeLenses '' StellaDebug)
@@ -396,39 +397,41 @@ flipIf False x = 7-x
 {- INLINE stretchPlayer -}
 stretchPlayer :: Bool -> Word8 -> CInt -> Word8 -> Bool
 stretchPlayer reflect sizeCopies o bitmap =
-    case sizeCopies of
-        0b000 -> -- one copy
-            if o >= 0 && o < 8
-                then testBit bitmap (flipIf reflect $ fromIntegral o)
-                else False
-        0b001 -> -- two copies close
-            if o >= 0 && o < 8 || o >= 16 && o < 24
-                then testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
-                else False
-        0b010 -> -- two copies - med
-            if o >= 0 && o < 8 || o >= 32 && o < 40
-                then testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
-                else False
-        0b011 -> -- three copies close
-            if o >= 0 && o < 8 || o >= 16 && o < 24 || o >= 32 && o < 40
-                then testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
-                else False
-        0b100 -> -- two copies wide
-            if o >= 0 && o < 8 || o >= 64 && o < 72
-                then testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
-                else False
-        0b101 -> -- double size player
-            if o >= 0 && o < 16
-                then testBit bitmap (flipIf reflect $ fromIntegral ((o `shift` (-1)) .&. 7))
-                else False
-        0b110 -> -- three copies medium
-            if o >= 0 && o < 8 || o >= 32 && o < 40 || o >= 64 && o < 72
-                then testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
-                else False
-        0b111 -> -- quad sized player
-            if o >= 0 && o < 32
-                then testBit bitmap (flipIf reflect $ (fromIntegral ((o `shift` (-2)) .&. 7)))
-                else False
+    if o < 0 || o >= 72
+        then False
+        else case sizeCopies of
+            0b000 -> -- one copy
+                if o < 8
+                    then testBit bitmap (flipIf reflect $ fromIntegral o)
+                    else False
+            0b001 -> -- two copies close
+                if o < 8 || o >= 16 && o < 24
+                    then testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
+                    else False
+            0b010 -> -- two copies - med
+                if o < 8 || o >= 32 && o < 40
+                    then testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
+                    else False
+            0b011 -> -- three copies close
+                if o < 8 || o >= 16 && o < 24 || o >= 32 && o < 40
+                    then testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
+                    else False
+            0b100 -> -- two copies wide
+                if o < 8 || o >= 64
+                    then testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
+                    else False
+            0b101 -> -- double size player
+                if o < 16
+                    then testBit bitmap (flipIf reflect $ fromIntegral ((o `shift` (-1)) .&. 7))
+                    else False
+            0b110 -> -- three copies medium
+                if o < 8 || o >= 32 && o < 40 || o >= 64
+                    then testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
+                    else False
+            0b111 -> -- quad sized player
+                if o < 32
+                    then testBit bitmap (flipIf reflect $ (fromIntegral ((o `shift` (-2)) .&. 7)))
+                    else False
 
 -- Stella programmer's guide p.40
 {- INLINE player0 -}
@@ -461,35 +464,29 @@ missileSize nusiz = 1 `shift` (fromIntegral ((nusiz `shift` (-4)) .&. 0b11))
 -- Stella programmer's guide p.22
 {- INLINE missile0 -}
 -- XXX Note that this updates mpos0 so need to take into account XXX
-missile0 :: (MonadIO m, MonadState Stella m) => IOUArray OReg Word8 -> CInt -> CInt -> m Bool
-missile0 r hpos' mpos0' = do
-    enam0' <- liftIO $ fastGetORegister r enam0
-    resmp0' <- liftIO $ fastGetORegister r resmp0
+missile0 :: IOUArray OReg Word8 -> CInt -> CInt -> Word8 -> IO Bool
+missile0 r hpos' mpos0' resmp0' = do
+    enam0' <- fastGetORegister r enam0
     if testBit resmp0' 1
-        then do
-            mpos0 .= hpos' -- XXX Separate out this bit with action
-            return False
+        then return False
         else if testBit enam0' 1
             then do
                 let o = hpos'-mpos0'
-                nusiz0' <- liftIO $ fastGetORegister r nusiz0
+                nusiz0' <- fastGetORegister r nusiz0
                 return $ o >= 0 && o < missileSize nusiz0'
             else return False
 
 
 {- INLINE missile1 -}
-missile1 :: (MonadIO m, MonadState Stella m) => IOUArray OReg Word8 -> CInt -> CInt -> m Bool
-missile1 r hpos' mpos1' = do
-    enam1' <- liftIO $ fastGetORegister r enam1
-    resmp1' <- liftIO $ fastGetORegister r resmp1
+missile1 :: IOUArray OReg Word8 -> CInt -> CInt -> Word8 -> IO Bool
+missile1 r hpos' mpos1' resmp1' = do
+    enam1' <- fastGetORegister r enam1
     if (testBit resmp1' 1)
-        then do 
-            mpos1 .= hpos'
-            return False
+        then return False
         else if testBit enam1' 1
             then do
                 let o = hpos'-mpos1'
-                nusiz1' <- liftIO $ fastGetORegister r nusiz1
+                nusiz1' <- fastGetORegister r nusiz1
                 return $ o >= 0 && o < missileSize nusiz1'
             else return False
 
@@ -573,7 +570,7 @@ stellaResmp1 :: (MonadIO m, MonadState Stella m) => m ()
 stellaResmp1 = use ppos1 >>= (mpos1 .=) -- XXX
 
 {- INLINE stellaWsync -}
-stellaWsync :: (MonadIO m, MonadState Stella m) => m ()
+stellaWsync :: StateT Stella IO ()
 stellaWsync = do
     hpos' <- use hpos
     --stellaTick (233-fromIntegral hpos') -- 228
@@ -634,15 +631,25 @@ bit :: Int -> Bool -> Word8
 bit n t = if t then 1 `shift` n else 0
 
 {- INLINE compositeAndCollide -}
-compositeAndCollide :: (MonadIO m, MonadState Stella m) => Stella -> CInt -> m Word8
-compositeAndCollide stella x = do
+--compositeAndCollide :: (MonadIO m, MonadState Stella m) => Stella -> CInt -> m Word8
+compositeAndCollide :: Stella -> CInt -> CInt -> IOUArray OReg Word8 -> IO Word8
+compositeAndCollide stella x hpos' r = do
+{-
     let r = stella ^. oregisters
+    let hpos' = stella ^. hpos
+    when (testBit resmp0' 1) $ mpos0 .= hpos'
+    when (testBit resmp1' 1) $ mpos1 .= hpos'
+    -}
+
+    resmp0' <- fastGetORegister r resmp0
+    resmp1' <- fastGetORegister r resmp1
+
     let ir = stella ^. iregisters
-    !ctrlpf' <- liftIO $ fastGetORegister r ctrlpf
-    !colupf' <- liftIO $ fastGetORegister r colupf
-    !colup0' <- liftIO $ fastGetORegister r colup0
-    !colup1' <- liftIO $ fastGetORegister r colup1
-    !colubk' <- liftIO $ fastGetORegister r colubk
+    !ctrlpf' <- fastGetORegister r ctrlpf
+    !colupf' <- fastGetORegister r colupf
+    !colup0' <- fastGetORegister r colup0
+    !colup1' <- fastGetORegister r colup1
+    !colubk' <- fastGetORegister r colubk
     let !playfieldColour = if testBit ctrlpf' 1
             then if x < 80
                 then colup0'
@@ -651,30 +658,28 @@ compositeAndCollide stella x = do
 
     let graphics' = stella ^. graphics
     let sprites' = stella ^. sprites
-    let hpos' = stella ^. hpos
     -- XXX Side effects in missile0/1
-    !lmissile0 <- missile0 r hpos' (sprites' ^. s_mpos0)
-    !lmissile1 <- missile1 r hpos' (sprites' ^. s_mpos1)
-    !lplayer0 <- liftIO $ player0 r graphics' hpos' (sprites' ^. s_ppos0)
-    !lplayer1 <- liftIO $ player1 r graphics' hpos' (sprites' ^. s_ppos1)
-    !lball <- liftIO $ ball graphics' ctrlpf' hpos' (sprites' ^. s_bpos)
-    !lplayfield <- liftIO $ playfield r ctrlpf' (fromIntegral $ x `div` 4)
+    !lmissile0 <- missile0 r hpos' (sprites' ^. s_mpos0) resmp0'
+    !lmissile1 <- missile1 r hpos' (sprites' ^. s_mpos1) resmp1'
+    !lplayer0 <- player0 r graphics' hpos' (sprites' ^. s_ppos0)
+    !lplayer1 <- player1 r graphics' hpos' (sprites' ^. s_ppos1)
+    !lball <- ball graphics' ctrlpf' hpos' (sprites' ^. s_bpos)
+    !lplayfield <- playfield r ctrlpf' (fromIntegral $ x `div` 4)
 
     let !playball = bit 7 lplayfield .|. bit 6 lball
 
-    liftIO $ do
-        when lmissile0 $ do
-            fastOrIRegister ir cxm0p $ bit 7 lplayer1 .|. bit 6 lplayer0
-            fastOrIRegister ir cxm0fb playball
-            fastOrIRegister ir cxppmm $ bit 6 lmissile1
-        when lmissile1 $ do
-            fastOrIRegister ir cxm1p $ bit 7 lplayer0 .|. bit 6 lplayer1
-            fastOrIRegister ir cxm1fb playball
-        when lplayer0 $ do
-            fastOrIRegister ir cxp0fb playball
-            fastOrIRegister ir cxppmm $ bit 7 lplayer1
-        when lplayer1 $ fastOrIRegister ir cxp1fb playball
-        when lball $ fastOrIRegister ir cxblpf $ bit 7 lplayfield
+    when lmissile0 $ do
+        fastOrIRegister ir cxm0p $ bit 7 lplayer1 .|. bit 6 lplayer0
+        fastOrIRegister ir cxm0fb playball
+        fastOrIRegister ir cxppmm $ bit 6 lmissile1
+    when lmissile1 $ do
+        fastOrIRegister ir cxm1p $ bit 7 lplayer0 .|. bit 6 lplayer1
+        fastOrIRegister ir cxm1fb playball
+    when lplayer0 $ do
+        fastOrIRegister ir cxp0fb playball
+        fastOrIRegister ir cxppmm $ bit 7 lplayer1
+    when lplayer1 $ fastOrIRegister ir cxp1fb playball
+    when lball $ fastOrIRegister ir cxblpf $ bit 7 lplayfield
 
     return $ if testBit ctrlpf' 2
                 then if lball
@@ -695,7 +700,6 @@ compositeAndCollide stella x = do
                             else if lball
                                 then colupf'
                                 else colubk'
-
 
 {-# INLINABLE timerTick #-}
 timerTick :: IntervalTimer -> IntervalTimer
@@ -723,23 +727,22 @@ updatePos (hpos, vpos) =
                 then (0, vpos')
                 else (0, 0)
 
-stellaTick :: (MonadIO m, MonadState Stella m) => Int -> m ()
+stellaTick :: Int -> StateT Stella IO ()
 stellaTick 0 = return ()
 stellaTick n = do
-    xbreak' <- use (stellaDebug . xbreak)
-    ybreak' <- use (stellaDebug . ybreak)
-    (hpos', vpos') <- use position
-    when (hpos' == fromIntegral xbreak' && vpos' == fromIntegral ybreak') $ do
+    stella <- get
+    let (xbreak', ybreak') = stella ^. stellaDebug . posbreak
+    let (hpos', vpos') = stella ^. position
+    when ((hpos', vpos') == (xbreak', ybreak')) $ do
         dumpStella
-        stellaDebug . xbreak .= (-1)
-        stellaDebug . ybreak .= (-1)
+        stellaDebug . posbreak .= (-1, -1) -- Maybe maybe
 
     nowClock += 1
     intervalTimer %= timerTick
     
     -- Display
     when (vpos' >= picy && vpos' < picy+192 && hpos' >= picx) $ do
-        !surface <- use backSurface
+        let !surface = stella ^. backSurface
         !ptr <- liftIO $ surfacePixels surface
         let !ptr' = castPtr ptr :: Ptr Word32
         let !x = hpos'-picx
@@ -747,14 +750,21 @@ stellaTick n = do
         let !i = screenWidth*y+x
 
         stella <- get
-        !final <- compositeAndCollide stella x
 
-        liftIO $ pokeElemOff ptr' (fromIntegral i) (lut!(final `shift` (-1)))
+        let r = stella ^. oregisters
+        let hpos' = stella ^. hpos
+        resmp0' <- liftIO $ fastGetORegister r resmp0
+        resmp1' <- liftIO $ fastGetORegister r resmp1
+        when (testBit resmp0' 1) $ mpos0 .= hpos'
+        when (testBit resmp1' 1) $ mpos1 .= hpos'
+
+        liftIO $ do
+            !final <- compositeAndCollide stella x hpos' r
+            pokeElemOff ptr' (fromIntegral i) (lut!(final `shift` (-1)))
 
     position %= updatePos
 
     stellaTick (n-1)
-
 
 data Registers = R {
     _pc :: !Word16,
@@ -781,7 +791,7 @@ newtype MonadAtari a = M { unM :: StateT StateAtari IO a }
     deriving (Functor, Applicative, Monad, MonadState StateAtari, MonadIO)
 
 instance Emu6502 MonadAtari where
-    {- INLINE readMemory -}
+    {-# INLINE readMemory #-}
     readMemory addr' =
         let addr = addr' .&. 0b1111111111111 in -- 6507
             if isTIA addr
@@ -799,7 +809,7 @@ instance Emu6502 MonadAtari where
                                 else error $ "Mystery read from " ++ showHex addr ""
 
 
-    {- INLINE writeMemory -}
+    {-# INLINE writeMemory #-}
     writeMemory addr' v =
         let addr = addr' .&. 0b1111111111111 in -- 6507
             if isTIA addr
@@ -896,10 +906,8 @@ instance Emu6502 MonadAtari where
 
 {- INLINE setBreak -}
 setBreak :: (MonadIO m, MonadState Stella m) =>
-               Int32 -> Int32 -> m ()
-setBreak x y = do
-    stellaDebug . xbreak .= x+fromIntegral picx
-    stellaDebug . ybreak .= y+fromIntegral picy
+               CInt -> CInt -> m ()
+setBreak x y = stellaDebug . posbreak .= (x+picx, y+picy)
 
 {-# INLINE usingStella #-}
 usingStella :: StateT Stella IO a -> MonadAtari a
@@ -1099,12 +1107,12 @@ handleEvent event =
             (MouseButtonEventData win Pressed device ButtonLeft clicks pos) -> do
             liftIO $ print pos
             let P (V2 x y) = pos
-            usingStella $ setBreak (x `div` fromIntegral xscale) (y `div` fromIntegral yscale)
+            usingStella $ setBreak (fromIntegral x `div` xscale) (fromIntegral y `div` yscale)
         MouseMotionEvent
             (MouseMotionEventData win device [ButtonLeft] pos rel) -> do
             liftIO $ print pos
             let P (V2 x y) = pos
-            usingStella $ setBreak (x `div` fromIntegral xscale) (y `div` fromIntegral yscale)
+            usingStella $ setBreak (fromIntegral x `div` xscale) (fromIntegral y `div` yscale)
         KeyboardEvent
             (KeyboardEventData win motion rep sym) -> do
             handleKey motion sym
@@ -1181,8 +1189,7 @@ initState oregs iregs helloWorld screenSurface window = Stella {
       },
       _stellaDebug = Debug {
           _debugLevel = -1,
-          _xbreak = -1,
-          _ybreak = -1
+          _posbreak = (-1, -1)
       }
   }
 
