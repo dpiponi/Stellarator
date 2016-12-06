@@ -45,6 +45,7 @@ import qualified SDL
 import Debug.Trace
 import Prelude hiding (last)
 import Core
+import Disasm
 
 {-# INLINE i8 #-}
 i8 :: Integral a => a -> Word8
@@ -95,6 +96,8 @@ dumpMemory = do
     debugStr 0 $ showHex b0 "" ++ " "
     debugStr 0 $ showHex b1 "" ++ " "
     debugStrLn 0 $ showHex b2 ""
+    let (_, mne, _) = disasm regPC [b0, b1, b2]
+    debugStrLn 0 $ mne
 
 {-# INLINABLE dumpState #-}
 dumpState :: Emu6502 m => m ()
@@ -202,6 +205,23 @@ data StellaSDL = StellaSDL {
 }
 
 $(makeLenses '' StellaSDL)
+
+data Registers = R {
+    _pc :: !Word16,
+    _p :: !Word8,
+    _a :: !Word8,
+    _x :: !Word8,
+    _y :: !Word8,
+    _s :: !Word8
+}
+
+data StateAtari = S {
+    _stella :: Stella,
+    _mem :: IOUArray Int Word8,
+    _regs :: !Registers,
+    _clock :: !Int,
+    _debug :: !Int
+}
 
 data Stella = Stella {
      _oregisters :: IOUArray OReg Word8,
@@ -766,24 +786,7 @@ stellaTick n = do
 
     stellaTick (n-1)
 
-data Registers = R {
-    _pc :: !Word16,
-    _p :: !Word8,
-    _a :: !Word8,
-    _x :: !Word8,
-    _y :: !Word8,
-    _s :: !Word8
-}
-
 $(makeLenses ''Registers)
-
-data StateAtari = S {
-    _stella :: Stella,
-    _mem :: IOUArray Int Word8,
-    _regs :: !Registers,
-    _clock :: !Int,
-    _debug :: !Int
-}
 
 makeLenses ''StateAtari
 
@@ -794,37 +797,37 @@ instance Emu6502 MonadAtari where
     {-# INLINE readMemory #-}
     readMemory addr' =
         let addr = addr' .&. 0b1111111111111 in -- 6507
-            if isTIA addr
-                then usingStella $ readStella (addr .&. 0x3f)
-                else if isRAM addr
-                        then do
-                            m <- use mem
-                            liftIO $ readArray m (iz addr .&. 0xff)
+            if addr >= 0x1000
+            then do
+                m <- use mem
+                liftIO $ readArray m (iz addr)
+            else if isRAM addr
+                then do
+                    m <- use mem
+                    liftIO $ readArray m (iz addr .&. 0xff)
+                else if isTIA addr
+                        then usingStella $ readStella (addr .&. 0x3f)
                         else if isRIOT addr
                             then usingStella $ readStella (0x280+(addr .&. 0x1f))
-                            else if addr >= 0x1000
-                                then do
-                                    m <- use mem
-                                    liftIO $ readArray m (iz addr)
-                                else error $ "Mystery read from " ++ showHex addr ""
+                            else error $ "Mystery read from " ++ showHex addr ""
 
 
     {-# INLINE writeMemory #-}
     writeMemory addr' v =
         let addr = addr' .&. 0b1111111111111 in -- 6507
-            if isTIA addr
-                then usingStella $ writeStella (addr .&. 0x3f) v
-                else if isRAM addr
-                        then do
-                            m <- use mem
-                            liftIO $ writeArray m (iz addr .&. 0xff) v
-                        else if isRIOT addr
-                                then usingStella $ writeStella (0x280+(addr .&. 0x1f)) v
-                                else if addr >= 0x1000
-                                    then do
-                                        m <- use mem
-                                        liftIO $ writeArray m (iz addr) v
-                                    else error $ "Mystery write to " ++ showHex addr ""
+        if addr >= 0x1000
+            then do
+                m <- use mem
+                liftIO $ writeArray m (iz addr) v
+            else if isRAM addr
+                then do
+                    m <- use mem
+                    liftIO $ writeArray m (iz addr .&. 0xff) v
+                else if isTIA addr
+                    then usingStella $ writeStella (addr .&. 0x3f) v
+                    else if isRIOT addr
+                            then usingStella $ writeStella (0x280+(addr .&. 0x1f)) v
+                            else error $ "Mystery write to " ++ showHex addr ""
 
     {-# INLINE getPC #-}
     getPC = use (regs . pc)
@@ -1057,7 +1060,6 @@ isRIOT a = testBit a 7 && testBit a 9 && not (testBit a 12)
 isROM :: Word16 -> Bool
 isROM a = testBit a 12
 
-
 {-# INLINE flagC #-}
 flagC :: Lens' Registers Bool
 flagC = p . bitAt 0
@@ -1212,9 +1214,11 @@ main = do
     oregs <- newArray (0, 0x3f) 0
     --iregs <- newArray (0, 0x0d) 0
     iregs <- newArray (0, 0x300) 0 -- XXX no need for that many really
-    let stella = initState oregs iregs helloWorld screenSurface window
-    let state = S { _mem = memory,  _clock = 0, _regs = R initialPC 0 0 0 0 0xff,
-                   _debug = 8, _stella = stella}
+    let (state, stella) = (
+                            S { _mem = memory,  _clock = 0, _regs = R initialPC 0 0 0 0 0xff,
+                                       _debug = 8, _stella = stella},
+                            initState oregs iregs helloWorld screenSurface window
+                        )
 
     let loopUntil n = do
             stellaClock' <- usingStella $ use nowClock
@@ -1231,7 +1235,7 @@ main = do
             let quit = elem SDL.QuitEvent $ map SDL.eventPayload events
             forM_ events handleEvent
             stellaClock' <- usingStella $ use nowClock
-            loopUntil (stellaClock' + 10000)
+            loopUntil (stellaClock' + 1000)
 
             loop
 
