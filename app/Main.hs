@@ -47,108 +47,17 @@ import Prelude hiding (last)
 import Core
 import Disasm
 
-{-# INLINE i8 #-}
-i8 :: Integral a => a -> Word8
-i8 = fromIntegral
-
-{-# INLINE i16 #-}
-i16 :: Integral a => a -> Word16
-i16 = fromIntegral
-
-{-# INLINE iz #-}
-iz :: Word16 -> Int -- or NUM
-iz = fromIntegral
-
-{-# INLINABLE dumpRegisters #-}
-dumpRegisters :: Emu6502 m => m ()
-dumpRegisters = do
-    -- XXX bring clock back
-    --tClock <- use clock
-    --debugStr 9 $ "clock = " ++ show tClock
-    regPC <- getPC
-    debugStr 0 $ " pc = " ++ showHex regPC ""
-    regP <- getP
-    debugStr 0 $ " flags = " ++ showHex regP ""
-    debugStr 0 $ "(N=" ++ showHex ((regP `shift` (-7)) .&. 1) ""
-    debugStr 0 $ ",V=" ++ showHex ((regP `shift` (-6)) .&. 1) ""
-    debugStr 0 $ ",B=" ++ showHex (regP `shift` ((-4)) .&. 1) ""
-    debugStr 0 $ ",D=" ++ showHex (regP `shift` ((-3)) .&. 1) ""
-    debugStr 0 $ ",I=" ++ showHex (regP `shift` ((-2)) .&. 1) ""
-    debugStr 0 $ ",Z=" ++ showHex (regP `shift` ((-1)) .&. 1) ""
-    debugStr 0 $ ",C=" ++ showHex (regP .&. 1) ""
-    regA <- getA 
-    debugStr 0 $ ") A = " ++ showHex regA ""
-    regX <- getX
-    debugStr 0 $ " X = " ++ showHex regX ""
-    regY <- getY
-    debugStrLn 0 $ " Y = " ++ showHex regY ""
-    regS <- getS
-    debugStrLn 0 $ " N = " ++ showHex regS ""
-
-{-# INLINABLE dumpMemory #-}
-dumpMemory :: Emu6502 m => m ()
-dumpMemory = do
-    regPC <- getPC
-    b0 <- readMemory regPC
-    b1 <- readMemory (regPC+1)
-    b2 <- readMemory (regPC+2)
-    debugStr 0 $ "(PC) = "
-    debugStr 0 $ showHex b0 "" ++ " "
-    debugStr 0 $ showHex b1 "" ++ " "
-    debugStrLn 0 $ showHex b2 ""
-    let (_, mne, _) = disasm regPC [b0, b1, b2]
-    debugStrLn 0 $ mne
-
-{-# INLINABLE dumpState #-}
-dumpState :: Emu6502 m => m ()
-dumpState = do
-    dumpMemory
-    dumpRegisters
-
 newtype OReg = OReg Word16 deriving (Ord, Ix, Eq, Num)
 newtype IReg = IReg Word16 deriving (Ord, Ix, Eq, Num)
 
-nusiz0, nusiz1, colup0, colup1, pf0, pf1, pf2, enam0, enam1, hmp0, hmp1, hmm0, hmm1, hmbl :: OReg
-vblank, vsync, refp0, refp1, colupf, colubk, ctrlpf, resmp0, resmp1 :: OReg
-vsync = 0x00
-vblank = 0x01
-nusiz0 = 0x04
-nusiz1 = 0x05
-colup0 = 0x06
-colup1 = 0x07
-colupf = 0x08
-colubk = 0x09
-ctrlpf = 0x0a
-refp0 = 0x0b
-refp1 = 0x0c
-pf0 = 0x0d
-pf1 = 0x0e
-pf2 = 0x0f
-enam0 = 0x1d
-enam1 = 0x1e
-hmp0 = 0x20
-hmp1 = 0x21
-hmm0 = 0x22
-hmm1 = 0x23
-hmbl = 0x24
-resmp0 = 0x28
-resmp1 = 0x29
-
-cxm0p, cxm1p, cxp0fb, cxp1fb, cxm0fb, cxm1fb, cxblpf, cxppmm, inpt4, inpt5 :: IReg
-cxm0p = 0x00
-cxm1p = 0x01
-cxp0fb = 0x02
-cxp1fb = 0x03
-cxm0fb = 0x04
-cxm1fb = 0x05
-cxblpf = 0x06
-cxppmm = 0x07
-inpt4 = 0x0c
-inpt5 = 0x0d
-
-swcha, swchb :: IReg
-swcha = 0x280
-swchb = 0x282
+data Registers = R {
+    _pc :: !Word16,
+    _p :: !Word8,
+    _a :: !Word8,
+    _x :: !Word8,
+    _y :: !Word8,
+    _s :: !Word8
+}
 
 data IntervalTimer = IntervalTimer {
     _intim :: !Word8,
@@ -206,24 +115,11 @@ data StellaSDL = StellaSDL {
 
 $(makeLenses '' StellaSDL)
 
-data Registers = R {
-    _pc :: !Word16,
-    _p :: !Word8,
-    _a :: !Word8,
-    _x :: !Word8,
-    _y :: !Word8,
-    _s :: !Word8
-}
-
 data StateAtari = S {
-    _stella :: Stella,
-    _mem :: IOUArray Int Word8,
-    _regs :: !Registers,
-    _clock :: !Int,
-    _debug :: !Int
-}
-
-data Stella = Stella {
+     _mem :: IOUArray Int Word8,
+     _regs :: !Registers,
+     _clock :: !Int,
+     _debug :: !Int,
      _oregisters :: IOUArray OReg Word8,
      _iregisters :: IOUArray IReg Word8,
 
@@ -237,21 +133,76 @@ data Stella = Stella {
     _intervalTimer :: IntervalTimer
 }
 
-$(makeLenses ''Stella)
+$(makeLenses ''StateAtari)
+$(makeLenses ''Registers)
+
+{-# INLINE i8 #-}
+i8 :: Integral a => a -> Word8
+i8 = fromIntegral
+
+{-# INLINE i16 #-}
+i16 :: Integral a => a -> Word16
+i16 = fromIntegral
+
+{-# INLINE iz #-}
+iz :: Word16 -> Int -- or NUM
+iz = fromIntegral
+
+nusiz0, nusiz1, colup0, colup1, pf0, pf1, pf2, enam0, enam1, hmp0, hmp1, hmm0, hmm1, hmbl :: OReg
+vblank, vsync, refp0, refp1, colupf, colubk, ctrlpf, resmp0, resmp1 :: OReg
+vsync = 0x00
+vblank = 0x01
+nusiz0 = 0x04
+nusiz1 = 0x05
+colup0 = 0x06
+colup1 = 0x07
+colupf = 0x08
+colubk = 0x09
+ctrlpf = 0x0a
+refp0 = 0x0b
+refp1 = 0x0c
+pf0 = 0x0d
+pf1 = 0x0e
+pf2 = 0x0f
+enam0 = 0x1d
+enam1 = 0x1e
+hmp0 = 0x20
+hmp1 = 0x21
+hmm0 = 0x22
+hmm1 = 0x23
+hmbl = 0x24
+resmp0 = 0x28
+resmp1 = 0x29
+
+cxm0p, cxm1p, cxp0fb, cxp1fb, cxm0fb, cxm1fb, cxblpf, cxppmm, inpt4, inpt5 :: IReg
+cxm0p = 0x00
+cxm1p = 0x01
+cxp0fb = 0x02
+cxp1fb = 0x03
+cxm0fb = 0x04
+cxm1fb = 0x05
+cxblpf = 0x06
+cxppmm = 0x07
+inpt4 = 0x0c
+inpt5 = 0x0d
+
+swcha, swchb :: IReg
+swcha = 0x280
+swchb = 0x282
 
 {-# INLINE backSurface #-}
 {-# INLINE frontSurface #-}
 {-# INLINE frontWindow #-}
-backSurface :: Lens' Stella Surface
-frontSurface :: Lens' Stella Surface
-frontWindow :: Lens' Stella SDL.Window
+backSurface :: Lens' StateAtari Surface
+frontSurface :: Lens' StateAtari Surface
+frontWindow :: Lens' StateAtari SDL.Window
 backSurface = stellaSDL . sdlBackSurface
 frontSurface = stellaSDL . sdlFrontSurface
 frontWindow = stellaSDL . sdlFrontWindow
 
 {-# INLINE hpos #-}
 {-# INLINE vpos #-}
-hpos, vpos :: Lens' Stella CInt
+hpos, vpos :: Lens' StateAtari CInt
 hpos = position . _1
 vpos = position . _2
 
@@ -260,7 +211,7 @@ vpos = position . _2
 {-# INLINE mpos0 #-}
 {-# INLINE mpos1 #-}
 {-# INLINE bpos #-}
-ppos0, ppos1, mpos0, mpos1, bpos :: Lens' Stella CInt
+ppos0, ppos1, mpos0, mpos1, bpos :: Lens' StateAtari CInt
 ppos0 = sprites . s_ppos0
 ppos1 = sprites . s_ppos1
 mpos0 = sprites . s_mpos0
@@ -269,12 +220,12 @@ bpos = sprites . s_bpos
 
 {-# INLINE nowClock #-}
 {-# INLINE lastClock #-}
-nowClock, lastClock :: Lens' Stella Int64
+nowClock, lastClock :: Lens' StateAtari Int64
 nowClock = stellaClock . now
 lastClock = stellaClock . last
 
 {- INLINE stellaDebugStr -}
-stellaDebugStr :: (MonadIO m, MonadState Stella m) =>
+stellaDebugStr :: (MonadIO m, MonadState StateAtari m) =>
                   Int -> String -> m ()
 stellaDebugStr n str = do
     d <- use (stellaDebug . debugLevel)
@@ -287,7 +238,7 @@ stellaDebugStr n str = do
         else return ()
 
 {- INLINE stellaDebugStrLn -}
-stellaDebugStrLn :: (MonadIO m, MonadState Stella m) =>
+stellaDebugStrLn :: (MonadIO m, MonadState StateAtari m) =>
                     Int -> String -> m ()
 stellaDebugStrLn n str = do
     d <- use (stellaDebug . debugLevel)
@@ -300,13 +251,13 @@ stellaDebugStrLn n str = do
         else return ()
 
 {-# INLINE putORegister #-}
-putORegister :: (MonadIO m, MonadState Stella m) => OReg -> Word8 -> m ()
+putORegister :: (MonadIO m, MonadState StateAtari m) => OReg -> Word8 -> m ()
 putORegister i v = do
     r <- use oregisters
     liftIO $ writeArray r i v
 
 {-# INLINE getORegister #-}
-getORegister :: (MonadIO m, MonadState Stella m) => OReg -> m Word8
+getORegister :: (MonadIO m, MonadState StateAtari m) => OReg -> m Word8
 getORegister i = do
     r <- use oregisters
     liftIO $ readArray r i
@@ -316,13 +267,13 @@ fastGetORegister :: IOUArray OReg Word8 -> OReg -> IO Word8
 fastGetORegister = readArray
 
 {-# INLINE putIRegister #-}
-putIRegister :: (MonadIO m, MonadState Stella m) => IReg -> Word8 -> m ()
+putIRegister :: (MonadIO m, MonadState StateAtari m) => IReg -> Word8 -> m ()
 putIRegister i v = do
     r <- use iregisters
     liftIO $ writeArray r i v
 
 {-# INLINE modifyIRegister #-}
-modifyIRegister :: (MonadIO m, MonadState Stella m) => IReg -> (Word8 -> Word8) -> m ()
+modifyIRegister :: (MonadIO m, MonadState StateAtari m) => IReg -> (Word8 -> Word8) -> m ()
 modifyIRegister i f = do
     r <- use iregisters
     liftIO $ (readArray r i >>= writeArray r i . f)
@@ -332,13 +283,13 @@ fastModifyIRegister :: IOUArray IReg Word8 -> IReg -> (Word8 -> Word8) -> IO ()
 fastModifyIRegister r i f = readArray r i >>= writeArray r i . f
 
 {-# INLINE getIRegister #-}
-getIRegister :: (MonadIO m, MonadState Stella m) => IReg -> m Word8
+getIRegister :: (MonadIO m, MonadState StateAtari m) => IReg -> m Word8
 getIRegister i = do
     r <- use iregisters
     liftIO $ readArray r i
 
 {-# INLINE orIRegister #-}
-orIRegister :: (MonadIO m, MonadState Stella m) => IReg -> Word8 -> m ()
+orIRegister :: (MonadIO m, MonadState StateAtari m) => IReg -> Word8 -> m ()
 orIRegister i v = modifyIRegister i (v .|.)
 
 {-# INLINE fastOrIRegister #-}
@@ -360,46 +311,6 @@ explainNusiz nusiz =
         0b101 -> "double size player"
         0b110 -> "3 copies medium"
         0b111 -> "quad sized player"
-
-dumpStella :: (MonadIO m, MonadState Stella m) => m ()
-dumpStella = do
-    liftIO $ putStrLn "--------"
-    hpos' <- use hpos
-    vpos' <- use vpos
-    liftIO $ putStrLn $ "hpos = " ++ show hpos' ++ " (" ++ show (hpos'-picx) ++ ") vpos = " ++ show vpos' ++ " (" ++ show (vpos'-picy) ++ ")"
-    grp0' <- use (graphics . oldGrp0) -- XXX
-    grp1' <- use (graphics . oldGrp1) -- XXX
-    liftIO $ putStrLn $ "GRP0 = " ++ showHex grp0' "" ++ "(" ++ inBinary 8 grp0' ++ ")"
-    liftIO $ putStrLn $ "GRP1 = " ++ showHex grp1' "" ++ "(" ++ inBinary 8 grp1' ++ ")"
-    pf0' <- getORegister pf0
-    pf1' <- getORegister pf1
-    pf2' <- getORegister pf2
-    liftIO $ putStrLn $ "PF = " ++ reverse (inBinary 4 (pf0' `shift` (-4)))
-                                ++ inBinary 8 pf1'
-                                ++ reverse (inBinary 8 pf2')
-    nusiz0' <- getORegister nusiz0
-    nusiz1' <- getORegister nusiz1
-    liftIO $ putStrLn $ "NUSIZ0 = " ++ showHex nusiz0' "" ++ "(" ++ explainNusiz nusiz0' ++
-                        ") NUSIZ1 = " ++ showHex nusiz1' "" ++ "(" ++ explainNusiz nusiz1' ++ ")"
-    enam0' <- getORegister enam0
-    enam1' <- getORegister enam1
-    enablOld <- use (graphics . oldBall)
-    enablNew <- use (graphics . newBall)
-    liftIO $ putStr $ "ENAM0 = " ++ show (testBit enam0' 1)
-    liftIO $ putStr $ " ENAM1 = " ++ show (testBit enam1' 1)
-    liftIO $ putStrLn $ " ENABL = " ++ show (enablOld, enablNew)
-    mpos0' <- use mpos0
-    mpos1' <- use mpos1
-    hmm0' <- getORegister hmm0
-    hmm1' <- getORegister hmm1
-    liftIO $ putStr $ "missile0 @ " ++ show mpos0' ++ "(" ++ show (clockMove hmm0') ++ ")"
-    liftIO $ putStrLn $ " missile1 @ " ++ show mpos1' ++ "(" ++ show (clockMove hmm1') ++ ")"
-    vdelp0' <- use (graphics . delayP0)
-    vdelp1' <- use (graphics . delayP1)
-    vdelbl' <- use (graphics . delayBall)
-    liftIO $ putStrLn $ "VDELP0 = " ++ show vdelp0' ++ " " ++
-                        "VDELP1 = " ++ show vdelp1' ++ " " ++
-                        "VDELBL = " ++ show vdelbl'
     
 
 {- INLINE playfield -}
@@ -453,7 +364,7 @@ stretchPlayer reflect sizeCopies o bitmap =
                     then testBit bitmap (flipIf reflect $ (fromIntegral ((o `shift` (-2)) .&. 7)))
                     else False
 
--- Stella programmer's guide p.40
+-- StateAtari programmer's guide p.40
 {- INLINE player0 -}
 player0 :: IOUArray OReg Word8 -> Graphics -> CInt -> CInt -> IO Bool
 player0 r graphics' hpos' ppos0' = do
@@ -481,7 +392,7 @@ player1 r graphics' hpos' ppos1' = do
 missileSize :: Word8 -> CInt
 missileSize nusiz = 1 `shift` (fromIntegral ((nusiz `shift` (-4)) .&. 0b11))
 
--- Stella programmer's guide p.22
+-- StateAtari programmer's guide p.22
 {- INLINE missile0 -}
 -- XXX Note that this updates mpos0 so need to take into account XXX
 missile0 :: IOUArray OReg Word8 -> CInt -> CInt -> Word8 -> IO Bool
@@ -532,7 +443,7 @@ clockMove :: Word8 -> CInt
 clockMove i = fromIntegral ((fromIntegral i :: Int8) `shift` (-4))
 
 {- INLINE stellaHmclr -}
-stellaHmclr :: (MonadIO m, MonadState Stella m) => m ()
+stellaHmclr :: (MonadIO m, MonadState StateAtari m) => m ()
 stellaHmclr = do
     putORegister hmp0 0
     putORegister hmp1 0
@@ -541,7 +452,7 @@ stellaHmclr = do
     putORegister hmbl 0
 
 {- INLINE stellaCxclr -}
-stellaCxclr :: (MonadIO m, MonadState Stella m) => m ()
+stellaCxclr :: (MonadIO m, MonadState StateAtari m) => m ()
 stellaCxclr = do
     putIRegister cxm0p 0
     putIRegister cxm1p 0
@@ -559,7 +470,7 @@ wrap160 i | i>=picx && i < picx+160 = i
           | i >= picx+160 = wrap160 (i-160)
 
 {- INLINE stellaHmove -}
-stellaHmove :: (MonadIO m, MonadState Stella m) => m ()
+stellaHmove :: (MonadIO m, MonadState StateAtari m) => m ()
 stellaHmove = do
     poffset0 <- getORegister hmp0
     ppos0' <- use ppos0
@@ -582,15 +493,15 @@ stellaHmove = do
     bpos .= wrap160 (bpos'-clockMove boffset)
 
 {- INLINE stellaResmp0 -}
-stellaResmp0 :: (MonadIO m, MonadState Stella m) => m ()
+stellaResmp0 :: (MonadIO m, MonadState StateAtari m) => m ()
 stellaResmp0 = use ppos0 >>= (mpos0 .=) -- XXX
 
 {- INLINE stellaResmp1 -}
-stellaResmp1 :: (MonadIO m, MonadState Stella m) => m ()
+stellaResmp1 :: MonadAtari ()
 stellaResmp1 = use ppos1 >>= (mpos1 .=) -- XXX
 
 {- INLINE stellaWsync -}
-stellaWsync :: StateT Stella IO ()
+stellaWsync :: MonadAtari ()
 stellaWsync = do
     hpos' <- use hpos
     --stellaTick (233-fromIntegral hpos') -- 228
@@ -602,7 +513,7 @@ xscale, yscale :: CInt
 xscale = 5
 yscale = 3
 
-renderDisplay :: StateT Stella IO ()
+renderDisplay :: MonadAtari ()
 renderDisplay = do
     backSurface' <- use backSurface
     frontSurface' <- use frontSurface
@@ -615,7 +526,7 @@ renderDisplay = do
     liftIO $ SDL.updateWindowSurface window'
 
 {- INLINE stellaVsync -}
-stellaVsync :: Word8 -> StateT Stella IO ()
+stellaVsync :: Word8 -> MonadAtari ()
 stellaVsync v = do
     stellaDebugStrLn 0 $ "VSYNC " ++ showHex v ""
     oldv <- getORegister vsync
@@ -626,7 +537,7 @@ stellaVsync v = do
     renderDisplay
 
 {- INLINE stellaVblank -}
-stellaVblank :: (MonadIO m, MonadState Stella m) => Word8 -> m ()
+stellaVblank :: Word8 -> MonadAtari ()
 stellaVblank v = do
     stellaDebugStrLn 0 $ "VBLANK " ++ showHex v ""
     vold <- getORegister vblank
@@ -651,8 +562,8 @@ bit :: Int -> Bool -> Word8
 bit n t = if t then 1 `shift` n else 0
 
 {- INLINE compositeAndCollide -}
---compositeAndCollide :: (MonadIO m, MonadState Stella m) => Stella -> CInt -> m Word8
-compositeAndCollide :: Stella -> CInt -> CInt -> IOUArray OReg Word8 -> IO Word8
+--compositeAndCollide :: (MonadIO m, MonadState StateAtari m) => StateAtari -> CInt -> m Word8
+compositeAndCollide :: StateAtari -> CInt -> CInt -> IOUArray OReg Word8 -> IO Word8
 compositeAndCollide stella x hpos' r = do
 {-
     let r = stella ^. oregisters
@@ -747,7 +658,7 @@ updatePos (hpos, vpos) =
                 then (0, vpos')
                 else (0, 0)
 
-stellaTick :: Int -> StateT Stella IO ()
+stellaTick :: Int -> MonadAtari ()
 stellaTick 0 = return ()
 stellaTick n = do
     stella <- get
@@ -786,10 +697,6 @@ stellaTick n = do
 
     stellaTick (n-1)
 
-$(makeLenses ''Registers)
-
-makeLenses ''StateAtari
-
 newtype MonadAtari a = M { unM :: StateT StateAtari IO a }
     deriving (Functor, Applicative, Monad, MonadState StateAtari, MonadIO)
 
@@ -806,9 +713,9 @@ instance Emu6502 MonadAtari where
                     m <- use mem
                     liftIO $ readArray m (iz addr .&. 0xff)
                 else if isTIA addr
-                        then usingStella $ readStella (addr .&. 0x3f)
+                        then readStella (addr .&. 0x3f)
                         else if isRIOT addr
-                            then usingStella $ readStella (0x280+(addr .&. 0x1f))
+                            then readStella (0x280+(addr .&. 0x1f))
                             else error $ "Mystery read from " ++ showHex addr ""
 
 
@@ -824,9 +731,9 @@ instance Emu6502 MonadAtari where
                     m <- use mem
                     liftIO $ writeArray m (iz addr .&. 0xff) v
                 else if isTIA addr
-                    then usingStella $ writeStella (addr .&. 0x3f) v
+                    then writeStella (addr .&. 0x3f) v
                     else if isRIOT addr
-                            then usingStella $ writeStella (0x280+(addr .&. 0x1f)) v
+                            then writeStella (0x280+(addr .&. 0x1f)) v
                             else error $ "Mystery write to " ++ showHex addr ""
 
     {-# INLINE getPC #-}
@@ -834,7 +741,7 @@ instance Emu6502 MonadAtari where
     {-# INLINE tick #-}
     tick n = do
         clock += n
-        usingStella $ stellaTick (3*n)
+        stellaTick (3*n)
     {-# INLINE putC #-}
     putC b = regs . flagC .= b
     {-# INLINE getC #-}
@@ -905,23 +812,113 @@ instance Emu6502 MonadAtari where
     {- INLINE illegal -}
     illegal i = error $ "Illegal opcode 0x" ++ showHex i ""
 
+dumpStella :: MonadAtari ()
+dumpStella = do
+    dumpMemory
+    liftIO $ putStrLn "--------"
+    hpos' <- use hpos
+    vpos' <- use vpos
+    liftIO $ putStrLn $ "hpos = " ++ show hpos' ++ " (" ++ show (hpos'-picx) ++ ") vpos = " ++ show vpos' ++ " (" ++ show (vpos'-picy) ++ ")"
+    grp0' <- use (graphics . oldGrp0) -- XXX
+    grp1' <- use (graphics . oldGrp1) -- XXX
+    liftIO $ putStrLn $ "GRP0 = " ++ showHex grp0' "" ++ "(" ++ inBinary 8 grp0' ++ ")"
+    liftIO $ putStrLn $ "GRP1 = " ++ showHex grp1' "" ++ "(" ++ inBinary 8 grp1' ++ ")"
+    pf0' <- getORegister pf0
+    pf1' <- getORegister pf1
+    pf2' <- getORegister pf2
+    liftIO $ putStrLn $ "PF = " ++ reverse (inBinary 4 (pf0' `shift` (-4)))
+                                ++ inBinary 8 pf1'
+                                ++ reverse (inBinary 8 pf2')
+    nusiz0' <- getORegister nusiz0
+    nusiz1' <- getORegister nusiz1
+    liftIO $ putStrLn $ "NUSIZ0 = " ++ showHex nusiz0' "" ++ "(" ++ explainNusiz nusiz0' ++
+                        ") NUSIZ1 = " ++ showHex nusiz1' "" ++ "(" ++ explainNusiz nusiz1' ++ ")"
+    enam0' <- getORegister enam0
+    enam1' <- getORegister enam1
+    enablOld <- use (graphics . oldBall)
+    enablNew <- use (graphics . newBall)
+    liftIO $ putStr $ "ENAM0 = " ++ show (testBit enam0' 1)
+    liftIO $ putStr $ " ENAM1 = " ++ show (testBit enam1' 1)
+    liftIO $ putStrLn $ " ENABL = " ++ show (enablOld, enablNew)
+    mpos0' <- use mpos0
+    mpos1' <- use mpos1
+    hmm0' <- getORegister hmm0
+    hmm1' <- getORegister hmm1
+    liftIO $ putStr $ "missile0 @ " ++ show mpos0' ++ "(" ++ show (clockMove hmm0') ++ ")"
+    liftIO $ putStrLn $ " missile1 @ " ++ show mpos1' ++ "(" ++ show (clockMove hmm1') ++ ")"
+    vdelp0' <- use (graphics . delayP0)
+    vdelp1' <- use (graphics . delayP1)
+    vdelbl' <- use (graphics . delayBall)
+    liftIO $ putStrLn $ "VDELP0 = " ++ show vdelp0' ++ " " ++
+                        "VDELP1 = " ++ show vdelp1' ++ " " ++
+                        "VDELBL = " ++ show vdelbl'
+
+{-# INLINABLE dumpMemory #-}
+dumpMemory :: MonadAtari ()
+dumpMemory = do
+    regPC <- getPC
+    b0 <- readMemory regPC
+    b1 <- readMemory (regPC+1)
+    b2 <- readMemory (regPC+2)
+    liftIO $ putStr $ "(PC) = "
+    liftIO $ putStr $ showHex b0 "" ++ " "
+    liftIO $ putStr $ showHex b1 "" ++ " "
+    liftIO $ putStrLn $ showHex b2 ""
+    let (_, mne, _) = disasm regPC [b0, b1, b2]
+    liftIO $ putStrLn $ mne
+
+{-# INLINABLE dumpRegisters #-}
+dumpRegisters :: MonadAtari ()
+dumpRegisters = do
+    -- XXX bring clock back
+    --tClock <- use clock
+    --putStr 9 $ "clock = " ++ show tClock
+    regPC <- getPC
+    liftIO $ putStr $ " pc = " ++ showHex regPC ""
+    regP <- getP
+    liftIO $ putStr $ " flags = " ++ showHex regP ""
+    liftIO $ putStr $ "(N=" ++ showHex ((regP `shift` (-7)) .&. 1) ""
+    liftIO $ putStr $ ",V=" ++ showHex ((regP `shift` (-6)) .&. 1) ""
+    liftIO $ putStr $ ",B=" ++ showHex (regP `shift` ((-4)) .&. 1) ""
+    liftIO $ putStr $ ",D=" ++ showHex (regP `shift` ((-3)) .&. 1) ""
+    liftIO $ putStr $ ",I=" ++ showHex (regP `shift` ((-2)) .&. 1) ""
+    liftIO $ putStr $ ",Z=" ++ showHex (regP `shift` ((-1)) .&. 1) ""
+    liftIO $ putStr $ ",C=" ++ showHex (regP .&. 1) ""
+    regA <- getA 
+    liftIO $ putStr $ ") A = " ++ showHex regA ""
+    regX <- getX
+    liftIO $ putStr $ " X = " ++ showHex regX ""
+    regY <- getY
+    liftIO $ putStrLn $ " Y = " ++ showHex regY ""
+    regS <- getS
+    liftIO $ putStrLn $ " N = " ++ showHex regS ""
+
+{-# INLINABLE dumpState #-}
+dumpState :: MonadAtari ()
+dumpState = do
+    dumpMemory
+    dumpRegisters
+
 --  XXX Do this! If reset occurs during horizontal blank, the object will appear at the left side of the television screen
 
 {- INLINE setBreak -}
-setBreak :: (MonadIO m, MonadState Stella m) =>
+setBreak :: (MonadIO m, MonadState StateAtari m) =>
                CInt -> CInt -> m ()
 setBreak x y = stellaDebug . posbreak .= (x+picx, y+picy)
 
+{-
 {-# INLINE usingStella #-}
-usingStella :: StateT Stella IO a -> MonadAtari a
+usingStella :: StateT StateAtari IO a -> MonadAtari a
 usingStella m = do
     stella' <- use stella
     (a, stella'') <- liftIO $ flip runStateT stella' m
     stella .= stella''
     return a
+    -}
+usingStella = M
 
 {- INLINABLE writeStella -}
-writeStella :: Word16 -> Word8 -> StateT Stella IO ()
+writeStella :: Word16 -> Word8 -> MonadAtari ()
 writeStella addr v = 
     case addr of
        0x00 -> stellaVsync v             -- VSYNC
@@ -987,8 +984,7 @@ writeStella addr v =
        otherwise -> return () -- liftIO $ putStrLn $ "writing TIA 0x" ++ showHex addr ""
 
 {- INLINABLE readStella -}
-readStella :: (MonadIO m, MonadState Stella m) =>
-              Word16 -> m Word8
+readStella :: Word16 -> MonadAtari Word8
 readStella addr = 
     case addr of
         0x00 -> getIRegister cxm0p
@@ -1149,11 +1145,16 @@ handleKey motion sym = do
         SDL.ScancodeEscape -> liftIO $ exitSuccess
         otherwise -> return ()
 
-initState :: IOUArray OReg Word8 ->
+initState :: IOUArray Int Word8 ->
+             IOUArray OReg Word8 ->
              IOUArray IReg Word8 ->
+             Word16 ->
              Surface -> Surface ->
-             SDL.Window -> Stella
-initState oregs iregs helloWorld screenSurface window = Stella {
+             SDL.Window -> StateAtari
+initState memory oregs iregs initialPC helloWorld screenSurface window = S {
+      _mem = memory,  _clock = 0, _regs = R initialPC 0 0 0 0 0xff,
+      _debug = 8,
+
       _oregisters = oregs,
       _iregisters = iregs,
       _position = (0, 0),
@@ -1214,11 +1215,7 @@ main = do
     oregs <- newArray (0, 0x3f) 0
     --iregs <- newArray (0, 0x0d) 0
     iregs <- newArray (0, 0x300) 0 -- XXX no need for that many really
-    let (state, stella) = (
-                            S { _mem = memory,  _clock = 0, _regs = R initialPC 0 0 0 0 0xff,
-                                       _debug = 8, _stella = stella},
-                            initState oregs iregs helloWorld screenSurface window
-                        )
+    let state = initState memory oregs iregs initialPC helloWorld screenSurface window
 
     let loopUntil n = do
             stellaClock' <- usingStella $ use nowClock
