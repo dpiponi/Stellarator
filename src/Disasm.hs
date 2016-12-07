@@ -24,10 +24,10 @@ import Numeric
 import qualified Data.ByteString.Internal as BS (c2w, w2c)
 
 inHex8 :: Word8 -> String
-inHex8 x = "$" ++ showHex x ""
+inHex8 x = "0x" ++ showHex x ""
 
 inHex16 :: Word16 -> String
-inHex16 x = "$" ++ showHex x ""
+inHex16 x = "0x" ++ showHex x ""
 
 make16 :: Word8 -> Word8 -> Word16
 make16 lo hi = fromIntegral lo+(fromIntegral hi `shift` 8)
@@ -84,7 +84,7 @@ withData02 :: Word8 -> Bool -> String -> [Word8] -> (Int, String, [Word8])
 withData02 bbb useY mne bs = case bbb of
     0b000 -> immediate mne bs
     0b001 -> zeroPage mne bs
-    0b010 -> error "Must write back to A"
+    0b010 -> (1, "BYTE", bs)
     0b011 -> absolute mne bs
     0b101 -> if useY
                 then zeroPageY mne bs
@@ -183,12 +183,13 @@ disasm pc (b : bs) =
 
                 otherwise -> dis_illegal b bs
 
-dis :: Word16 -> [Word8] -> IO ()
-dis pc bs = do
+dis :: Int -> Word16 -> [Word8] -> IO ()
+dis 0 _ _ = return ()
+dis m pc bs = do
     let (n, mne, bs') = disasm pc bs
-    let addr = "$" ++ showHex pc ""
+    let addr = "0x" ++ showHex pc ""
     putStrLn $ addr ++ "  " ++ mne
-    dis (pc+fromIntegral n) bs'
+    dis (m-1) (pc+fromIntegral n) bs'
 
 {-
 main = do

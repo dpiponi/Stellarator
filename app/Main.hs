@@ -14,6 +14,7 @@ import Control.Applicative
 import Control.Concurrent (threadDelay)
 import Control.Lens hiding (_last)
 import Control.Monad
+import Text.Parsec
 import Control.Monad.State
 import Data.Array.IO
 import Data.Array.Unboxed
@@ -46,6 +47,13 @@ import Debug.Trace
 import Prelude hiding (last)
 import Core
 import Disasm
+import System.Console.Haskeline
+import Control.Concurrent
+
+import DebugCmd
+import MemoryMap
+import Stella.Graphics
+import Stella.Sprites
 
 newtype OReg = OReg Word16 deriving (Ord, Ix, Eq, Num)
 newtype IReg = IReg Word16 deriving (Ord, Ix, Eq, Num)
@@ -66,30 +74,6 @@ data IntervalTimer = IntervalTimer {
 }
 
 $(makeLenses ''IntervalTimer)
-
-data Graphics = Graphics {
-    _delayP0 :: !Bool,
-    _delayP1 :: !Bool,
-    _delayBall :: !Bool,
-    _oldGrp0 :: !Word8,
-    _newGrp0 :: !Word8,
-    _oldGrp1 :: !Word8,
-    _newGrp1 :: !Word8,
-    _oldBall :: !Bool,
-    _newBall :: !Bool
-}
-
-$(makeLenses ''Graphics)
-
-data Sprites = Sprites {
-    _s_ppos0 :: !CInt,
-    _s_ppos1 :: !CInt,
-    _s_mpos0 :: !CInt,
-    _s_mpos1 :: !CInt,
-    _s_bpos :: !CInt
-}
-
-$(makeLenses ''Sprites)
 
 data StellaClock = Clock {
     _now :: !Int64,
@@ -311,7 +295,6 @@ explainNusiz nusiz =
         0b101 -> "double size player"
         0b110 -> "3 copies medium"
         0b111 -> "quad sized player"
-    
 
 {- INLINE playfield -}
 playfield :: IOUArray OReg Word8 -> Word8 -> Int -> IO Bool
@@ -505,6 +488,7 @@ stellaWsync :: MonadAtari ()
 stellaWsync = do
     hpos' <- use hpos
     --stellaTick (233-fromIntegral hpos') -- 228
+    --stellaTick (232-fromIntegral hpos') -- 228
     stellaTick (228-fromIntegral hpos') 
 
 -- http://atariage.com/forums/topic/107527-atari-2600-vsyncvblank/
@@ -562,16 +546,8 @@ bit :: Int -> Bool -> Word8
 bit n t = if t then 1 `shift` n else 0
 
 {- INLINE compositeAndCollide -}
---compositeAndCollide :: (MonadIO m, MonadState StateAtari m) => StateAtari -> CInt -> m Word8
 compositeAndCollide :: StateAtari -> CInt -> CInt -> IOUArray OReg Word8 -> IO Word8
 compositeAndCollide stella x hpos' r = do
-{-
-    let r = stella ^. oregisters
-    let hpos' = stella ^. hpos
-    when (testBit resmp0' 1) $ mpos0 .= hpos'
-    when (testBit resmp1' 1) $ mpos1 .= hpos'
-    -}
-
     resmp0' <- fastGetORegister r resmp0
     resmp1' <- fastGetORegister r resmp1
 
@@ -936,7 +912,7 @@ writeStella addr v =
        0x0d -> putORegister pf0 v                  -- PF0
        0x0e -> putORegister pf1 v                  -- PF1
        0x0f -> putORegister pf2 v                  -- PF2
-       0x10 -> use hpos >>= ((ppos0 .=) . (+5))   -- RESP0
+       0x10 -> use hpos >>= ((ppos0 .=) . (+5))   -- RESP0 XXX FUDGE FACTORS
        0x11 -> use hpos >>= ((ppos1 .=) . (+5))   -- RESP1
        0x12 -> use hpos >>= (mpos0 .=) . (+4)   -- RESM0
        0x13 -> use hpos >>= (mpos1 .=) . (+4)   -- RESM1
@@ -1040,21 +1016,6 @@ readStella addr =
 --          True -> testBit a 9
 --                  True -> RIOT
 --                  False -> RAM
-{-# INLINE isTIA #-}
-isTIA :: Word16 -> Bool
-isTIA a = not (testBit a 7) && not (testBit a 12)
-
-{-# INLINE isRAM #-}
-isRAM :: Word16 -> Bool
-isRAM a = testBit a 7 && not (testBit a 9) && not (testBit a 12)
-
-{-# INLINE isRIOT #-}
-isRIOT :: Word16 -> Bool
-isRIOT a = testBit a 7 && testBit a 9 && not (testBit a 12)
-
-{-# INLINE isROM #-}
-isROM :: Word16 -> Bool
-isROM a = testBit a 12
 
 {-# INLINE flagC #-}
 flagC :: Lens' Registers Bool
@@ -1120,6 +1081,202 @@ handleEvent event =
 setBitTo :: Int -> Bool -> Word8 -> Word8
 setBitTo i b a = if b then setBit a i else clearBit a i
 
+comparison :: (Int -> Int -> Bool) -> Expr -> Expr -> MonadAtari Value
+comparison op x y = do
+        x' <- eval x
+        y' <- eval y
+        case (x', y') of
+            (EInt x, EInt y) -> return $ EBool (x `op` y)
+            otherwise -> return EFail
+
+arith :: (Int -> Int -> Int) -> Expr -> Expr -> MonadAtari Value
+arith op x y = do
+        x' <- eval x
+        y' <- eval y
+        case (x', y') of
+            (EInt x, EInt y) -> return $ EInt (x `op` y)
+            otherwise -> return EFail
+
+eval :: Expr -> MonadAtari Value
+eval A = do
+    a <- getA
+    return (EInt (fromIntegral a))
+eval X = do
+    x <- getX
+    return (EInt (fromIntegral x))
+eval Y = do
+    y <- getY
+    return (EInt (fromIntegral y))
+eval PC = do
+    pc <- getPC
+    return (EInt (fromIntegral pc))
+eval DebugCmd.S = do
+    s <- getS
+    return (EInt (fromIntegral s))
+eval DebugCmd.EQ = do
+    z <- getZ
+    return (EBool z)
+eval NE = do
+    z <- getZ
+    return (EBool (not z))
+eval CC = do
+    c <- getC
+    return (EBool c)
+eval CS = do
+    c <- getC
+    return (EBool (not c))
+eval PL = do
+    n <- getN
+    return (EBool (not n))
+eval MI = do
+    n <- getN
+    return (EBool n)
+eval DebugCmd.Clock = do
+    n <- use clock
+    return (EInt (fromIntegral n))
+eval Row = do
+    n <- use vpos
+    return (EInt (fromIntegral n))
+eval Col = do
+    n <- use hpos
+    return (EInt (fromIntegral n))
+
+eval (Or x y) = do
+        x' <- eval x
+        y' <- eval y
+        case (x', y') of
+            (EInt x, EInt y) -> return $ EInt (x .|. y)
+            (EBool x, EBool y) -> return $ EBool (x || y)
+            otherwise -> return EFail
+
+eval (And x y) = do
+        x' <- eval x
+        y' <- eval y
+        case (x', y') of
+            (EInt x, EInt y) -> return $ EInt (x .&. y)
+            (EBool x, EBool y) -> return $ EBool (x && y)
+            otherwise -> return EFail
+
+eval (Gt x y) = comparison (>) x y
+eval (Ge x y) = comparison (>=) x y
+eval (Le x y) = comparison (<=) x y
+eval (Eq x y) = comparison (==) x y
+eval (Ne x y) = comparison (/=) x y
+eval (Lt x y) = comparison (<) x y
+eval (Plus x y) = arith (+) x y
+eval (Times x y) = arith (*) x y
+eval (Div x y) = arith div x y
+eval (Minus x y) = arith (-) x y
+eval (LeftShift x y) = arith (shift) x y
+eval (RightShift x y) = arith (shift . negate) x y
+
+eval (PeekByte x) = do
+        x' <- eval x
+        case x' of
+            EInt x -> do
+                y <- readMemory (fromIntegral x)
+                return (EInt $ fromIntegral y)
+            otherwise -> return EFail
+
+eval (PeekWord x) = do
+        x' <- eval x
+        case x' of
+            EInt x -> do
+                lo <- readMemory (fromIntegral x)
+                hi <- readMemory (fromIntegral x+1)
+                return (EInt $ fromIntegral $ Core.make16 lo hi)
+            otherwise -> return EFail
+
+eval (Not x) = do
+        x' <- eval x
+        case x' of
+            EBool x -> return $ EBool (not x)
+            EInt x -> return $ EInt (-1-x)
+            otherwise -> return EFail
+
+eval (EConst x) = return (EInt x)
+eval (EConstString s) = return (EString s)
+
+eval x = do
+    liftIO $ print x
+    return EFail
+
+disassemble :: Maybe Expr -> Maybe Expr -> MonadAtari ()
+disassemble addr n = do
+    n' <- case n of
+        Just e -> do
+            x' <- eval e
+            case x' of
+                EInt n'' -> return n''
+                otherwise -> return 1
+        otherwise -> return 1
+    pc <- case addr of
+        Just x -> do
+            x' <- eval x
+            case x' of
+                EInt z -> return (fromIntegral z)
+                otherwise -> return 0 -- error
+        Nothing -> getPC
+    bytes <- forM [pc..pc+3*fromIntegral n'] $ \p -> readMemory p
+    liftIO $ dis n' pc bytes
+
+execCommand :: Command -> MonadAtari Bool
+execCommand cmd = 
+    case cmd of
+        Block cmds -> do
+            forM_ cmds execCommand
+            return False
+        DebugCmd.List addr n -> do
+            disassemble addr n
+            return False
+        Repeat n cmd -> do
+            n' <- eval n
+            case n' of
+                EInt n'' -> do
+                    times n'' (execCommand cmd)
+                otherwise -> return ()
+            return False
+        Cont -> do
+            liftIO $ putStrLn "Continuing..."
+            return True
+        DumpGraphics -> dumpStella >> return False
+        Step -> step >> return False
+        Print es -> do
+            forM_ es $ \e -> do
+                val <- eval e
+                liftIO $ putStr (show val)
+            liftIO $ putStrLn ""
+            return False
+        Until cond cmd -> do
+            let loop = (do
+                            c <- eval cond
+                            case c of
+                                EBool True -> return ()
+                                EBool False -> do
+                                    execCommand cmd
+                                    loop
+                                otherwise -> do
+                                    liftIO $ putStrLn "Non-boolean condition"
+                                    return ())
+            loop
+            return False
+        cmd -> do
+            liftIO $ putStrLn "Unimplemented command:"
+            liftIO $ print cmd
+            return False
+
+runDebugger :: MonadAtari ()
+runDebugger = do
+    Just line <- liftIO $ runInputT (defaultSettings { historyFile=Just ".stellarator" }) $ getInputLine "> "
+    let cmd = parse parseCommand "" line
+    case cmd of
+        Right cmd' -> do
+            q <- execCommand cmd'
+            when (not q) runDebugger
+        Left e -> do
+            liftIO $ print e
+            runDebugger
+
 handleKey :: InputMotion -> Keysym -> MonadAtari ()
 handleKey motion sym = do
     let pressed = isPressed motion
@@ -1142,7 +1299,12 @@ handleKey motion sym = do
                 (True, True) -> do
                     inpt4' <- getIRegister inpt4
                     putIRegister inpt4 (clearBit inpt4' 7)
-        SDL.ScancodeEscape -> liftIO $ exitSuccess
+        SDL.ScancodeQ -> liftIO $ exitSuccess
+        SDL.ScancodeEscape -> when pressed $ do
+            t <- liftIO $ forkIO $ let spin = SDL.pollEvents >> spin in spin
+            dumpState
+            runDebugger
+            liftIO $ killThread t
         otherwise -> return ()
 
 initState :: IOUArray Int Word8 ->
@@ -1151,7 +1313,7 @@ initState :: IOUArray Int Word8 ->
              Word16 ->
              Surface -> Surface ->
              SDL.Window -> StateAtari
-initState memory oregs iregs initialPC helloWorld screenSurface window = S {
+initState memory oregs iregs initialPC helloWorld screenSurface window = Main.S {
       _mem = memory,  _clock = 0, _regs = R initialPC 0 0 0 0 0xff,
       _debug = 8,
 
@@ -1163,30 +1325,14 @@ initState memory oregs iregs initialPC helloWorld screenSurface window = S {
           _sdlFrontSurface = screenSurface,
           _sdlFrontWindow = window
       },
-      _sprites = Sprites {
-          _s_ppos0 = 9999,
-          _s_ppos1 = 9999,
-          _s_mpos0 = 0,
-          _s_mpos1 = 0,
-          _s_bpos = 0
-      },
+      _sprites = Stella.Sprites.start,
       _intervalTimer = IntervalTimer {
           _intim = 0,
           _subtimer = 0,
           _interval = 0
       },
-      _graphics = Graphics {
-          _delayP0 = False,
-          _delayP1 = False,
-          _delayBall = False,
-          _oldGrp0 = 0,
-          _newGrp0 = 0,
-          _oldGrp1 = 0,
-          _newGrp1 = 0,
-          _oldBall = False,
-          _newBall = False
-      },
-      _stellaClock = Clock {
+      _graphics = Stella.Graphics.start,
+      _stellaClock = Main.Clock {
           _now = 0,
           _last = 0
       },
