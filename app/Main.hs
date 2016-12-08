@@ -104,7 +104,7 @@ $(makeLenses '' StellaSDL)
 data StateAtari = S {
      _mem :: IOUArray Int Word8,
      _regs :: !Registers,
-     _clock :: !Int,
+     _clock :: !Int64,
      _debug :: !Int,
      _oregisters :: IOUArray OReg Word8,
      _iregisters :: IOUArray IReg Word8,
@@ -491,7 +491,11 @@ stellaWsync = do
     hpos' <- use hpos
     --stellaTick (233-fromIntegral hpos') -- 228
     --stellaTick (232-fromIntegral hpos') -- 228
-    stellaTick (228-fromIntegral hpos') 
+    when (hpos' > 2) $ do
+        clock += 1 -- sleep the CPU
+        clock' <- use clock
+        stellaTickUntil (3*clock')
+        stellaWsync
 
 -- http://atariage.com/forums/topic/107527-atari-2600-vsyncvblank/
 
@@ -636,8 +640,13 @@ updatePos (hpos, vpos) =
                 then (0, vpos')
                 else (0, 0)
 
+stellaTickUntil :: Int64 -> MonadAtari ()
+stellaTickUntil n = do
+    c <- use nowClock
+    stellaTick (fromIntegral (n-c))
+
 stellaTick :: Int -> MonadAtari ()
-stellaTick 0 = return ()
+stellaTick n | n <= 0 = return ()
 stellaTick n = do
     stella <- get
     let (xbreak', ybreak') = stella ^. stellaDebug . posbreak
@@ -718,8 +727,9 @@ instance Emu6502 MonadAtari where
     getPC = use (regs . pc)
     {-# INLINE tick #-}
     tick n = do
-        clock += n
-        stellaTick (3*n)
+        clock += fromIntegral n
+        c <- use clock
+        stellaTickUntil (3*c)
     {-# INLINE putC #-}
     putC b = regs . flagC .= b
     {-# INLINE getC #-}
