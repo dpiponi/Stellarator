@@ -22,12 +22,24 @@ import Data.Binary
 import Data.Int
 import Numeric
 import qualified Data.ByteString.Internal as BS (c2w, w2c)
+import MemoryMap
 
 inHex8 :: Word8 -> String
 inHex8 x = "0x" ++ showHex x ""
 
 inHex16 :: Word16 -> String
 inHex16 x = "0x" ++ showHex x ""
+
+address8 :: Word8 -> String
+address8 x =
+    if isTIA (fromIntegral x)
+        then inHex8 x ++ case (x .&. 0x3f) of
+           0x02 -> "; WSYNC"
+           0x0d -> "; PF0"
+           0x0e -> "; PF1"
+           0x0f -> "; PF2"
+           otherwise -> ""
+        else inHex8 x
 
 make16 :: Word8 -> Word8 -> Word16
 make16 lo hi = fromIntegral lo+(fromIntegral hi `shift` 8)
@@ -36,7 +48,7 @@ indirectX :: String -> [Word8] -> (Int, String, [Word8])
 indirectX mne (b : bs) = (2, mne ++ " (" ++ inHex8 b ++ ", X)", bs)
 
 zeroPage :: String -> [Word8] -> (Int, String, [Word8])
-zeroPage mne (b : bs) = (2, mne ++ " " ++ inHex8 b, bs)
+zeroPage mne (b : bs) = (2, mne ++ " " ++ address8 b, bs)
 
 absolute :: String -> [Word8] -> (Int, String, [Word8])
 absolute mne (blo : bhi : bs) = (3, mne ++ " " ++ inHex16 (make16 blo bhi), bs)

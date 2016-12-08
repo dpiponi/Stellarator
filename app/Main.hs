@@ -10,6 +10,7 @@
 module Main where
 
 import Binary
+import qualified Data.Map.Strict as Map
 import Control.Applicative
 import Control.Concurrent (threadDelay)
 import Control.Lens hiding (_last)
@@ -84,7 +85,8 @@ $(makeLenses ''StellaClock)
 
 data StellaDebug = Debug {
     _debugLevel :: !Int,
-    _posbreak :: (CInt, CInt)
+    _posbreak :: (CInt, CInt),
+    _variables :: Map.Map String Value
     -- _xbreak :: !Int32,
     -- _ybreak :: !Int32
 }
@@ -1141,6 +1143,12 @@ eval Col = do
     n <- use hpos
     return (EInt (fromIntegral n))
 
+eval (Var s) = do
+    v <- use (stellaDebug . variables)
+    case Map.lookup s v of
+        Nothing -> return EFail
+        Just x -> return x
+
 eval (Or x y) = do
         x' <- eval x
         y' <- eval y
@@ -1223,6 +1231,12 @@ disassemble addr n = do
 execCommand :: Command -> MonadAtari Bool
 execCommand cmd = 
     case cmd of
+        Let var e -> do
+            e' <- eval e
+            stellaDebug . variables %= Map.insert var e'
+            v <- use (stellaDebug . variables)
+            --liftIO $ print v
+            return False
         Block cmds -> do
             forM_ cmds execCommand
             return False
@@ -1337,6 +1351,7 @@ initState memory oregs iregs initialPC helloWorld screenSurface window = Main.S 
           _last = 0
       },
       _stellaDebug = Debug {
+          _variables = Map.empty,
           _debugLevel = -1,
           _posbreak = (-1, -1)
       }

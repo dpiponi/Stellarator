@@ -32,6 +32,7 @@ instance Show Value where
 data Expr = A | X | Y | PC | S
           | EQ | NE | CC | CS | PL | MI
           | Row | Col | Clock
+          | Var String
           | Gt Expr Expr | Lt Expr Expr
           | Ge Expr Expr | Le Expr Expr
           | Ne Expr Expr | Eq Expr Expr
@@ -111,6 +112,7 @@ term    =  parens lexer parseExpr
 	<|> (symbol lexer "y" >> return Y)
 	<|> (symbol lexer "s" >> return S)
         <|> do { n <- natural lexer; return (EConst (fromIntegral n)) }
+        <|> do { s <- identifier lexer ; return (Var s) }
         <|> do { s <- stringLiteral lexer ; return (EConstString s) }
         <?> "simple expression"
 
