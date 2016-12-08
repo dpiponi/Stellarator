@@ -905,6 +905,11 @@ usingStella m = do
     -}
 usingStella = M
 
+graphicsDelay :: Int64 -> MonadAtari ()
+graphicsDelay n = do
+    c <- use clock
+    stellaTickUntil (3*c+n)
+
 {- INLINABLE writeStella -}
 writeStella :: Word16 -> Word8 -> MonadAtari ()
 writeStella addr v = 
@@ -921,9 +926,9 @@ writeStella addr v =
        0x0a -> putORegister ctrlpf v               -- COLUPF
        0x0b -> putORegister refp0 v               -- REFP0
        0x0c -> putORegister refp1 v               -- REFP1
-       0x0d -> putORegister pf0 v                  -- PF0
-       0x0e -> putORegister pf1 v                  -- PF1
-       0x0f -> putORegister pf2 v                  -- PF2
+       0x0d -> graphicsDelay 4 >> putORegister pf0 v                  -- PF0
+       0x0e -> graphicsDelay 4 >> putORegister pf1 v                  -- PF1
+       0x0f -> graphicsDelay 4 >> putORegister pf2 v                  -- PF2
        0x10 -> use hpos >>= ((ppos0 .=) . (+5))   -- RESP0 XXX FUDGE FACTORS
        0x11 -> use hpos >>= ((ppos1 .=) . (+5))   -- RESP1
        0x12 -> use hpos >>= (mpos0 .=) . (+4)   -- RESM0
