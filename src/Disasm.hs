@@ -34,10 +34,24 @@ address8 :: Word8 -> String
 address8 x =
     if isTIA (fromIntegral x)
         then inHex8 x ++ case (x .&. 0x3f) of
+           0x00 -> "; VSYNC"
+           0x01 -> "; VBLANK"
            0x02 -> "; WSYNC"
+           0x03 -> "; RSYNC"
+           0x04 -> "; NUSIZ0"
+           0x05 -> "; NUSIZ1"
+           0x06 -> "; COLUP0"
+           0x07 -> "; COLUP1"
+           0x08 -> "; COLUPF"
+           0x09 -> "; COLUBK"
            0x0d -> "; PF0"
            0x0e -> "; PF1"
            0x0f -> "; PF2"
+           0x28 -> "; RESMP0"
+           0x29 -> "; RESMP1"
+           0x2A -> "; HMOVE"
+           0x2B -> "; HMCLR"
+           0x2C -> "; CXCLR"
            otherwise -> ""
         else inHex8 x
 

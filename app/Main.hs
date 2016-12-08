@@ -237,13 +237,13 @@ stellaDebugStrLn n str = do
         else return ()
 
 {-# INLINE putORegister #-}
-putORegister :: (MonadIO m, MonadState StateAtari m) => OReg -> Word8 -> m ()
+putORegister :: OReg -> Word8 -> MonadAtari ()
 putORegister i v = do
     r <- use oregisters
     liftIO $ writeArray r i v
 
 {-# INLINE getORegister #-}
-getORegister :: (MonadIO m, MonadState StateAtari m) => OReg -> m Word8
+getORegister :: OReg -> MonadAtari Word8
 getORegister i = do
     r <- use oregisters
     liftIO $ readArray r i
@@ -253,13 +253,13 @@ fastGetORegister :: IOUArray OReg Word8 -> OReg -> IO Word8
 fastGetORegister = readArray
 
 {-# INLINE putIRegister #-}
-putIRegister :: (MonadIO m, MonadState StateAtari m) => IReg -> Word8 -> m ()
+putIRegister :: IReg -> Word8 -> MonadAtari ()
 putIRegister i v = do
     r <- use iregisters
     liftIO $ writeArray r i v
 
 {-# INLINE modifyIRegister #-}
-modifyIRegister :: (MonadIO m, MonadState StateAtari m) => IReg -> (Word8 -> Word8) -> m ()
+modifyIRegister :: IReg -> (Word8 -> Word8) -> MonadAtari ()
 modifyIRegister i f = do
     r <- use iregisters
     liftIO $ (readArray r i >>= writeArray r i . f)
@@ -269,13 +269,13 @@ fastModifyIRegister :: IOUArray IReg Word8 -> IReg -> (Word8 -> Word8) -> IO ()
 fastModifyIRegister r i f = readArray r i >>= writeArray r i . f
 
 {-# INLINE getIRegister #-}
-getIRegister :: (MonadIO m, MonadState StateAtari m) => IReg -> m Word8
+getIRegister :: IReg -> MonadAtari Word8
 getIRegister i = do
     r <- use iregisters
     liftIO $ readArray r i
 
 {-# INLINE orIRegister #-}
-orIRegister :: (MonadIO m, MonadState StateAtari m) => IReg -> Word8 -> m ()
+orIRegister :: IReg -> Word8 -> MonadAtari ()
 orIRegister i v = modifyIRegister i (v .|.)
 
 {-# INLINE fastOrIRegister #-}
@@ -428,7 +428,7 @@ clockMove :: Word8 -> CInt
 clockMove i = fromIntegral ((fromIntegral i :: Int8) `shift` (-4))
 
 {- INLINE stellaHmclr -}
-stellaHmclr :: (MonadIO m, MonadState StateAtari m) => m ()
+stellaHmclr :: MonadAtari ()
 stellaHmclr = do
     putORegister hmp0 0
     putORegister hmp1 0
@@ -437,7 +437,7 @@ stellaHmclr = do
     putORegister hmbl 0
 
 {- INLINE stellaCxclr -}
-stellaCxclr :: (MonadIO m, MonadState StateAtari m) => m ()
+stellaCxclr :: MonadAtari ()
 stellaCxclr = do
     putIRegister cxm0p 0
     putIRegister cxm1p 0
@@ -455,7 +455,7 @@ wrap160 i | i>=picx && i < picx+160 = i
           | i >= picx+160 = wrap160 (i-160)
 
 {- INLINE stellaHmove -}
-stellaHmove :: (MonadIO m, MonadState StateAtari m) => m ()
+stellaHmove :: MonadAtari ()
 stellaHmove = do
     poffset0 <- getORegister hmp0
     ppos0' <- use ppos0
@@ -478,7 +478,7 @@ stellaHmove = do
     bpos .= wrap160 (bpos'-clockMove boffset)
 
 {- INLINE stellaResmp0 -}
-stellaResmp0 :: (MonadIO m, MonadState StateAtari m) => m ()
+stellaResmp0 ::  MonadAtari ()
 stellaResmp0 = use ppos0 >>= (mpos0 .=) -- XXX
 
 {- INLINE stellaResmp1 -}
@@ -903,7 +903,7 @@ usingStella m = do
     stella .= stella''
     return a
     -}
-usingStella = M
+--usingStella = M
 
 graphicsDelay :: Int64 -> MonadAtari ()
 graphicsDelay n = do
@@ -929,11 +929,11 @@ writeStella addr v =
        0x0d -> graphicsDelay 4 >> putORegister pf0 v                  -- PF0
        0x0e -> graphicsDelay 4 >> putORegister pf1 v                  -- PF1
        0x0f -> graphicsDelay 4 >> putORegister pf2 v                  -- PF2
-       0x10 -> use hpos >>= ((ppos0 .=) . (+5))   -- RESP0 XXX FUDGE FACTORS
-       0x11 -> use hpos >>= ((ppos1 .=) . (+5))   -- RESP1
-       0x12 -> use hpos >>= (mpos0 .=) . (+4)   -- RESM0
-       0x13 -> use hpos >>= (mpos1 .=) . (+4)   -- RESM1
-       0x14 -> use hpos >>= (bpos .=) . (+4)    -- RESBL
+       0x10 -> graphicsDelay 5 >> use hpos >>= (ppos0 .=)   -- RESP0 XXX FUDGE FACTORS
+       0x11 -> graphicsDelay 5 >> use hpos >>= (ppos1 .=)   -- RESP1
+       0x12 -> graphicsDelay 4 >> use hpos >>= (mpos0 .=)   -- RESM0
+       0x13 -> graphicsDelay 4 >> use hpos >>= (mpos1 .=)   -- RESM1
+       0x14 -> graphicsDelay 4 >> use hpos >>= (bpos .=)     -- RESBL
        0x1b -> do -- GRP0
                 graphics . newGrp0 .= v
                 use (graphics . newGrp1) >>= (graphics . oldGrp1 .=)
@@ -1083,12 +1083,12 @@ handleEvent event =
             (MouseButtonEventData win Pressed device ButtonLeft clicks pos) -> do
             liftIO $ print pos
             let P (V2 x y) = pos
-            usingStella $ setBreak (fromIntegral x `div` xscale) (fromIntegral y `div` yscale)
+            setBreak (fromIntegral x `div` xscale) (fromIntegral y `div` yscale)
         MouseMotionEvent
             (MouseMotionEventData win device [ButtonLeft] pos rel) -> do
             liftIO $ print pos
             let P (V2 x y) = pos
-            usingStella $ setBreak (fromIntegral x `div` xscale) (fromIntegral y `div` yscale)
+            setBreak (fromIntegral x `div` xscale) (fromIntegral y `div` yscale)
         KeyboardEvent
             (KeyboardEventData win motion rep sym) -> do
             handleKey motion sym
@@ -1311,13 +1311,13 @@ handleKey motion sym = do
     let pressed = isPressed motion
     case keysymScancode sym of
         SDL.Scancode1 -> dumpState
-        SDL.ScancodeUp -> usingStella $ modifyIRegister swcha (setBitTo 4 (not pressed))
-        SDL.ScancodeDown -> usingStella $ modifyIRegister swcha (setBitTo 5 (not pressed))
-        SDL.ScancodeLeft -> usingStella $ modifyIRegister swcha (setBitTo 6 (not pressed))
-        SDL.ScancodeRight -> usingStella $ modifyIRegister swcha (setBitTo 7 (not pressed))
-        SDL.ScancodeC -> usingStella $ modifyIRegister swchb (setBitTo 1 (not pressed))
-        SDL.ScancodeV -> usingStella $ modifyIRegister swchb (setBitTo 0 (not pressed))
-        SDL.ScancodeSpace -> usingStella $ do
+        SDL.ScancodeUp ->  modifyIRegister swcha (setBitTo 4 (not pressed))
+        SDL.ScancodeDown ->  modifyIRegister swcha (setBitTo 5 (not pressed))
+        SDL.ScancodeLeft ->  modifyIRegister swcha (setBitTo 6 (not pressed))
+        SDL.ScancodeRight ->  modifyIRegister swcha (setBitTo 7 (not pressed))
+        SDL.ScancodeC ->  modifyIRegister swchb (setBitTo 1 (not pressed))
+        SDL.ScancodeV ->  modifyIRegister swchb (setBitTo 0 (not pressed))
+        SDL.ScancodeSpace ->  do
             vblank' <- getORegister vblank
             let latch = testBit vblank' 6
             case (latch, pressed) of
@@ -1394,7 +1394,7 @@ main = do
     let state = initState memory oregs iregs initialPC helloWorld screenSurface window
 
     let loopUntil n = do
-            stellaClock' <- usingStella $ use nowClock
+            stellaClock' <-  use nowClock
             when (stellaClock' < n) $ do
                 step
                 loopUntil n
@@ -1407,18 +1407,17 @@ main = do
 
             let quit = elem SDL.QuitEvent $ map SDL.eventPayload events
             forM_ events handleEvent
-            stellaClock' <- usingStella $ use nowClock
+            stellaClock' <-  use nowClock
             loopUntil (stellaClock' + 1000)
 
             loop
 
     flip runStateT state $ unM $ do
         -- Joystick buttons not pressed
-        usingStella $ do
-            putIRegister inpt4 0x80
-            putIRegister inpt5 0x80
-            putIRegister swcha 0b11111111
-            putIRegister swchb 0b00001011
+        putIRegister inpt4 0x80
+        putIRegister inpt5 0x80
+        putIRegister swcha 0b11111111
+        putIRegister swchb 0b00001011
         loop
 
     SDL.destroyWindow window
