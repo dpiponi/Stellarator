@@ -8,6 +8,8 @@ stack build && stack exec Stellarator-exe -- -f adventure.rom
 
 ![Adventure screenshot](docs/adventure.gif?raw=true "Adventure Screenshot")
 
+![Pitfall screenshot](docs/pitfall.gif?raw=true "Pitfall Screenshot")
+
 As you can see, there are visual artifacts and the aspect ratio isn't right yet.
 I've made no attempt to get timing right yet.
 
