@@ -184,29 +184,6 @@ ball graphics' ctrlpf' hpos' bpos' = do
             return $ o >= 0 && o < ballSize
         else return False
 
-{- INLINE stellaHmove -}
-stellaHmove :: MonadAtari ()
-stellaHmove = do
-    poffset0 <- getORegister hmp0
-    ppos0' <- use ppos0
-    ppos0 .= wrap160 (ppos0'-clockMove poffset0)
-
-    poffset1 <- getORegister hmp1
-    ppos1' <- use ppos1
-    ppos1 .= wrap160 (ppos1'-clockMove poffset1)
-
-    moffset0 <- getORegister hmm0
-    mpos0' <- use mpos0
-    mpos0 .= wrap160 (mpos0'-clockMove moffset0) -- XXX do rest
-
-    moffset1 <- getORegister hmm1
-    mpos1' <- use mpos1
-    mpos1 .= wrap160 (mpos1'-clockMove moffset1) -- XXX do rest
-
-    boffset <- getORegister hmbl
-    bpos' <- use bpos
-    bpos .= wrap160 (bpos'-clockMove boffset)
-
 {- INLINE stellaResmp0 -}
 stellaResmp0 ::  MonadAtari ()
 stellaResmp0 = use ppos0 >>= (mpos0 .=) -- XXX

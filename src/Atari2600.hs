@@ -420,7 +420,6 @@ picy = 40
 picx :: CInt
 picx = 68
 
-{-
 {- INLINE stellaHmove -}
 stellaHmove :: MonadAtari ()
 stellaHmove = do
@@ -449,6 +448,7 @@ stellaHmove = do
         _s_bpos = bpos''
     }
 
+{-
 {- INLINE stellaResmp0 -}
 stellaResmp0 ::  MonadAtari ()
 stellaResmp0 = use ppos0 >>= (mpos0 .=) -- XXX
