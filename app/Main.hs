@@ -18,6 +18,7 @@ import Control.Monad
 import Text.Parsec
 import Control.Monad.State
 import Data.Array.IO
+import DebugState
 import Data.Array.Unboxed
 import Data.Binary hiding (get)
 import System.Exit
@@ -58,6 +59,7 @@ import DebugCmd
 import MemoryMap
 import Stella.Graphics
 import Stella.Sprites
+import DebugState
 
 {-
 newtype OReg = OReg Word16 deriving (Ord, Ix, Eq, Num)
@@ -80,6 +82,7 @@ data StellaClock = Clock {
 
 $(makeLenses ''StellaClock)
 
+{-
 data StellaDebug = Debug {
     _debugLevel :: !Int,
     _posbreak :: (CInt, CInt),
@@ -89,6 +92,7 @@ data StellaDebug = Debug {
 }
 
 $(makeLenses '' StellaDebug)
+-}
 
 {-
 data StellaSDL = StellaSDL {
@@ -108,7 +112,7 @@ data StateAtari = S {
      _oregisters :: IOUArray OReg Word8,
      _iregisters :: IOUArray IReg Word8,
 
-    _stellaDebug :: StellaDebug,
+    _stellaDebug :: DebugState,
     _stellaSDL :: SDLState,
 
     _position :: (CInt, CInt),
@@ -1350,11 +1354,7 @@ initState memory oregs iregs initialPC helloWorld screenSurface window = Main.S 
           _now = 0,
           _last = 0
       },
-      _stellaDebug = Debug {
-          _variables = Map.empty,
-          _debugLevel = -1,
-          _posbreak = (-1, -1)
-      }
+      _stellaDebug = DebugState.start
   }
 
 main :: IO ()
