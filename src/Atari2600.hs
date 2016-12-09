@@ -100,7 +100,6 @@ initState mode memory oregs iregs initialPC helloWorld screenSurface window = At
       _bankMode = mode,
       _bankOffset = 0
   }
-{-
 
 {-# INLINE flagC #-}
 flagC :: Lens' Registers Bool
@@ -130,6 +129,7 @@ flagV = p . bitAt 6
 flagN :: Lens' Registers Bool
 flagN = p . bitAt 7
 
+{-
 instance Emu6502 MonadAtari where
     {-# INLINE readMemory #-}
     readMemory addr' =

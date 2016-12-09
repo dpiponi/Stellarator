@@ -1034,6 +1034,7 @@ readStella addr =
 --                  True -> RIOT
 --                  False -> RAM
 
+{-
 {-# INLINE flagC #-}
 flagC :: Lens' Registers Bool
 flagC = p . bitAt 0
@@ -1061,6 +1062,7 @@ flagV = p . bitAt 6
 {-# INLINE flagN #-}
 flagN :: Lens' Registers Bool
 flagN = p . bitAt 7
+-}
 
 data Args = Args { file :: String } deriving (Show, Data, Typeable)
 
