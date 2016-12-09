@@ -1,0 +1,74 @@
+name:                Stellarator
+version:             0.1.0.0
+synopsis:            Initial project template from stack
+description:         Please see README.md
+homepage:            https://github.com/githubuser/Stellarator#readme
+license:             BSD3
+license-file:        LICENSE
+author:              Author name here
+maintainer:          example@example.com
+copyright:           2016 Author name here
+category:            Web
+build-type:          Simple
+-- extra-source-files:
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs:      src
+  ghc-options:         -O5 -Wall -funbox-strict-fields
+  exposed-modules:     TIAColors, Binary, Core, Disasm, Stella.Graphics, Stella.Sprites,
+                       DebugCmd, MemoryMap, Stella.IntervalTimer, Stella.SDLState, Stella.TIARegisters, DebugState
+  build-depends:       base >= 4.7 && < 5
+                     , sdl2
+                     , bytestring
+                     , vector
+                     , OpenGL
+                     , array
+                     , mtl
+                     , lens
+                     , binary
+                     , parsec
+                     , haskeline
+                     , containers
+  default-language:    Haskell2010
+
+executable stellarator-exe
+  hs-source-dirs:      app
+  main-is:             Main.hs
+  ghc-options:         -O5 -fwarn-missing-signatures -funbox-strict-fields
+  build-depends:       base
+                     , sdl2
+                     , bytestring
+                     , vector
+                     , OpenGL
+                     , array
+                     , mtl
+                     , lens
+                     , binary
+                     , cmdargs
+                     , monad-loops
+                     , parsec
+                     , binary
+                     , random
+                     , haskeline
+                     , containers
+                     , Stellarator
+  default-language:    Haskell2010
+
+test-suite emu6502-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Main.hs
+  build-depends:       base
+                     , emu6502
+                     , HUnit
+                     , array
+                     , mtl
+                     , lens
+                     , monad-loops
+  ghc-options:         -O5 -rtsopts -with-rtsopts=-N
+  default-language:    Haskell2010
+
+source-repository head
+  type:     git
+  location: https://github.com/githubuser/emu6502
