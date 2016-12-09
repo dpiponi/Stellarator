@@ -184,14 +184,6 @@ ball graphics' ctrlpf' hpos' bpos' = do
             return $ o >= 0 && o < ballSize
         else return False
 
-{- INLINE stellaResmp0 -}
-stellaResmp0 ::  MonadAtari ()
-stellaResmp0 = use ppos0 >>= (mpos0 .=) -- XXX
-
-{- INLINE stellaResmp1 -}
-stellaResmp1 :: MonadAtari ()
-stellaResmp1 = use ppos1 >>= (mpos1 .=) -- XXX
-
 {- INLINE stellaWsync -}
 stellaWsync :: MonadAtari ()
 stellaWsync = do

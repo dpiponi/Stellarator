@@ -448,7 +448,6 @@ stellaHmove = do
         _s_bpos = bpos''
     }
 
-{-
 {- INLINE stellaResmp0 -}
 stellaResmp0 ::  MonadAtari ()
 stellaResmp0 = use ppos0 >>= (mpos0 .=) -- XXX
@@ -457,6 +456,7 @@ stellaResmp0 = use ppos0 >>= (mpos0 .=) -- XXX
 stellaResmp1 :: MonadAtari ()
 stellaResmp1 = use ppos1 >>= (mpos1 .=) -- XXX
 
+{-
 {- INLINE stellaWsync -}
 stellaWsync :: MonadAtari ()
 stellaWsync = do
