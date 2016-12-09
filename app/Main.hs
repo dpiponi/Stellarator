@@ -215,10 +215,6 @@ ball graphics' ctrlpf' hpos' bpos' = do
             return $ o >= 0 && o < ballSize
         else return False
 
-{-# INLINE clockMove #-}
-clockMove :: Word8 -> CInt
-clockMove i = fromIntegral ((fromIntegral i :: Int8) `shift` (-4))
-
 {- INLINE stellaHmove -}
 stellaHmove :: MonadAtari ()
 stellaHmove = do

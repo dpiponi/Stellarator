@@ -582,10 +582,6 @@ mpos0 = sprites . s_mpos0
 mpos1 = sprites . s_mpos1
 bpos = sprites . s_bpos
 
-{-# INLINE clockMove #-}
-clockMove :: Word8 -> CInt
-clockMove i = fromIntegral ((fromIntegral i :: Int8) `shift` (-4))
-
 {-# INLINE bit #-}
 bit :: Int -> Bool -> Word8
 bit n t = if t then 1 `shift` n else 0
@@ -761,3 +757,7 @@ wrap160 :: CInt -> CInt
 wrap160 i | i < picx = wrap160 (i+160)
           | i >= picx+160 = wrap160 (i-160)
 wrap160 i = i
+
+{-# INLINE clockMove #-}
+clockMove :: Word8 -> CInt
+clockMove i = fromIntegral ((fromIntegral i :: Int8) `shift` (-4))
