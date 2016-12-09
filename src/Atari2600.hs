@@ -394,7 +394,6 @@ getIRegister i = do
 orIRegister :: IReg -> Word8 -> MonadAtari ()
 orIRegister i v = modifyIRegister i (v .|.)
 
-{-
 {- INLINE stellaHmclr -}
 stellaHmclr :: MonadAtari ()
 stellaHmclr = do
@@ -404,6 +403,7 @@ stellaHmclr = do
     putORegister hmm1 0
     putORegister hmbl 0
 
+{-
 {- INLINE stellaCxclr -}
 stellaCxclr :: MonadAtari ()
 stellaCxclr = do
@@ -668,11 +668,6 @@ stellaTickUntil :: Int64 -> MonadAtari ()
 stellaTickUntil n = do
     c <- use stellaClock
     stellaTick (fromIntegral (n-c))
-
-graphicsDelay :: Int64 -> MonadAtari ()
-graphicsDelay n = do
-    c <- use clock
-    stellaTickUntil (3*c+n)
 
 dumpStella :: MonadAtari ()
 dumpStella = do

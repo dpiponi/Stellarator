@@ -219,15 +219,6 @@ ball graphics' ctrlpf' hpos' bpos' = do
 clockMove :: Word8 -> CInt
 clockMove i = fromIntegral ((fromIntegral i :: Int8) `shift` (-4))
 
-{- INLINE stellaHmclr -}
-stellaHmclr :: MonadAtari ()
-stellaHmclr = do
-    putORegister hmp0 0
-    putORegister hmp1 0
-    putORegister hmm0 0
-    putORegister hmm1 0
-    putORegister hmbl 0
-
 {- INLINE stellaCxclr -}
 stellaCxclr :: MonadAtari ()
 stellaCxclr = do
