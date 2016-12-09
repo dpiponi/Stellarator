@@ -657,17 +657,6 @@ setBreak :: (MonadIO m, MonadState Atari2600 m) =>
                CInt -> CInt -> m ()
 setBreak x y = stellaDebug . posbreak .= (x+picx, y+picy)
 
-{-
-{-# INLINE usingStella #-}
-usingStella :: StateT Atari2600 IO a -> MonadAtari a
-usingStella m = do
-    stella' <- use stella
-    (a, stella'') <- liftIO $ flip runStateT stella' m
-    stella .= stella''
-    return a
-    -}
---usingStella = M
-
 graphicsDelay :: Int64 -> MonadAtari ()
 graphicsDelay n = do
     c <- use clock
