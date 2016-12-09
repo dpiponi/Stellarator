@@ -50,6 +50,7 @@ import Core
 import Disasm
 import System.Console.Haskeline
 import Control.Concurrent
+import Stella.IntervalTimer
 
 import DebugCmd
 import MemoryMap
@@ -67,14 +68,6 @@ data Registers = R {
     _y :: !Word8,
     _s :: !Word8
 }
-
-data IntervalTimer = IntervalTimer {
-    _intim :: !Word8,
-    _subtimer :: !CInt,
-    _interval :: !CInt
-}
-
-$(makeLenses ''IntervalTimer)
 
 data StellaClock = Clock {
     _now :: !Int64,
@@ -614,20 +607,6 @@ compositeAndCollide stella x hpos' r = do
                                 then colupf'
                                 else colubk'
 
-{-# INLINABLE timerTick #-}
-timerTick :: IntervalTimer -> IntervalTimer
-timerTick timer =
-    let !subtimer' = timer ^. subtimer
-        !subtimer'' = subtimer'-1
-    in if subtimer' /= 0
-        then timer & subtimer .~ subtimer''
-        else
-            let !intim' = timer ^. intim
-                !intim'' = intim'-1
-                !interval' = timer ^. interval
-            in if intim' /= 0
-                then timer & intim .~ intim'' & subtimer .~ (3*interval'-1) 
-                else IntervalTimer intim'' (3*1-1) 1
 
 {-# INLINABLE updatePos #-}
 updatePos :: (CInt, CInt) -> (CInt, CInt)
@@ -957,23 +936,10 @@ writeStella addr v =
        0x2a -> stellaHmove               -- HMOVE
        0x2b -> stellaHmclr               -- HMCLR
        0x2c -> stellaCxclr               -- CXCLR
-       -- XXX rewrite properly
-       0x294 -> do                       -- TIM1T
-        intervalTimer . interval .= 1
-        intervalTimer . subtimer .= 1*3-1
-        intervalTimer . intim .= v
-       0x295 -> do                       -- TIM8T
-        intervalTimer . interval .= 8
-        intervalTimer . subtimer .= 8*3-1
-        intervalTimer . intim .= v
-       0x296 -> do                       -- TIM64T
-        intervalTimer . interval .= 64
-        intervalTimer . subtimer .= 64*3-1
-        intervalTimer . intim .= v
-       0x297 -> do                       -- TIM1024T
-        intervalTimer . interval .= 1024
-        intervalTimer . subtimer .= 1024*3-1
-        intervalTimer . intim .= v
+       0x294 -> intervalTimer .= start1 v -- TIM1T
+       0x295 -> intervalTimer .= start8 v -- TIM8T
+       0x296 -> intervalTimer .= start64 v -- TIM64T
+       0x297 -> intervalTimer .= start1024 v -- TIM1024T
        otherwise -> return () -- liftIO $ putStrLn $ "writing TIA 0x" ++ showHex addr ""
 
 {- INLINABLE readStella -}
@@ -1355,11 +1321,7 @@ initState memory oregs iregs initialPC helloWorld screenSurface window = Main.S 
           _sdlFrontWindow = window
       },
       _sprites = Stella.Sprites.start,
-      _intervalTimer = IntervalTimer {
-          _intim = 0,
-          _subtimer = 0,
-          _interval = 0
-      },
+      _intervalTimer = Stella.IntervalTimer.start,
       _graphics = Stella.Graphics.start,
       _stellaClock = Main.Clock {
           _now = 0,
