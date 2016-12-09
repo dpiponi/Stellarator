@@ -93,30 +93,6 @@ mpos0 = sprites . s_mpos0
 mpos1 = sprites . s_mpos1
 bpos = sprites . s_bpos
 
-{- INLINE stellaDebugStr -}
-stellaDebugStr :: (MonadIO m, MonadState Atari2600 m) =>
-                  Int -> String -> m ()
-stellaDebugStr n str = do
-    d <- use (stellaDebug . debugLevel)
-    if n <= d
-        then do
-            liftIO $ putStr str
-        else return ()
-
-{- INLINE stellaDebugStrLn -}
-stellaDebugStrLn :: (MonadIO m, MonadState Atari2600 m) =>
-                    Int -> String -> m ()
-stellaDebugStrLn n str = do
-    d <- use (stellaDebug . debugLevel)
-    if n <= d
-        then do
-            liftIO $ putStrLn str
-        else return ()
-
-inBinary :: (Bits a) => Int -> a -> String
-inBinary 0 x = ""
-inBinary n x = inBinary (n-1) (x `shift` (-1)) ++ if testBit x 0 then "1" else "0"
-
 {- INLINE playfield -}
 playfield :: IOUArray OReg Word8 -> Word8 -> Int -> IO Bool
 playfield r ctrlpf' i | i >= 0 && i < 4 = flip testBit (i+4) <$> fastGetORegister r pf0

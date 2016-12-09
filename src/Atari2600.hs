@@ -669,26 +669,6 @@ stellaTickUntil n = do
     c <- use stellaClock
     stellaTick (fromIntegral (n-c))
 
-{- INLINE stellaDebugStr -}
-stellaDebugStr :: (MonadIO m, MonadState Atari2600 m) =>
-                  Int -> String -> m ()
-stellaDebugStr n str = do
-    d <- use (stellaDebug . debugLevel)
-    if n <= d
-        then do
-            liftIO $ putStr str
-        else return ()
-
-{- INLINE stellaDebugStrLn -}
-stellaDebugStrLn :: (MonadIO m, MonadState Atari2600 m) =>
-                    Int -> String -> m ()
-stellaDebugStrLn n str = do
-    d <- use (stellaDebug . debugLevel)
-    if n <= d
-        then do
-            liftIO $ putStrLn str
-        else return ()
-
 graphicsDelay :: Int64 -> MonadAtari ()
 graphicsDelay n = do
     c <- use clock
@@ -748,11 +728,11 @@ dumpMemory = do
     liftIO $ putStrLn $ showHex b2 ""
     let (_, mne, _) = disasm regPC [b0, b1, b2]
     liftIO $ putStrLn $ mne
+-}
 
 inBinary :: (Bits a) => Int -> a -> String
 inBinary 0 _ = ""
 inBinary n m = inBinary (n-1) (m `shift` (-1)) ++ if testBit m 0 then "1" else "0"
--}
 
 explainNusiz :: Word8 -> String
 explainNusiz nusiz =
@@ -766,3 +746,23 @@ explainNusiz nusiz =
         0b110 -> "3 copies medium"
         0b111 -> "quad sized player"
         _ -> error "Impossible to reach"
+
+{- INLINE stellaDebugStr -}
+stellaDebugStr :: (MonadIO m, MonadState Atari2600 m) =>
+                  Int -> String -> m ()
+stellaDebugStr n str = do
+    d <- use (stellaDebug . debugLevel)
+    if n <= d
+        then do
+            liftIO $ putStr str
+        else return ()
+
+{- INLINE stellaDebugStrLn -}
+stellaDebugStrLn :: (MonadIO m, MonadState Atari2600 m) =>
+                    Int -> String -> m ()
+stellaDebugStrLn n str = do
+    d <- use (stellaDebug . debugLevel)
+    if n <= d
+        then do
+            liftIO $ putStrLn str
+        else return ()
