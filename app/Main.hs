@@ -74,18 +74,6 @@ stellaWsync = do
         stellaTickUntil (3*clock')
         stellaWsync
 
-{- INLINE stellaVsync -}
-stellaVsync :: Word8 -> MonadAtari ()
-stellaVsync v = do
-    stellaDebugStrLn 0 $ "VSYNC " ++ showHex v ""
-    oldv <- getORegister vsync
-    when (testBit oldv 1 && not (testBit v 1)) $ do
-            hpos .= 0
-            vpos .= 0
-    putORegister vsync v
-    stella <- use stellaSDL
-    liftIO $ renderDisplay stella
-
 stellaTickUntil :: Int64 -> MonadAtari ()
 stellaTickUntil n = do
     c <- use stellaClock

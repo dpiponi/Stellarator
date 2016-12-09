@@ -551,6 +551,17 @@ readStella addr =
         0x284 -> use (intervalTimer . intim)
         _ -> return 0 -- (liftIO $ putStrLn $ "reading TIA 0x" ++ showHex addr "") >> return 0
 
+{- INLINE stellaVsync -}
+stellaVsync :: Word8 -> MonadAtari ()
+stellaVsync v = do
+    oldv <- getORegister vsync
+    when (testBit oldv 1 && not (testBit v 1)) $ do
+            hpos .= 0
+            vpos .= 0
+    putORegister vsync v
+    s <- use stellaSDL
+    liftIO $ renderDisplay s
+
 {-
 instance Emu6502 MonadAtari where
     {-# INLINE readMemory #-}
@@ -752,17 +763,6 @@ stellaWsync = do
 
 -- http://atariage.com/forums/topic/107527-atari-2600-vsyncvblank/
 
-
-{- INLINE stellaVsync -}
-stellaVsync :: Word8 -> MonadAtari ()
-stellaVsync v = do
-    oldv <- getORegister vsync
-    when (testBit oldv 1 && not (testBit v 1)) $ do
-            hpos .= 0
-            vpos .= 0
-    putORegister vsync v
-    s <- use stellaSDL
-    liftIO $ renderDisplay s
 
 stellaTick :: Int -> MonadAtari ()
 stellaTick n | n <= 0 = return ()
