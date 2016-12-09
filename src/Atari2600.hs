@@ -525,73 +525,6 @@ stellaTick n = do
 
     stellaTick (n-1)
 
-{- INLINE compositeAndCollide -}
-compositeAndCollide :: Atari2600 -> CInt -> CInt -> IOUArray OReg Word8 -> IO Word8
-compositeAndCollide stella pixelx hpos' r = do
-    resmp0' <- fastGetORegister r resmp0
-    resmp1' <- fastGetORegister r resmp1
-
-    let ir = stella ^. iregisters
-    !ctrlpf' <- fastGetORegister r ctrlpf
-    !colupf' <- fastGetORegister r colupf
-    !colup0' <- fastGetORegister r colup0
-    !colup1' <- fastGetORegister r colup1
-    !colubk' <- fastGetORegister r colubk
-    let !playfieldColour = if testBit ctrlpf' 1
-            then if pixelx < 80
-                then colup0'
-                else colup1'
-            else colupf' -- does ball get this too?
-
-    let graphics' = stella ^. graphics
-    let sprites' = stella ^. sprites
-    -- XXX Side effects in missile0/1
-    !enam0' <- fastGetORegister r enam0
-    !enam1' <- fastGetORegister r enam1
-    !nusiz0' <- fastGetORegister r nusiz0
-    !nusiz1' <- fastGetORegister r nusiz1
-    let !lmissile0 = missile nusiz0' enam0' hpos' (sprites' ^. s_mpos0) resmp0'
-    let !lmissile1 = missile nusiz1' enam1' hpos' (sprites' ^. s_mpos1) resmp1'
-    !lplayer0 <- player0 r graphics' nusiz0' hpos' (sprites' ^. s_ppos0)
-    !lplayer1 <- player1 r graphics' nusiz1' hpos' (sprites' ^. s_ppos1)
-    !lball <- ball graphics' ctrlpf' hpos' (sprites' ^. s_bpos)
-    !lplayfield <- playfield r ctrlpf' (fromIntegral $ pixelx `div` 4)
-
-    let !playball = bit 7 lplayfield .|. bit 6 lball
-
-    when lmissile0 $ do
-        fastOrIRegister ir cxm0p $ bit 7 lplayer1 .|. bit 6 lplayer0
-        fastOrIRegister ir cxm0fb playball
-        fastOrIRegister ir cxppmm $ bit 6 lmissile1
-    when lmissile1 $ do
-        fastOrIRegister ir cxm1p $ bit 7 lplayer0 .|. bit 6 lplayer1
-        fastOrIRegister ir cxm1fb playball
-    when lplayer0 $ do
-        fastOrIRegister ir cxp0fb playball
-        fastOrIRegister ir cxppmm $ bit 7 lplayer1
-    when lplayer1 $ fastOrIRegister ir cxp1fb playball
-    when lball $ fastOrIRegister ir cxblpf $ bit 7 lplayfield
-
-    return $ if testBit ctrlpf' 2
-                then if lball
-                    then colupf'
-                    else if lplayfield
-                        then playfieldColour
-                        else if lmissile0 || lplayer0
-                            then colup0'
-                            else if lmissile1 || lplayer1
-                                then colup1'
-                                else colubk'
-                else if lmissile0 || lplayer0
-                    then colup0'
-                    else if lmissile1 || lplayer1
-                        then colup1'
-                        else if lplayfield
-                            then playfieldColour
-                            else if lball
-                                then colupf'
-                                else colubk'
-
 
 stellaTickUntil :: Int64 -> MonadAtari ()
 stellaTickUntil n = do
@@ -761,3 +694,176 @@ updatePos (hpos0, vpos0) =
              in if vpos' < picy+192
                 then (0, vpos')
                 else (0, 0)
+
+{- INLINE compositeAndCollide -}
+compositeAndCollide :: Atari2600 -> CInt -> CInt -> IOUArray OReg Word8 -> IO Word8
+compositeAndCollide stella pixelx hpos' r = do
+    resmp0' <- fastGetORegister r resmp0
+    resmp1' <- fastGetORegister r resmp1
+
+    let ir = stella ^. iregisters
+    !ctrlpf' <- fastGetORegister r ctrlpf
+    !colupf' <- fastGetORegister r colupf
+    !colup0' <- fastGetORegister r colup0
+    !colup1' <- fastGetORegister r colup1
+    !colubk' <- fastGetORegister r colubk
+    let !playfieldColour = if testBit ctrlpf' 1
+            then if pixelx < 80
+                then colup0'
+                else colup1'
+            else colupf' -- does ball get this too?
+
+    let graphics' = stella ^. graphics
+    let sprites' = stella ^. sprites
+    -- XXX Side effects in missile0/1
+    !enam0' <- fastGetORegister r enam0
+    !enam1' <- fastGetORegister r enam1
+    !nusiz0' <- fastGetORegister r nusiz0
+    !nusiz1' <- fastGetORegister r nusiz1
+    let !lmissile0 = missile nusiz0' enam0' hpos' (sprites' ^. s_mpos0) resmp0'
+    let !lmissile1 = missile nusiz1' enam1' hpos' (sprites' ^. s_mpos1) resmp1'
+    !lplayer0 <- player0 r graphics' nusiz0' hpos' (sprites' ^. s_ppos0)
+    !lplayer1 <- player1 r graphics' nusiz1' hpos' (sprites' ^. s_ppos1)
+    !lball <- ball graphics' ctrlpf' hpos' (sprites' ^. s_bpos)
+    !lplayfield <- playfield r ctrlpf' (fromIntegral $ pixelx `div` 4)
+
+    let !playball = bit 7 lplayfield .|. bit 6 lball
+
+    when lmissile0 $ do
+        fastOrIRegister ir cxm0p $ bit 7 lplayer1 .|. bit 6 lplayer0
+        fastOrIRegister ir cxm0fb playball
+        fastOrIRegister ir cxppmm $ bit 6 lmissile1
+    when lmissile1 $ do
+        fastOrIRegister ir cxm1p $ bit 7 lplayer0 .|. bit 6 lplayer1
+        fastOrIRegister ir cxm1fb playball
+    when lplayer0 $ do
+        fastOrIRegister ir cxp0fb playball
+        fastOrIRegister ir cxppmm $ bit 7 lplayer1
+    when lplayer1 $ fastOrIRegister ir cxp1fb playball
+    when lball $ fastOrIRegister ir cxblpf $ bit 7 lplayfield
+
+    return $ if testBit ctrlpf' 2
+                then if lball
+                    then colupf'
+                    else if lplayfield
+                        then playfieldColour
+                        else if lmissile0 || lplayer0
+                            then colup0'
+                            else if lmissile1 || lplayer1
+                                then colup1'
+                                else colubk'
+                else if lmissile0 || lplayer0
+                    then colup0'
+                    else if lmissile1 || lplayer1
+                        then colup1'
+                        else if lplayfield
+                            then playfieldColour
+                            else if lball
+                                then colupf'
+                                else colubk'
+
+-- Atari2600 programmer's guide p.22
+{- INLINE missile0 -}
+-- XXX Note that this updates mpos0 so need to take into account XXX
+missile :: Word8 -> Word8 -> CInt -> CInt -> Word8 -> Bool
+missile nusiz0' enam0' hpos' mpos0' resmp0' =
+    if testBit resmp0' 1
+        then False
+        else if testBit enam0' 1
+            then 
+                let o = hpos'-mpos0'
+                in o >= 0 && o < missileSize nusiz0'
+            else False
+
+-- Atari2600 programmer's guide p.40
+{- INLINE player0 -}
+player0 :: IOUArray OReg Word8 -> Graphics -> Word8 -> CInt -> CInt -> IO Bool
+player0 r graphics' nusiz0' hpos' ppos0' = do
+    let o = hpos'-ppos0'
+    sizeCopies <- (0b111 .&.) <$> fastGetORegister r nusiz0
+    let !delayP0' = graphics' ^. delayP0
+    let !grp0' = if delayP0'
+        then graphics' ^.oldGrp0
+        else graphics' ^. newGrp0
+    refp0' <- fastGetORegister r refp0
+    return $ stretchPlayer (testBit refp0' 3) sizeCopies o grp0'
+
+{- INLINE player1 -}
+player1 :: IOUArray OReg Word8 -> Graphics -> Word8 -> CInt -> CInt -> IO Bool
+player1 r graphics' nusiz1' hpos' ppos1' = do
+    let o = hpos'-ppos1'
+    sizeCopies <- (0b111 .&.) <$> fastGetORegister r nusiz1
+    let !delayP1' = graphics' ^. delayP1
+    let !grp1' = if delayP1'
+        then graphics' ^. oldGrp1
+        else graphics' ^. newGrp1
+    refp1' <- fastGetORegister r refp1
+    return $ stretchPlayer (testBit refp1' 3) sizeCopies o grp1'
+
+{- INLINE ball -}
+ball :: Graphics -> Word8 -> CInt -> CInt -> IO Bool
+ball graphics' ctrlpf' hpos' bpos' = do
+    let delayBall' = graphics' ^. delayBall
+    let enabl' = if delayBall'
+        then graphics' ^. oldBall
+        else graphics' ^. newBall
+    if enabl'
+        then do
+            let o = hpos'-bpos'
+            let ballSize = 1 `shift` (fromIntegral ((ctrlpf' `shift` (fromIntegral $ -4)) .&. 0b11))
+            return $ o >= 0 && o < ballSize
+        else return False
+
+{- INLINE playfield -}
+playfield :: IOUArray OReg Word8 -> Word8 -> Int -> IO Bool
+playfield r ctrlpf' i | i >= 0 && i < 4 = flip testBit (i+4) <$> fastGetORegister r pf0
+                      | i >=4 && i < 12 = flip testBit (11-i) <$> fastGetORegister r pf1
+                      | i >= 12 && i < 20 = flip testBit (i-12) <$> fastGetORegister r pf2
+playfield r ctrlpf' i | i >= 20 && i < 40 = playfield r ctrlpf' $ if testBit ctrlpf' 0 then 39-i else i-20
+
+missileSize :: Word8 -> CInt
+missileSize nusiz = 1 `shift` (fromIntegral ((nusiz `shift` (-4)) .&. 0b11))
+
+{- INLINE stretchPlayer -}
+stretchPlayer :: Bool -> Word8 -> CInt -> Word8 -> Bool
+stretchPlayer reflect sizeCopies o bitmap =
+    if o < 0 || o >= 72
+        then False
+        else case sizeCopies of
+            0b000 -> -- one copy
+                if o < 8
+                    then testBit bitmap (flipIf reflect $ fromIntegral o)
+                    else False
+            0b001 -> -- two copies close
+                if o < 8 || o >= 16 && o < 24
+                    then testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
+                    else False
+            0b010 -> -- two copies - med
+                if o < 8 || o >= 32 && o < 40
+                    then testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
+                    else False
+            0b011 -> -- three copies close
+                if o < 8 || o >= 16 && o < 24 || o >= 32 && o < 40
+                    then testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
+                    else False
+            0b100 -> -- two copies wide
+                if o < 8 || o >= 64
+                    then testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
+                    else False
+            0b101 -> -- double size player
+                if o < 16
+                    then testBit bitmap (flipIf reflect $ fromIntegral ((o `shift` (-1)) .&. 7))
+                    else False
+            0b110 -> -- three copies medium
+                if o < 8 || o >= 32 && o < 40 || o >= 64
+                    then testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
+                    else False
+            0b111 -> -- quad sized player
+                if o < 32
+                    then testBit bitmap (flipIf reflect $ (fromIntegral ((o `shift` (-2)) .&. 7)))
+                    else False
+
+{-# INLINE flipIf #-}
+flipIf :: Bool -> Int -> Int
+flipIf True x = x
+flipIf False x = 7-x
