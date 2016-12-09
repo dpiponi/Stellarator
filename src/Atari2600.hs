@@ -129,237 +129,6 @@ flagV = p . bitAt 6
 flagN :: Lens' Registers Bool
 flagN = p . bitAt 7
 
-{-
-instance Emu6502 MonadAtari where
-    {-# INLINE readMemory #-}
-    readMemory addr' =
-        let addr = addr' .&. 0b1111111111111 in -- 6507
-        if addr >= 0x1000
-            then do
-                m <- use mem
-                offset <- use bankOffset
-                byte <- liftIO $ readArray m (iz (addr-0x1000+offset))
-
-                when (addr >= 0x1ff8) $ do
-                    bankType <- use bankMode
-                    case bankType of
-                        UnBanked -> return ()
-                        F8 -> do
-                            when (addr == 0x1ff8) $ bankOffset .= 0
-                            when (addr == 0x1ff9) $ bankOffset .= 0x1000
-
-                return byte
-            else if isRAM addr
-                then do
-                    m <- use mem
-                    liftIO $ readArray m (iz addr .&. 0xff)
-                else if isTIA addr
-                        then readStella (addr .&. 0x3f)
-                        else if isRIOT addr
-                            then readStella (0x280+(addr .&. 0x1f))
-                            else error $ "Mystery read from " ++ showHex addr ""
-
-
-    {-# INLINE writeMemory #-}
-    writeMemory addr' v =
-        let addr = addr' .&. 0b1111111111111 in -- 6507
-        if addr >= 0x1000
-            then do
-                when (addr >= 0x1ff8) $ do
-                    bankType <- use bankMode
-                    case bankType of
-                        UnBanked -> return ()
-                        F8 -> do
-                            when (addr == 0x1ff8) $ bankOffset .= 0
-                            when (addr == 0x1ff9) $ bankOffset .= 0x1000
-            else if isRAM addr
-                then do
-                    m <- use mem
-                    liftIO $ writeArray m (iz addr .&. 0xff) v
-                else if isTIA addr
-                    then writeStella (addr .&. 0x3f) v
-                    else if isRIOT addr
-                            then writeStella (0x280+(addr .&. 0x1f)) v
-                            else error $ "Mystery write to " ++ showHex addr ""
-
-    {-# INLINE getPC #-}
-    getPC = use (regs . pc)
-    {-# INLINE tick #-}
-    tick n = do
-        clock += fromIntegral n
-        c <- use clock
-        stellaTickUntil (3*c)
-    {-# INLINE putC #-}
-    putC b = regs . flagC .= b
-    {-# INLINE getC #-}
-    getC = use (regs . flagC)
-    {-# INLINE putZ #-}
-    putZ b = regs . flagZ .= b
-    {-# INLINE getZ #-}
-    getZ = use (regs . flagZ)
-    {-# INLINE putI #-}
-    putI b = regs . flagI .= b
-    {-# INLINE getI #-}
-    getI = use (regs . flagI)
-    {-# INLINE putD #-}
-    putD b = regs . flagD .= b
-    {-# INLINE getD #-}
-    getD = use (regs . flagD)
-    {-# INLINE putB #-}
-    putB b = regs . flagB .= b
-    {-# INLINE getB #-}
-    getB = use (regs . flagB)
-    {-# INLINE putV #-}
-    putV b = regs . flagV .= b
-    {-# INLINE getV #-}
-    getV = use (regs . flagV)
-    {-# INLINE putN #-}
-    putN b = regs . flagN .= b
-    {-# INLINE getN #-}
-    getN = use (regs . flagN)
-    {-# INLINE getA #-}
-    getA = use (regs . a)
-    {-# INLINE putA #-}
-    putA r = regs . a .= r
-    {-# INLINE getS #-}
-    getS = use (regs . s)
-    {-# INLINE putS #-}
-    putS r = regs . s .= r
-    {-# INLINE getX #-}
-    getX = use (regs . x)
-    {-# INLINE putX #-}
-    putX r = regs . x .= r
-    {-# INLINE getP #-}
-    getP = use (regs . p)
-    {-# INLINE putP #-}
-    putP r = regs . p .= r
-    {-# INLINE getY #-}
-    getY = use (regs . y)
-    {-# INLINE putY #-}
-    putY r = regs . y .= r
-    {-# INLINE putPC #-}
-    putPC r = regs . pc .= r
-    {-# INLINE addPC #-}
-    addPC n = regs . pc += fromIntegral n
-
-    {- INLINE debugStr 9 -}
-    debugStr n str = do
-        d <- use debug
-        if n <= d
-            then liftIO $ putStr str
-            else return ()
-
-    {- INLINE debugStrLn 9 -}
-    debugStrLn n str = do
-        d <- use debug
-        if n <= d
-            then liftIO $ putStrLn str
-            else return ()
-
-    {- INLINE illegal -}
-    illegal i = error $ "Illegal opcode 0x" ++ showHex i ""
-
-{- INLINABLE writeStella -}
-writeStella :: Word16 -> Word8 -> MonadAtari ()
-writeStella addr v = 
-    --(liftIO $ print $ "Hello!!!! " ++ showHex addr "" ++ " " ++ showHex v "") >>
-    case addr of
-       0x00 -> stellaVsync v             -- VSYNC
-       0x01 -> stellaVblank v            -- VBLANK
-       0x02 -> stellaWsync               -- WSYNC
-       0x04 -> putORegister nusiz0 v        -- NUSIZ0
-       0x05 -> putORegister nusiz1 v        -- NUSIZ1
-       0x06 -> putORegister colup0 v               -- COLUP0
-       0x07 -> putORegister colup1 v               -- COLUP1
-       0x08 -> putORegister colupf v               -- COLUPF
-       0x09 -> putORegister colubk v               -- COLUBK
-       0x0a -> putORegister ctrlpf v               -- COLUPF
-       0x0b -> putORegister refp0 v               -- REFP0
-       0x0c -> putORegister refp1 v               -- REFP1
-       0x0d -> graphicsDelay 4 >> putORegister pf0 v                  -- PF0
-       0x0e -> graphicsDelay 4 >> putORegister pf1 v                  -- PF1
-       0x0f -> graphicsDelay 4 >> putORegister pf2 v                  -- PF2
-       0x10 -> graphicsDelay 5 >> use hpos >>= (ppos0 .=)   -- RESP0 XXX FUDGE FACTORS
-       0x11 -> graphicsDelay 5 >> use hpos >>= (ppos1 .=)   -- RESP1
-       0x12 -> graphicsDelay 4 >> use hpos >>= (mpos0 .=)   -- RESM0
-       0x13 -> graphicsDelay 4 >> use hpos >>= (mpos1 .=)   -- RESM1
-       0x14 -> graphicsDelay 4 >> use hpos >>= (bpos .=)     -- RESBL
-       0x1b -> do -- GRP0
-                graphics . newGrp0 .= v
-                use (graphics . newGrp1) >>= (graphics . oldGrp1 .=)
-       0x1c -> do -- GRP1
-                graphics . newGrp1 .= v
-                use (graphics . newGrp0) >>= (graphics . oldGrp0 .=)
-                use (graphics . newBall) >>= (graphics . oldBall .=)
-       0x1d -> putORegister enam0 v                -- ENAM0
-       0x1e -> putORegister enam1 v                -- ENAM1
-       0x1f -> graphics . newBall .= testBit v 1   -- ENABL
-       0x20 -> putORegister hmp0 v                 -- HMP0
-       0x21 -> putORegister hmp1 v                 -- HMP1
-       0x22 -> putORegister hmm0 v                 -- HMM0
-       0x23 -> putORegister hmm1 v                 -- HMM1
-       0x24 -> putORegister hmbl v                 -- HMBL
-       0x25 -> graphics . delayP0 .= testBit v 0   -- VDELP0
-       0x26 -> graphics . delayP1 .= testBit v 0   -- VDELP1
-       0x27 -> graphics . delayBall .= testBit v 0   -- VDELBL
-       0x28 -> putORegister resmp0 v
-       0x29 -> putORegister resmp1 v
-       0x2a -> stellaHmove               -- HMOVE
-       0x2b -> stellaHmclr               -- HMCLR
-       0x2c -> stellaCxclr               -- CXCLR
-
-       0x294 -> intervalTimer .= start1 v -- TIM1T
-       0x295 -> intervalTimer .= start8 v -- TIM8T
-       0x296 -> intervalTimer .= start64 v -- TIM64T
-       0x297 -> intervalTimer .= start1024 v -- TIM1024T
-       _ -> return () -- liftIO $ putStrLn $ "writing TIA 0x" ++ showHex addr ""
-
-{- INLINABLE readStella -}
-readStella :: Word16 -> MonadAtari Word8
-readStella addr = 
-    case addr of
-        0x00 -> getIRegister cxm0p
-        0x01 -> getIRegister cxm1p
-        0x02 -> getIRegister cxp0fb
-        0x03 -> getIRegister cxp1fb
-        0x04 -> getIRegister cxm0fb
-        0x05 -> getIRegister cxm1fb
-        0x06 -> getIRegister cxblpf
-        0x07 -> getIRegister cxppmm
-        0x0c -> getIRegister inpt4
-        0x10 -> getIRegister cxm0p
-        0x11 -> getIRegister cxm1p
-        0x12 -> getIRegister cxp0fb
-        0x13 -> getIRegister cxp1fb
-        0x14 -> getIRegister cxm0fb
-        0x15 -> getIRegister cxm1fb
-        0x16 -> getIRegister cxblpf
-        0x17 -> getIRegister cxppmm
-        0x1c -> getIRegister inpt4
-        0x20 -> getIRegister cxm0p
-        0x21 -> getIRegister cxm1p
-        0x22 -> getIRegister cxp0fb
-        0x23 -> getIRegister cxp1fb
-        0x24 -> getIRegister cxm0fb
-        0x25 -> getIRegister cxm1fb
-        0x26 -> getIRegister cxblpf
-        0x27 -> getIRegister cxppmm
-        0x2c -> getIRegister inpt4
-        0x30 -> getIRegister cxm0p
-        0x31 -> getIRegister cxm1p
-        0x32 -> getIRegister cxp0fb
-        0x33 -> getIRegister cxp1fb
-        0x34 -> getIRegister cxm0fb
-        0x35 -> getIRegister cxm1fb
-        0x36 -> getIRegister cxblpf
-        0x37 -> getIRegister cxppmm
-        0x3c -> getIRegister inpt4
-        0x280 -> getIRegister swcha
-        0x282 -> getIRegister swchb
-        0x284 -> use (intervalTimer . intim)
-        _ -> return 0 -- (liftIO $ putStrLn $ "reading TIA 0x" ++ showHex addr "") >> return 0
--}
-
 {-# INLINE putORegister #-}
 putORegister :: OReg -> Word8 -> MonadAtari ()
 putORegister i v = do
@@ -455,137 +224,6 @@ stellaResmp0 = use ppos0 >>= (mpos0 .=) -- XXX
 {- INLINE stellaResmp1 -}
 stellaResmp1 :: MonadAtari ()
 stellaResmp1 = use ppos1 >>= (mpos1 .=) -- XXX
-
-{-
-{- INLINE stellaWsync -}
-stellaWsync :: MonadAtari ()
-stellaWsync = do
-    hpos' <- use hpos
-    --stellaTick (233-fromIntegral hpos') -- 228
-    --stellaTick (232-fromIntegral hpos') -- 228
-    -- This isn't quite right. I think CPU clock should be able to shift
-    -- phase relative to pixel click. XXX
-    when (hpos' > 2) $ do
-        clock += 1 -- sleep the CPU
-        clock' <- use clock
-        stellaTickUntil (3*clock')
-        stellaWsync
-
--- http://atariage.com/forums/topic/107527-atari-2600-vsyncvblank/
-
-
-{- INLINE stellaVsync -}
-stellaVsync :: Word8 -> MonadAtari ()
-stellaVsync v = do
-    oldv <- getORegister vsync
-    when (testBit oldv 1 && not (testBit v 1)) $ do
-            hpos .= 0
-            vpos .= 0
-    putORegister vsync v
-    s <- use stellaSDL
-    liftIO $ renderDisplay s
-
-stellaTick :: Int -> MonadAtari ()
-stellaTick n | n <= 0 = return ()
-stellaTick n = do
-    stella <- get
-    let (xbreak', ybreak') = stella ^. stellaDebug . posbreak
-    let (hpos', vpos') = stella ^. position
-    when ((hpos', vpos') == (xbreak', ybreak')) $ do
-        dumpStella
-        stellaDebug . posbreak .= (-1, -1) -- Maybe maybe
-
-    stellaClock += 1
-    intervalTimer %= timerTick
-    
-    -- Display
-    when (vpos' >= picy && vpos' < picy+192 && hpos' >= picx) $ do
-        let !surface = _sdlBackSurface (_stellaSDL stella)
-        !ptr <- liftIO $ surfacePixels surface
-        let !ptr' = castPtr ptr :: Ptr Word32
-        let !pixelx = hpos'-picx
-        let !pixely = vpos'-picy
-        let !i = screenWidth*pixely+pixelx
-
-        stella <- get
-
-        let r = _oregisters stella
-        let (hpos', _) = _position stella
-        resmp0' <- liftIO $ fastGetORegister r resmp0
-        resmp1' <- liftIO $ fastGetORegister r resmp1
-        when (testBit resmp0' 1) $ mpos0 .= hpos'
-        when (testBit resmp1' 1) $ mpos1 .= hpos'
-
-        liftIO $ do
-            !final <- compositeAndCollide stella pixelx hpos' r
-            --print final
-            pokeElemOff ptr' (fromIntegral i) (lut!(final `shift` (-1)))
-
-    position %= updatePos
-
-    stellaTick (n-1)
-
-
-stellaTickUntil :: Int64 -> MonadAtari ()
-stellaTickUntil n = do
-    c <- use stellaClock
-    stellaTick (fromIntegral (n-c))
-
-dumpStella :: MonadAtari ()
-dumpStella = do
-    dumpMemory
-    liftIO $ putStrLn "--------"
-    hpos' <- use hpos
-    vpos' <- use vpos
-    liftIO $ putStrLn $ "hpos = " ++ show hpos' ++ " (" ++ show (hpos'-picx) ++ ") vpos = " ++ show vpos' ++ " (" ++ show (vpos'-picy) ++ ")"
-    grp0' <- use (graphics . oldGrp0) -- XXX
-    grp1' <- use (graphics . oldGrp1) -- XXX
-    liftIO $ putStrLn $ "GRP0 = " ++ showHex grp0' "" ++ "(" ++ inBinary 8 grp0' ++ ")"
-    liftIO $ putStrLn $ "GRP1 = " ++ showHex grp1' "" ++ "(" ++ inBinary 8 grp1' ++ ")"
-    pf0' <- getORegister pf0
-    pf1' <- getORegister pf1
-    pf2' <- getORegister pf2
-    liftIO $ putStrLn $ "PF = " ++ reverse (inBinary 4 (pf0' `shift` (-4)))
-                                ++ inBinary 8 pf1'
-                                ++ reverse (inBinary 8 pf2')
-    nusiz0' <- getORegister nusiz0
-    nusiz1' <- getORegister nusiz1
-    liftIO $ putStrLn $ "NUSIZ0 = " ++ showHex nusiz0' "" ++ "(" ++ explainNusiz nusiz0' ++
-                        ") NUSIZ1 = " ++ showHex nusiz1' "" ++ "(" ++ explainNusiz nusiz1' ++ ")"
-    enam0' <- getORegister enam0
-    enam1' <- getORegister enam1
-    enablOld <- use (graphics . oldBall)
-    enablNew <- use (graphics . newBall)
-    liftIO $ putStr $ "ENAM0 = " ++ show (testBit enam0' 1)
-    liftIO $ putStr $ " ENAM1 = " ++ show (testBit enam1' 1)
-    liftIO $ putStrLn $ " ENABL = " ++ show (enablOld, enablNew)
-    mpos0' <- use mpos0
-    mpos1' <- use mpos1
-    hmm0' <- getORegister hmm0
-    hmm1' <- getORegister hmm1
-    liftIO $ putStr $ "missile0 @ " ++ show mpos0' ++ "(" ++ show (clockMove hmm0') ++ ")"
-    liftIO $ putStrLn $ " missile1 @ " ++ show mpos1' ++ "(" ++ show (clockMove hmm1') ++ ")"
-    vdelp0' <- use (graphics . delayP0)
-    vdelp1' <- use (graphics . delayP1)
-    vdelbl' <- use (graphics . delayBall)
-    liftIO $ putStrLn $ "VDELP0 = " ++ show vdelp0' ++ " " ++
-                        "VDELP1 = " ++ show vdelp1' ++ " " ++
-                        "VDELBL = " ++ show vdelbl'
-
-{-# INLINABLE dumpMemory #-}
-dumpMemory :: MonadAtari ()
-dumpMemory = do
-    regPC <- getPC
-    b0 <- readMemory regPC
-    b1 <- readMemory (regPC+1)
-    b2 <- readMemory (regPC+2)
-    liftIO $ putStr $ "(PC) = "
-    liftIO $ putStr $ showHex b0 "" ++ " "
-    liftIO $ putStr $ showHex b1 "" ++ " "
-    liftIO $ putStrLn $ showHex b2 ""
-    let (_, mne, _) = disasm regPC [b0, b1, b2]
-    liftIO $ putStrLn $ mne
--}
 
 inBinary :: (Bits a) => Int -> a -> String
 inBinary 0 _ = ""
@@ -867,3 +505,365 @@ stretchPlayer reflect sizeCopies o bitmap =
 flipIf :: Bool -> Int -> Int
 flipIf True x = x
 flipIf False x = 7-x
+
+{-
+instance Emu6502 MonadAtari where
+    {-# INLINE readMemory #-}
+    readMemory addr' =
+        let addr = addr' .&. 0b1111111111111 in -- 6507
+        if addr >= 0x1000
+            then do
+                m <- use mem
+                offset <- use bankOffset
+                byte <- liftIO $ readArray m (iz (addr-0x1000+offset))
+
+                when (addr >= 0x1ff8) $ do
+                    bankType <- use bankMode
+                    case bankType of
+                        UnBanked -> return ()
+                        F8 -> do
+                            when (addr == 0x1ff8) $ bankOffset .= 0
+                            when (addr == 0x1ff9) $ bankOffset .= 0x1000
+
+                return byte
+            else if isRAM addr
+                then do
+                    m <- use mem
+                    liftIO $ readArray m (iz addr .&. 0xff)
+                else if isTIA addr
+                        then readStella (addr .&. 0x3f)
+                        else if isRIOT addr
+                            then readStella (0x280+(addr .&. 0x1f))
+                            else error $ "Mystery read from " ++ showHex addr ""
+
+
+    {-# INLINE writeMemory #-}
+    writeMemory addr' v =
+        let addr = addr' .&. 0b1111111111111 in -- 6507
+        if addr >= 0x1000
+            then do
+                when (addr >= 0x1ff8) $ do
+                    bankType <- use bankMode
+                    case bankType of
+                        UnBanked -> return ()
+                        F8 -> do
+                            when (addr == 0x1ff8) $ bankOffset .= 0
+                            when (addr == 0x1ff9) $ bankOffset .= 0x1000
+            else if isRAM addr
+                then do
+                    m <- use mem
+                    liftIO $ writeArray m (iz addr .&. 0xff) v
+                else if isTIA addr
+                    then writeStella (addr .&. 0x3f) v
+                    else if isRIOT addr
+                            then writeStella (0x280+(addr .&. 0x1f)) v
+                            else error $ "Mystery write to " ++ showHex addr ""
+
+    {-# INLINE getPC #-}
+    getPC = use (regs . pc)
+    {-# INLINE tick #-}
+    tick n = do
+        clock += fromIntegral n
+        c <- use clock
+        stellaTickUntil (3*c)
+    {-# INLINE putC #-}
+    putC b = regs . flagC .= b
+    {-# INLINE getC #-}
+    getC = use (regs . flagC)
+    {-# INLINE putZ #-}
+    putZ b = regs . flagZ .= b
+    {-# INLINE getZ #-}
+    getZ = use (regs . flagZ)
+    {-# INLINE putI #-}
+    putI b = regs . flagI .= b
+    {-# INLINE getI #-}
+    getI = use (regs . flagI)
+    {-# INLINE putD #-}
+    putD b = regs . flagD .= b
+    {-# INLINE getD #-}
+    getD = use (regs . flagD)
+    {-# INLINE putB #-}
+    putB b = regs . flagB .= b
+    {-# INLINE getB #-}
+    getB = use (regs . flagB)
+    {-# INLINE putV #-}
+    putV b = regs . flagV .= b
+    {-# INLINE getV #-}
+    getV = use (regs . flagV)
+    {-# INLINE putN #-}
+    putN b = regs . flagN .= b
+    {-# INLINE getN #-}
+    getN = use (regs . flagN)
+    {-# INLINE getA #-}
+    getA = use (regs . a)
+    {-# INLINE putA #-}
+    putA r = regs . a .= r
+    {-# INLINE getS #-}
+    getS = use (regs . s)
+    {-# INLINE putS #-}
+    putS r = regs . s .= r
+    {-# INLINE getX #-}
+    getX = use (regs . x)
+    {-# INLINE putX #-}
+    putX r = regs . x .= r
+    {-# INLINE getP #-}
+    getP = use (regs . p)
+    {-# INLINE putP #-}
+    putP r = regs . p .= r
+    {-# INLINE getY #-}
+    getY = use (regs . y)
+    {-# INLINE putY #-}
+    putY r = regs . y .= r
+    {-# INLINE putPC #-}
+    putPC r = regs . pc .= r
+    {-# INLINE addPC #-}
+    addPC n = regs . pc += fromIntegral n
+
+    {- INLINE debugStr 9 -}
+    debugStr n str = do
+        d <- use debug
+        if n <= d
+            then liftIO $ putStr str
+            else return ()
+
+    {- INLINE debugStrLn 9 -}
+    debugStrLn n str = do
+        d <- use debug
+        if n <= d
+            then liftIO $ putStrLn str
+            else return ()
+
+    {- INLINE illegal -}
+    illegal i = error $ "Illegal opcode 0x" ++ showHex i ""
+
+{- INLINABLE writeStella -}
+writeStella :: Word16 -> Word8 -> MonadAtari ()
+writeStella addr v = 
+    --(liftIO $ print $ "Hello!!!! " ++ showHex addr "" ++ " " ++ showHex v "") >>
+    case addr of
+       0x00 -> stellaVsync v             -- VSYNC
+       0x01 -> stellaVblank v            -- VBLANK
+       0x02 -> stellaWsync               -- WSYNC
+       0x04 -> putORegister nusiz0 v        -- NUSIZ0
+       0x05 -> putORegister nusiz1 v        -- NUSIZ1
+       0x06 -> putORegister colup0 v               -- COLUP0
+       0x07 -> putORegister colup1 v               -- COLUP1
+       0x08 -> putORegister colupf v               -- COLUPF
+       0x09 -> putORegister colubk v               -- COLUBK
+       0x0a -> putORegister ctrlpf v               -- COLUPF
+       0x0b -> putORegister refp0 v               -- REFP0
+       0x0c -> putORegister refp1 v               -- REFP1
+       0x0d -> graphicsDelay 4 >> putORegister pf0 v                  -- PF0
+       0x0e -> graphicsDelay 4 >> putORegister pf1 v                  -- PF1
+       0x0f -> graphicsDelay 4 >> putORegister pf2 v                  -- PF2
+       0x10 -> graphicsDelay 5 >> use hpos >>= (ppos0 .=)   -- RESP0 XXX FUDGE FACTORS
+       0x11 -> graphicsDelay 5 >> use hpos >>= (ppos1 .=)   -- RESP1
+       0x12 -> graphicsDelay 4 >> use hpos >>= (mpos0 .=)   -- RESM0
+       0x13 -> graphicsDelay 4 >> use hpos >>= (mpos1 .=)   -- RESM1
+       0x14 -> graphicsDelay 4 >> use hpos >>= (bpos .=)     -- RESBL
+       0x1b -> do -- GRP0
+                graphics . newGrp0 .= v
+                use (graphics . newGrp1) >>= (graphics . oldGrp1 .=)
+       0x1c -> do -- GRP1
+                graphics . newGrp1 .= v
+                use (graphics . newGrp0) >>= (graphics . oldGrp0 .=)
+                use (graphics . newBall) >>= (graphics . oldBall .=)
+       0x1d -> putORegister enam0 v                -- ENAM0
+       0x1e -> putORegister enam1 v                -- ENAM1
+       0x1f -> graphics . newBall .= testBit v 1   -- ENABL
+       0x20 -> putORegister hmp0 v                 -- HMP0
+       0x21 -> putORegister hmp1 v                 -- HMP1
+       0x22 -> putORegister hmm0 v                 -- HMM0
+       0x23 -> putORegister hmm1 v                 -- HMM1
+       0x24 -> putORegister hmbl v                 -- HMBL
+       0x25 -> graphics . delayP0 .= testBit v 0   -- VDELP0
+       0x26 -> graphics . delayP1 .= testBit v 0   -- VDELP1
+       0x27 -> graphics . delayBall .= testBit v 0   -- VDELBL
+       0x28 -> putORegister resmp0 v
+       0x29 -> putORegister resmp1 v
+       0x2a -> stellaHmove               -- HMOVE
+       0x2b -> stellaHmclr               -- HMCLR
+       0x2c -> stellaCxclr               -- CXCLR
+
+       0x294 -> intervalTimer .= start1 v -- TIM1T
+       0x295 -> intervalTimer .= start8 v -- TIM8T
+       0x296 -> intervalTimer .= start64 v -- TIM64T
+       0x297 -> intervalTimer .= start1024 v -- TIM1024T
+       _ -> return () -- liftIO $ putStrLn $ "writing TIA 0x" ++ showHex addr ""
+
+{- INLINABLE readStella -}
+readStella :: Word16 -> MonadAtari Word8
+readStella addr = 
+    case addr of
+        0x00 -> getIRegister cxm0p
+        0x01 -> getIRegister cxm1p
+        0x02 -> getIRegister cxp0fb
+        0x03 -> getIRegister cxp1fb
+        0x04 -> getIRegister cxm0fb
+        0x05 -> getIRegister cxm1fb
+        0x06 -> getIRegister cxblpf
+        0x07 -> getIRegister cxppmm
+        0x0c -> getIRegister inpt4
+        0x10 -> getIRegister cxm0p
+        0x11 -> getIRegister cxm1p
+        0x12 -> getIRegister cxp0fb
+        0x13 -> getIRegister cxp1fb
+        0x14 -> getIRegister cxm0fb
+        0x15 -> getIRegister cxm1fb
+        0x16 -> getIRegister cxblpf
+        0x17 -> getIRegister cxppmm
+        0x1c -> getIRegister inpt4
+        0x20 -> getIRegister cxm0p
+        0x21 -> getIRegister cxm1p
+        0x22 -> getIRegister cxp0fb
+        0x23 -> getIRegister cxp1fb
+        0x24 -> getIRegister cxm0fb
+        0x25 -> getIRegister cxm1fb
+        0x26 -> getIRegister cxblpf
+        0x27 -> getIRegister cxppmm
+        0x2c -> getIRegister inpt4
+        0x30 -> getIRegister cxm0p
+        0x31 -> getIRegister cxm1p
+        0x32 -> getIRegister cxp0fb
+        0x33 -> getIRegister cxp1fb
+        0x34 -> getIRegister cxm0fb
+        0x35 -> getIRegister cxm1fb
+        0x36 -> getIRegister cxblpf
+        0x37 -> getIRegister cxppmm
+        0x3c -> getIRegister inpt4
+        0x280 -> getIRegister swcha
+        0x282 -> getIRegister swchb
+        0x284 -> use (intervalTimer . intim)
+        _ -> return 0 -- (liftIO $ putStrLn $ "reading TIA 0x" ++ showHex addr "") >> return 0
+-}
+
+{-
+{- INLINE stellaWsync -}
+stellaWsync :: MonadAtari ()
+stellaWsync = do
+    hpos' <- use hpos
+    --stellaTick (233-fromIntegral hpos') -- 228
+    --stellaTick (232-fromIntegral hpos') -- 228
+    -- This isn't quite right. I think CPU clock should be able to shift
+    -- phase relative to pixel click. XXX
+    when (hpos' > 2) $ do
+        clock += 1 -- sleep the CPU
+        clock' <- use clock
+        stellaTickUntil (3*clock')
+        stellaWsync
+
+-- http://atariage.com/forums/topic/107527-atari-2600-vsyncvblank/
+
+
+{- INLINE stellaVsync -}
+stellaVsync :: Word8 -> MonadAtari ()
+stellaVsync v = do
+    oldv <- getORegister vsync
+    when (testBit oldv 1 && not (testBit v 1)) $ do
+            hpos .= 0
+            vpos .= 0
+    putORegister vsync v
+    s <- use stellaSDL
+    liftIO $ renderDisplay s
+
+stellaTick :: Int -> MonadAtari ()
+stellaTick n | n <= 0 = return ()
+stellaTick n = do
+    stella <- get
+    let (xbreak', ybreak') = stella ^. stellaDebug . posbreak
+    let (hpos', vpos') = stella ^. position
+    when ((hpos', vpos') == (xbreak', ybreak')) $ do
+        dumpStella
+        stellaDebug . posbreak .= (-1, -1) -- Maybe maybe
+
+    stellaClock += 1
+    intervalTimer %= timerTick
+    
+    -- Display
+    when (vpos' >= picy && vpos' < picy+192 && hpos' >= picx) $ do
+        let !surface = _sdlBackSurface (_stellaSDL stella)
+        !ptr <- liftIO $ surfacePixels surface
+        let !ptr' = castPtr ptr :: Ptr Word32
+        let !pixelx = hpos'-picx
+        let !pixely = vpos'-picy
+        let !i = screenWidth*pixely+pixelx
+
+        stella <- get
+
+        let r = _oregisters stella
+        let (hpos', _) = _position stella
+        resmp0' <- liftIO $ fastGetORegister r resmp0
+        resmp1' <- liftIO $ fastGetORegister r resmp1
+        when (testBit resmp0' 1) $ mpos0 .= hpos'
+        when (testBit resmp1' 1) $ mpos1 .= hpos'
+
+        liftIO $ do
+            !final <- compositeAndCollide stella pixelx hpos' r
+            --print final
+            pokeElemOff ptr' (fromIntegral i) (lut!(final `shift` (-1)))
+
+    position %= updatePos
+
+    stellaTick (n-1)
+
+
+stellaTickUntil :: Int64 -> MonadAtari ()
+stellaTickUntil n = do
+    c <- use stellaClock
+    stellaTick (fromIntegral (n-c))
+
+dumpStella :: MonadAtari ()
+dumpStella = do
+    dumpMemory
+    liftIO $ putStrLn "--------"
+    hpos' <- use hpos
+    vpos' <- use vpos
+    liftIO $ putStrLn $ "hpos = " ++ show hpos' ++ " (" ++ show (hpos'-picx) ++ ") vpos = " ++ show vpos' ++ " (" ++ show (vpos'-picy) ++ ")"
+    grp0' <- use (graphics . oldGrp0) -- XXX
+    grp1' <- use (graphics . oldGrp1) -- XXX
+    liftIO $ putStrLn $ "GRP0 = " ++ showHex grp0' "" ++ "(" ++ inBinary 8 grp0' ++ ")"
+    liftIO $ putStrLn $ "GRP1 = " ++ showHex grp1' "" ++ "(" ++ inBinary 8 grp1' ++ ")"
+    pf0' <- getORegister pf0
+    pf1' <- getORegister pf1
+    pf2' <- getORegister pf2
+    liftIO $ putStrLn $ "PF = " ++ reverse (inBinary 4 (pf0' `shift` (-4)))
+                                ++ inBinary 8 pf1'
+                                ++ reverse (inBinary 8 pf2')
+    nusiz0' <- getORegister nusiz0
+    nusiz1' <- getORegister nusiz1
+    liftIO $ putStrLn $ "NUSIZ0 = " ++ showHex nusiz0' "" ++ "(" ++ explainNusiz nusiz0' ++
+                        ") NUSIZ1 = " ++ showHex nusiz1' "" ++ "(" ++ explainNusiz nusiz1' ++ ")"
+    enam0' <- getORegister enam0
+    enam1' <- getORegister enam1
+    enablOld <- use (graphics . oldBall)
+    enablNew <- use (graphics . newBall)
+    liftIO $ putStr $ "ENAM0 = " ++ show (testBit enam0' 1)
+    liftIO $ putStr $ " ENAM1 = " ++ show (testBit enam1' 1)
+    liftIO $ putStrLn $ " ENABL = " ++ show (enablOld, enablNew)
+    mpos0' <- use mpos0
+    mpos1' <- use mpos1
+    hmm0' <- getORegister hmm0
+    hmm1' <- getORegister hmm1
+    liftIO $ putStr $ "missile0 @ " ++ show mpos0' ++ "(" ++ show (clockMove hmm0') ++ ")"
+    liftIO $ putStrLn $ " missile1 @ " ++ show mpos1' ++ "(" ++ show (clockMove hmm1') ++ ")"
+    vdelp0' <- use (graphics . delayP0)
+    vdelp1' <- use (graphics . delayP1)
+    vdelbl' <- use (graphics . delayBall)
+    liftIO $ putStrLn $ "VDELP0 = " ++ show vdelp0' ++ " " ++
+                        "VDELP1 = " ++ show vdelp1' ++ " " ++
+                        "VDELBL = " ++ show vdelbl'
+
+{-# INLINABLE dumpMemory #-}
+dumpMemory :: MonadAtari ()
+dumpMemory = do
+    regPC <- getPC
+    b0 <- readMemory regPC
+    b1 <- readMemory (regPC+1)
+    b2 <- readMemory (regPC+2)
+    liftIO $ putStr $ "(PC) = "
+    liftIO $ putStr $ showHex b0 "" ++ " "
+    liftIO $ putStr $ showHex b1 "" ++ " "
+    liftIO $ putStrLn $ showHex b2 ""
+    let (_, mne, _) = disasm regPC [b0, b1, b2]
+    liftIO $ putStrLn $ mne
+-}
