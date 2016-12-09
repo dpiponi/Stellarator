@@ -62,28 +62,6 @@ import Stella.Sprites
 import DebugState
 import Atari2600
 
-{- INLINE stellaWsync -}
-stellaWsync :: MonadAtari ()
-stellaWsync = do
-    hpos' <- use hpos
-    --stellaTick (233-fromIntegral hpos') -- 228
-    --stellaTick (232-fromIntegral hpos') -- 228
-    when (hpos' > 2) $ do
-        clock += 1 -- sleep the CPU
-        clock' <- use clock
-        stellaTickUntil (3*clock')
-        stellaWsync
-
-stellaTickUntil :: Int64 -> MonadAtari ()
-stellaTickUntil n = do
-    c <- use stellaClock
-    stellaTick (fromIntegral (n-c))
-
-{-
-newtype MonadAtari a = M { unM :: StateT Atari2600 IO a }
-    deriving (Functor, Applicative, Monad, MonadState Atari2600, MonadIO)
--}
-
 instance Emu6502 MonadAtari where
     {-# INLINE readMemory #-}
     readMemory addr' =

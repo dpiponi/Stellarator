@@ -602,6 +602,29 @@ stellaTick n = do
 
     stellaTick (n-1)
 
+{- INLINE stellaWsync -}
+stellaWsync :: MonadAtari ()
+stellaWsync = do
+    hpos' <- use hpos
+    --stellaTick (233-fromIntegral hpos') -- 228
+    --stellaTick (232-fromIntegral hpos') -- 228
+    -- This isn't quite right. I think CPU clock should be able to shift
+    -- phase relative to pixel click. XXX
+    when (hpos' > 2) $ do
+        clock += 1 -- sleep the CPU
+        clock' <- use clock
+        stellaTickUntil (3*clock')
+        stellaWsync
+
+-- http://atariage.com/forums/topic/107527-atari-2600-vsyncvblank/
+
+
+
+stellaTickUntil :: Int64 -> MonadAtari ()
+stellaTickUntil n = do
+    c <- use stellaClock
+    stellaTick (fromIntegral (n-c))
+
 {-
 instance Emu6502 MonadAtari where
     {-# INLINE readMemory #-}
@@ -786,29 +809,6 @@ writeStella addr v =
        0x296 -> intervalTimer .= start64 v -- TIM64T
        0x297 -> intervalTimer .= start1024 v -- TIM1024T
        _ -> return () -- liftIO $ putStrLn $ "writing TIA 0x" ++ showHex addr ""
-
-{- INLINE stellaWsync -}
-stellaWsync :: MonadAtari ()
-stellaWsync = do
-    hpos' <- use hpos
-    --stellaTick (233-fromIntegral hpos') -- 228
-    --stellaTick (232-fromIntegral hpos') -- 228
-    -- This isn't quite right. I think CPU clock should be able to shift
-    -- phase relative to pixel click. XXX
-    when (hpos' > 2) $ do
-        clock += 1 -- sleep the CPU
-        clock' <- use clock
-        stellaTickUntil (3*clock')
-        stellaWsync
-
--- http://atariage.com/forums/topic/107527-atari-2600-vsyncvblank/
-
-
-
-stellaTickUntil :: Int64 -> MonadAtari ()
-stellaTickUntil n = do
-    c <- use stellaClock
-    stellaTick (fromIntegral (n-c))
 
 dumpStella :: MonadAtari ()
 dumpStella = do
