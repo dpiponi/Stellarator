@@ -45,6 +45,7 @@ data Registers = R {
     _s :: !Word8
 }
 
+{-
 data BankMode = UnBanked | F8 deriving (Show, Data, Typeable)
 
 data Atari2600 = Atari2600 {
@@ -762,3 +763,4 @@ explainNusiz nusiz =
         0b110 -> "3 copies medium"
         0b111 -> "quad sized player"
         _ -> error "Impossible to reach"
+-}

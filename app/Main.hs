@@ -60,12 +60,14 @@ import MemoryMap
 import Stella.Graphics
 import Stella.Sprites
 import DebugState
+import Atari2600
 
 {-
 newtype OReg = OReg Word16 deriving (Ord, Ix, Eq, Num)
 newtype IReg = IReg Word16 deriving (Ord, Ix, Eq, Num)
 -}
 
+{-
 data Registers = R {
     _pc :: !Word16,
     _p :: !Word8,
@@ -74,6 +76,7 @@ data Registers = R {
     _y :: !Word8,
     _s :: !Word8
 }
+-}
 
 data StellaClock = Clock {
     _now :: !Int64,
