@@ -403,7 +403,6 @@ stellaHmclr = do
     putORegister hmm1 0
     putORegister hmbl 0
 
-{-
 {- INLINE stellaCxclr -}
 stellaCxclr :: MonadAtari ()
 stellaCxclr = do
@@ -416,6 +415,12 @@ stellaCxclr = do
     putIRegister cxblpf 0
     putIRegister cxppmm 0
 
+picy :: CInt
+picy = 40
+picx :: CInt
+picx = 68
+
+{-
 {- INLINE stellaHmove -}
 stellaHmove :: MonadAtari ()
 stellaHmove = do
@@ -495,11 +500,6 @@ stellaVblank v = do
 
     --vblank .= v
     putORegister vblank v
-
-picy :: CInt
-picy = 40
-picx :: CInt
-picx = 68
 
 stellaTick :: Int -> MonadAtari ()
 stellaTick n | n <= 0 = return ()
@@ -585,12 +585,6 @@ bpos = sprites . s_bpos
 {-# INLINE clockMove #-}
 clockMove :: Word8 -> CInt
 clockMove i = fromIntegral ((fromIntegral i :: Int8) `shift` (-4))
-
-{-# INLINE wrap160 #-}
-wrap160 :: CInt -> CInt
-wrap160 i | i < picx = wrap160 (i+160)
-          | i >= picx+160 = wrap160 (i-160)
-wrap160 i = i
 
 {-# INLINE bit #-}
 bit :: Int -> Bool -> Word8
@@ -761,3 +755,9 @@ stellaDebugStrLn n str = do
         then do
             liftIO $ putStrLn str
         else return ()
+
+{-# INLINE wrap160 #-}
+wrap160 :: CInt -> CInt
+wrap160 i | i < picx = wrap160 (i+160)
+          | i >= picx+160 = wrap160 (i-160)
+wrap160 i = i

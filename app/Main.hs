@@ -219,24 +219,6 @@ ball graphics' ctrlpf' hpos' bpos' = do
 clockMove :: Word8 -> CInt
 clockMove i = fromIntegral ((fromIntegral i :: Int8) `shift` (-4))
 
-{- INLINE stellaCxclr -}
-stellaCxclr :: MonadAtari ()
-stellaCxclr = do
-    putIRegister cxm0p 0
-    putIRegister cxm1p 0
-    putIRegister cxm0fb 0
-    putIRegister cxm1fb 0
-    putIRegister cxp0fb 0
-    putIRegister cxp1fb 0
-    putIRegister cxblpf 0
-    putIRegister cxppmm 0
-
-{-# INLINE wrap160 #-}
-wrap160 :: CInt -> CInt
-wrap160 i | i>=picx && i < picx+160 = i
-          | i < picx = wrap160 (i+160)
-          | i >= picx+160 = wrap160 (i-160)
-
 {- INLINE stellaHmove -}
 stellaHmove :: MonadAtari ()
 stellaHmove = do
@@ -307,11 +289,6 @@ stellaVblank v = do
 
     --vblank .= v
     putORegister vblank v
-
-picy :: CInt
-picy = 40
-picx :: CInt
-picx = 68
 
 {-# INLINE bit #-}
 bit :: Int -> Bool -> Word8
