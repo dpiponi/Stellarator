@@ -525,17 +525,6 @@ stellaTick n = do
 
     stellaTick (n-1)
 
-{-# INLINABLE updatePos #-}
-updatePos :: (CInt, CInt) -> (CInt, CInt)
-updatePos (hpos0, vpos0) =
-    let hpos' = hpos0+1
-    in if hpos' < picx+160
-        then (hpos', vpos0)
-        else let vpos' = vpos0+1
-             in if vpos' < picy+192
-                then (0, vpos')
-                else (0, 0)
-
 {- INLINE compositeAndCollide -}
 compositeAndCollide :: Atari2600 -> CInt -> CInt -> IOUArray OReg Word8 -> IO Word8
 compositeAndCollide stella pixelx hpos' r = do
@@ -761,3 +750,14 @@ ppos1 = sprites . s_ppos1
 mpos0 = sprites . s_mpos0
 mpos1 = sprites . s_mpos1
 bpos = sprites . s_bpos
+
+{-# INLINABLE updatePos #-}
+updatePos :: (CInt, CInt) -> (CInt, CInt)
+updatePos (hpos0, vpos0) =
+    let hpos' = hpos0+1
+    in if hpos' < picx+160
+        then (hpos', vpos0)
+        else let vpos' = vpos0+1
+             in if vpos' < picy+192
+                then (0, vpos')
+                else (0, 0)

@@ -271,18 +271,6 @@ compositeAndCollide stella x hpos' r = do
                                 then colupf'
                                 else colubk'
 
-
-{-# INLINABLE updatePos #-}
-updatePos :: (CInt, CInt) -> (CInt, CInt)
-updatePos (hpos, vpos) =
-    let hpos' = hpos+1
-    in if hpos' < picx+160
-        then (hpos', vpos)
-        else let vpos' = vpos+1
-             in if vpos' < picy+192
-                then (0, vpos')
-                else (0, 0)
-
 stellaTickUntil :: Int64 -> MonadAtari ()
 stellaTickUntil n = do
     c <- use stellaClock
