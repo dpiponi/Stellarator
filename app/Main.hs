@@ -51,6 +51,7 @@ import Disasm
 import System.Console.Haskeline
 import Control.Concurrent
 import Stella.IntervalTimer
+import Stella.TIARegisters
 import Stella.SDLState
 
 import DebugCmd
@@ -58,8 +59,10 @@ import MemoryMap
 import Stella.Graphics
 import Stella.Sprites
 
+{-
 newtype OReg = OReg Word16 deriving (Ord, Ix, Eq, Num)
 newtype IReg = IReg Word16 deriving (Ord, Ix, Eq, Num)
+-}
 
 data Registers = R {
     _pc :: !Word16,
@@ -130,6 +133,7 @@ i16 = fromIntegral
 iz :: Word16 -> Int -- or NUM
 iz = fromIntegral
 
+{-
 nusiz0, nusiz1, colup0, colup1, pf0, pf1, pf2, enam0, enam1, hmp0, hmp1, hmm0, hmm1, hmbl :: OReg
 vblank, vsync, refp0, refp1, colupf, colubk, ctrlpf, resmp0, resmp1 :: OReg
 vsync = 0x00
@@ -171,6 +175,7 @@ inpt5 = 0x0d
 swcha, swchb :: IReg
 swcha = 0x280
 swchb = 0x282
+-}
 
 {-
 {-# INLINE backSurface #-}
@@ -246,9 +251,11 @@ getORegister i = do
     r <- use oregisters
     liftIO $ readArray r i
 
+{-
 {-# INLINE fastGetORegister #-}
 fastGetORegister :: IOUArray OReg Word8 -> OReg -> IO Word8
 fastGetORegister = readArray
+-}
 
 {-# INLINE putIRegister #-}
 putIRegister :: IReg -> Word8 -> MonadAtari ()
@@ -262,9 +269,11 @@ modifyIRegister i f = do
     r <- use iregisters
     liftIO $ (readArray r i >>= writeArray r i . f)
 
+{-
 {-# INLINE fastModifyIRegister #-}
 fastModifyIRegister :: IOUArray IReg Word8 -> IReg -> (Word8 -> Word8) -> IO ()
 fastModifyIRegister r i f = readArray r i >>= writeArray r i . f
+-}
 
 {-# INLINE getIRegister #-}
 getIRegister :: IReg -> MonadAtari Word8
@@ -276,9 +285,11 @@ getIRegister i = do
 orIRegister :: IReg -> Word8 -> MonadAtari ()
 orIRegister i v = modifyIRegister i (v .|.)
 
+{-
 {-# INLINE fastOrIRegister #-}
 fastOrIRegister :: IOUArray IReg Word8 -> IReg -> Word8 -> IO ()
 fastOrIRegister r i v = fastModifyIRegister r i (v .|.)
+-}
 
 inBinary :: (Bits a) => Int -> a -> String
 inBinary 0 x = ""
