@@ -62,24 +62,6 @@ import Stella.Sprites
 import DebugState
 import Atari2600
 
-{-# INLINE hpos #-}
-{-# INLINE vpos #-}
-hpos, vpos :: Lens' Atari2600 CInt
-hpos = position . _1
-vpos = position . _2
-
-{-# INLINE ppos0 #-}
-{-# INLINE ppos1 #-}
-{-# INLINE mpos0 #-}
-{-# INLINE mpos1 #-}
-{-# INLINE bpos #-}
-ppos0, ppos1, mpos0, mpos1, bpos :: Lens' Atari2600 CInt
-ppos0 = sprites . s_ppos0
-ppos1 = sprites . s_ppos1
-mpos0 = sprites . s_mpos0
-mpos1 = sprites . s_mpos1
-bpos = sprites . s_bpos
-
 {- INLINE playfield -}
 playfield :: IOUArray OReg Word8 -> Word8 -> Int -> IO Bool
 playfield r ctrlpf' i | i >= 0 && i < 4 = flip testBit (i+4) <$> fastGetORegister r pf0

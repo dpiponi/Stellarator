@@ -536,24 +536,6 @@ updatePos (hpos0, vpos0) =
                 then (0, vpos')
                 else (0, 0)
 
-{-# INLINE hpos #-}
-{-# INLINE vpos #-}
-hpos, vpos :: Lens' Atari2600 CInt
-hpos = position . _1
-vpos = position . _2
-
-{-# INLINE ppos0 #-}
-{-# INLINE ppos1 #-}
-{-# INLINE mpos0 #-}
-{-# INLINE mpos1 #-}
-{-# INLINE bpos #-}
-ppos0, ppos1, mpos0, mpos1, bpos :: Lens' Atari2600 CInt
-ppos0 = sprites . s_ppos0
-ppos1 = sprites . s_ppos1
-mpos0 = sprites . s_mpos0
-mpos1 = sprites . s_mpos1
-bpos = sprites . s_bpos
-
 {- INLINE compositeAndCollide -}
 compositeAndCollide :: Atari2600 -> CInt -> CInt -> IOUArray OReg Word8 -> IO Word8
 compositeAndCollide stella pixelx hpos' r = do
@@ -761,3 +743,21 @@ stellaVblank v = do
 
     --vblank .= v
     putORegister vblank v
+
+{-# INLINE hpos #-}
+{-# INLINE vpos #-}
+hpos, vpos :: Lens' Atari2600 CInt
+hpos = position . _1
+vpos = position . _2
+
+{-# INLINE ppos0 #-}
+{-# INLINE ppos1 #-}
+{-# INLINE mpos0 #-}
+{-# INLINE mpos1 #-}
+{-# INLINE bpos #-}
+ppos0, ppos1, mpos0, mpos1, bpos :: Lens' Atari2600 CInt
+ppos0 = sprites . s_ppos0
+ppos1 = sprites . s_ppos1
+mpos0 = sprites . s_mpos0
+mpos1 = sprites . s_mpos1
+bpos = sprites . s_bpos
