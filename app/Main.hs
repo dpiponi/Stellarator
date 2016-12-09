@@ -79,45 +79,6 @@ stellaTickUntil n = do
     c <- use stellaClock
     stellaTick (fromIntegral (n-c))
 
-stellaTick :: Int -> MonadAtari ()
-stellaTick n | n <= 0 = return ()
-stellaTick n = do
-    stella <- get
-    let (xbreak', ybreak') = stella ^. stellaDebug . posbreak
-    let (hpos', vpos') = stella ^. position
-    when ((hpos', vpos') == (xbreak', ybreak')) $ do
-        dumpStella
-        stellaDebug . posbreak .= (-1, -1) -- Maybe maybe
-
-    stellaClock += 1
-    intervalTimer %= timerTick
-    
-    -- Display
-    when (vpos' >= picy && vpos' < picy+192 && hpos' >= picx) $ do
-        let !surface = _sdlBackSurface (_stellaSDL stella)
-        !ptr <- liftIO $ surfacePixels surface
-        let !ptr' = castPtr ptr :: Ptr Word32
-        let !x = hpos'-picx
-        let !y = vpos'-picy
-        let !i = screenWidth*y+x
-
-        stella <- get
-
-        let r = stella ^. oregisters
-        let hpos' = stella ^. hpos
-        resmp0' <- liftIO $ fastGetORegister r resmp0
-        resmp1' <- liftIO $ fastGetORegister r resmp1
-        when (testBit resmp0' 1) $ mpos0 .= hpos'
-        when (testBit resmp1' 1) $ mpos1 .= hpos'
-
-        liftIO $ do
-            !final <- compositeAndCollide stella x hpos' r
-            pokeElemOff ptr' (fromIntegral i) (lut!(final `shift` (-1)))
-
-    position %= updatePos
-
-    stellaTick (n-1)
-
 {-
 newtype MonadAtari a = M { unM :: StateT Atari2600 IO a }
     deriving (Functor, Applicative, Monad, MonadState Atari2600, MonadIO)

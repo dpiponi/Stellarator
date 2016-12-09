@@ -562,6 +562,46 @@ stellaVsync v = do
     s <- use stellaSDL
     liftIO $ renderDisplay s
 
+stellaTick :: Int -> MonadAtari ()
+stellaTick n | n <= 0 = return ()
+stellaTick n = do
+    stella <- get
+    let (xbreak', ybreak') = stella ^. stellaDebug . posbreak
+    let (hpos', vpos') = stella ^. position
+    when ((hpos', vpos') == (xbreak', ybreak')) $ do
+        --dumpStella
+        stellaDebug . posbreak .= (-1, -1) -- Maybe maybe
+
+    stellaClock += 1
+    intervalTimer %= timerTick
+    
+    -- Display
+    when (vpos' >= picy && vpos' < picy+192 && hpos' >= picx) $ do
+        let !surface = _sdlBackSurface (_stellaSDL stella)
+        !ptr <- liftIO $ surfacePixels surface
+        let !ptr' = castPtr ptr :: Ptr Word32
+        let !pixelx = hpos'-picx
+        let !pixely = vpos'-picy
+        let !i = screenWidth*pixely+pixelx
+
+        stella <- get
+
+        let r = _oregisters stella
+        let (hpos', _) = _position stella
+        resmp0' <- liftIO $ fastGetORegister r resmp0
+        resmp1' <- liftIO $ fastGetORegister r resmp1
+        when (testBit resmp0' 1) $ mpos0 .= hpos'
+        when (testBit resmp1' 1) $ mpos1 .= hpos'
+
+        liftIO $ do
+            !final <- compositeAndCollide stella pixelx hpos' r
+            --print final
+            pokeElemOff ptr' (fromIntegral i) (lut!(final `shift` (-1)))
+
+    position %= updatePos
+
+    stellaTick (n-1)
+
 {-
 instance Emu6502 MonadAtari where
     {-# INLINE readMemory #-}
@@ -763,46 +803,6 @@ stellaWsync = do
 
 -- http://atariage.com/forums/topic/107527-atari-2600-vsyncvblank/
 
-
-stellaTick :: Int -> MonadAtari ()
-stellaTick n | n <= 0 = return ()
-stellaTick n = do
-    stella <- get
-    let (xbreak', ybreak') = stella ^. stellaDebug . posbreak
-    let (hpos', vpos') = stella ^. position
-    when ((hpos', vpos') == (xbreak', ybreak')) $ do
-        dumpStella
-        stellaDebug . posbreak .= (-1, -1) -- Maybe maybe
-
-    stellaClock += 1
-    intervalTimer %= timerTick
-    
-    -- Display
-    when (vpos' >= picy && vpos' < picy+192 && hpos' >= picx) $ do
-        let !surface = _sdlBackSurface (_stellaSDL stella)
-        !ptr <- liftIO $ surfacePixels surface
-        let !ptr' = castPtr ptr :: Ptr Word32
-        let !pixelx = hpos'-picx
-        let !pixely = vpos'-picy
-        let !i = screenWidth*pixely+pixelx
-
-        stella <- get
-
-        let r = _oregisters stella
-        let (hpos', _) = _position stella
-        resmp0' <- liftIO $ fastGetORegister r resmp0
-        resmp1' <- liftIO $ fastGetORegister r resmp1
-        when (testBit resmp0' 1) $ mpos0 .= hpos'
-        when (testBit resmp1' 1) $ mpos1 .= hpos'
-
-        liftIO $ do
-            !final <- compositeAndCollide stella pixelx hpos' r
-            --print final
-            pokeElemOff ptr' (fromIntegral i) (lut!(final `shift` (-1)))
-
-    position %= updatePos
-
-    stellaTick (n-1)
 
 
 stellaTickUntil :: Int64 -> MonadAtari ()
