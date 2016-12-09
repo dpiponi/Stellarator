@@ -45,7 +45,6 @@ data Registers = R {
     _s :: !Word8
 }
 
-{-
 data BankMode = UnBanked | F8 deriving (Show, Data, Typeable)
 
 data Atari2600 = Atari2600 {
@@ -62,7 +61,7 @@ data Atari2600 = Atari2600 {
     _stellaSDL :: SDLState,
 
     _position :: (CInt, CInt),
-    _stellaClock :: Int64,
+    _stellaClock :: !Int64,
     _graphics :: Graphics,
     _sprites :: Sprites,
     _intervalTimer :: IntervalTimer
@@ -71,6 +70,7 @@ data Atari2600 = Atari2600 {
 $(makeLenses ''Atari2600)
 $(makeLenses ''Registers)
 
+{-
 newtype MonadAtari a = M { unM :: StateT Atari2600 IO a }
     deriving (Functor, Applicative, Monad, MonadState Atari2600, MonadIO)
 

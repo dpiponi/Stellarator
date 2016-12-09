@@ -78,12 +78,16 @@ data Registers = R {
 }
 -}
 
+{-
 data StellaClock = Clock {
     _now :: !Int64,
     _last :: !Int64
 }
+-}
 
+{-
 $(makeLenses ''StellaClock)
+-}
 
 {-
 data StellaDebug = Debug {
@@ -107,7 +111,8 @@ data StellaSDL = StellaSDL {
 $(makeLenses '' StellaSDL)
 -}
 
-data StateAtari = S {
+{-
+data Atari2600 = S {
      _mem :: IOUArray Int Word8,
      _regs :: !Registers,
      _clock :: !Int64,
@@ -125,8 +130,9 @@ data StateAtari = S {
     _intervalTimer :: IntervalTimer
 }
 
-$(makeLenses ''StateAtari)
+$(makeLenses ''Atari2600)
 $(makeLenses ''Registers)
+-}
 
 {-# INLINE i8 #-}
 i8 :: Integral a => a -> Word8
@@ -188,9 +194,9 @@ swchb = 0x282
 {-# INLINE backSurface #-}
 {-# INLINE frontSurface #-}
 {-# INLINE frontWindow #-}
-backSurface :: Lens' StateAtari Surface
-frontSurface :: Lens' StateAtari Surface
-frontWindow :: Lens' StateAtari SDL.Window
+backSurface :: Lens' Atari2600 Surface
+frontSurface :: Lens' Atari2600 Surface
+frontWindow :: Lens' Atari2600 SDL.Window
 backSurface = stellaSDL . sdlBackSurface
 frontSurface = stellaSDL . sdlFrontSurface
 frontWindow = stellaSDL . sdlFrontWindow
@@ -198,7 +204,7 @@ frontWindow = stellaSDL . sdlFrontWindow
 
 {-# INLINE hpos #-}
 {-# INLINE vpos #-}
-hpos, vpos :: Lens' StateAtari CInt
+hpos, vpos :: Lens' Atari2600 CInt
 hpos = position . _1
 vpos = position . _2
 
@@ -207,43 +213,39 @@ vpos = position . _2
 {-# INLINE mpos0 #-}
 {-# INLINE mpos1 #-}
 {-# INLINE bpos #-}
-ppos0, ppos1, mpos0, mpos1, bpos :: Lens' StateAtari CInt
+ppos0, ppos1, mpos0, mpos1, bpos :: Lens' Atari2600 CInt
 ppos0 = sprites . s_ppos0
 ppos1 = sprites . s_ppos1
 mpos0 = sprites . s_mpos0
 mpos1 = sprites . s_mpos1
 bpos = sprites . s_bpos
 
+{-
 {-# INLINE nowClock #-}
 {-# INLINE lastClock #-}
-nowClock, lastClock :: Lens' StateAtari Int64
+nowClock, lastClock :: Lens' Atari2600 Int64
 nowClock = stellaClock . now
 lastClock = stellaClock . last
+-}
 
 {- INLINE stellaDebugStr -}
-stellaDebugStr :: (MonadIO m, MonadState StateAtari m) =>
+stellaDebugStr :: (MonadIO m, MonadState Atari2600 m) =>
                   Int -> String -> m ()
 stellaDebugStr n str = do
     d <- use (stellaDebug . debugLevel)
     if n <= d
         then do
-            before <- use lastClock
-            now <- use nowClock
-            liftIO $ putStr $ show now ++ " +" ++ show (now-before) ++ ": " ++ str
-            lastClock .= now
+            liftIO $ putStr str
         else return ()
 
 {- INLINE stellaDebugStrLn -}
-stellaDebugStrLn :: (MonadIO m, MonadState StateAtari m) =>
+stellaDebugStrLn :: (MonadIO m, MonadState Atari2600 m) =>
                     Int -> String -> m ()
 stellaDebugStrLn n str = do
     d <- use (stellaDebug . debugLevel)
     if n <= d
         then do
-            before <- use lastClock
-            now <- use nowClock
-            liftIO $ putStrLn $ show now ++ " +" ++ show (now-before) ++ ": " ++ str
-            lastClock .= now
+            liftIO $ putStrLn str
         else return ()
 
 {-# INLINE putORegister #-}
@@ -365,7 +367,7 @@ stretchPlayer reflect sizeCopies o bitmap =
                     then testBit bitmap (flipIf reflect $ (fromIntegral ((o `shift` (-2)) .&. 7)))
                     else False
 
--- StateAtari programmer's guide p.40
+-- Atari2600 programmer's guide p.40
 {- INLINE player0 -}
 player0 :: IOUArray OReg Word8 -> Graphics -> CInt -> CInt -> IO Bool
 player0 r graphics' hpos' ppos0' = do
@@ -393,7 +395,7 @@ player1 r graphics' hpos' ppos1' = do
 missileSize :: Word8 -> CInt
 missileSize nusiz = 1 `shift` (fromIntegral ((nusiz `shift` (-4)) .&. 0b11))
 
--- StateAtari programmer's guide p.22
+-- Atari2600 programmer's guide p.22
 {- INLINE missile0 -}
 -- XXX Note that this updates mpos0 so need to take into account XXX
 missile0 :: IOUArray OReg Word8 -> CInt -> CInt -> Word8 -> IO Bool
@@ -575,7 +577,7 @@ bit :: Int -> Bool -> Word8
 bit n t = if t then 1 `shift` n else 0
 
 {- INLINE compositeAndCollide -}
-compositeAndCollide :: StateAtari -> CInt -> CInt -> IOUArray OReg Word8 -> IO Word8
+compositeAndCollide :: Atari2600 -> CInt -> CInt -> IOUArray OReg Word8 -> IO Word8
 compositeAndCollide stella x hpos' r = do
     resmp0' <- fastGetORegister r resmp0
     resmp1' <- fastGetORegister r resmp1
@@ -651,7 +653,7 @@ updatePos (hpos, vpos) =
 
 stellaTickUntil :: Int64 -> MonadAtari ()
 stellaTickUntil n = do
-    c <- use nowClock
+    c <- use stellaClock
     stellaTick (fromIntegral (n-c))
 
 stellaTick :: Int -> MonadAtari ()
@@ -664,7 +666,7 @@ stellaTick n = do
         dumpStella
         stellaDebug . posbreak .= (-1, -1) -- Maybe maybe
 
-    nowClock += 1
+    stellaClock += 1
     intervalTimer %= timerTick
     
     -- Display
@@ -693,8 +695,8 @@ stellaTick n = do
 
     stellaTick (n-1)
 
-newtype MonadAtari a = M { unM :: StateT StateAtari IO a }
-    deriving (Functor, Applicative, Monad, MonadState StateAtari, MonadIO)
+newtype MonadAtari a = M { unM :: StateT Atari2600 IO a }
+    deriving (Functor, Applicative, Monad, MonadState Atari2600, MonadIO)
 
 instance Emu6502 MonadAtari where
     {-# INLINE readMemory #-}
@@ -899,13 +901,13 @@ dumpState = do
 --  XXX Do this! If reset occurs during horizontal blank, the object will appear at the left side of the television screen
 
 {- INLINE setBreak -}
-setBreak :: (MonadIO m, MonadState StateAtari m) =>
+setBreak :: (MonadIO m, MonadState Atari2600 m) =>
                CInt -> CInt -> m ()
 setBreak x y = stellaDebug . posbreak .= (x+picx, y+picy)
 
 {-
 {-# INLINE usingStella #-}
-usingStella :: StateT StateAtari IO a -> MonadAtari a
+usingStella :: StateT Atari2600 IO a -> MonadAtari a
 usingStella m = do
     stella' <- use stella
     (a, stella'') <- liftIO $ flip runStateT stella' m
@@ -1337,8 +1339,8 @@ initState :: IOUArray Int Word8 ->
              IOUArray IReg Word8 ->
              Word16 ->
              Surface -> Surface ->
-             SDL.Window -> StateAtari
-initState memory oregs iregs initialPC helloWorld screenSurface window = Main.S {
+             SDL.Window -> Atari2600
+initState memory oregs iregs initialPC helloWorld screenSurface window = Atari2600 {
       _mem = memory,  _clock = 0, _regs = R initialPC 0 0 0 0 0xff,
       _debug = 8,
 
@@ -1353,10 +1355,7 @@ initState memory oregs iregs initialPC helloWorld screenSurface window = Main.S 
       _sprites = Stella.Sprites.start,
       _intervalTimer = Stella.IntervalTimer.start,
       _graphics = Stella.Graphics.start,
-      _stellaClock = Main.Clock {
-          _now = 0,
-          _last = 0
-      },
+      _stellaClock = 0,
       _stellaDebug = DebugState.start
   }
 
@@ -1382,7 +1381,7 @@ main = do
     let state = initState memory oregs iregs initialPC helloWorld screenSurface window
 
     let loopUntil n = do
-            stellaClock' <-  use nowClock
+            stellaClock' <-  use stellaClock
             when (stellaClock' < n) $ do
                 step
                 loopUntil n
@@ -1395,7 +1394,7 @@ main = do
 
             let quit = elem SDL.QuitEvent $ map SDL.eventPayload events
             forM_ events handleEvent
-            stellaClock' <-  use nowClock
+            stellaClock' <-  use stellaClock
             loopUntil (stellaClock' + 1000)
 
             loop
