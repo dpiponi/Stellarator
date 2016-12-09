@@ -695,8 +695,10 @@ stellaTick n = do
 
     stellaTick (n-1)
 
+{-
 newtype MonadAtari a = M { unM :: StateT Atari2600 IO a }
     deriving (Functor, Applicative, Monad, MonadState Atari2600, MonadIO)
+-}
 
 instance Emu6502 MonadAtari where
     {-# INLINE readMemory #-}

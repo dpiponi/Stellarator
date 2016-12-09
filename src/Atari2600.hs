@@ -70,10 +70,10 @@ data Atari2600 = Atari2600 {
 $(makeLenses ''Atari2600)
 $(makeLenses ''Registers)
 
-{-
 newtype MonadAtari a = M { unM :: StateT Atari2600 IO a }
     deriving (Functor, Applicative, Monad, MonadState Atari2600, MonadIO)
 
+{-
 initState :: BankMode ->
              IOUArray Int Word8 ->
              IOUArray OReg Word8 ->
