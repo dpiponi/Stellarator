@@ -74,61 +74,6 @@ i16 = fromIntegral
 iz :: Word16 -> Int -- or NUM
 iz = fromIntegral
 
-{-
-nusiz0, nusiz1, colup0, colup1, pf0, pf1, pf2, enam0, enam1, hmp0, hmp1, hmm0, hmm1, hmbl :: OReg
-vblank, vsync, refp0, refp1, colupf, colubk, ctrlpf, resmp0, resmp1 :: OReg
-vsync = 0x00
-vblank = 0x01
-nusiz0 = 0x04
-nusiz1 = 0x05
-colup0 = 0x06
-colup1 = 0x07
-colupf = 0x08
-colubk = 0x09
-ctrlpf = 0x0a
-refp0 = 0x0b
-refp1 = 0x0c
-pf0 = 0x0d
-pf1 = 0x0e
-pf2 = 0x0f
-enam0 = 0x1d
-enam1 = 0x1e
-hmp0 = 0x20
-hmp1 = 0x21
-hmm0 = 0x22
-hmm1 = 0x23
-hmbl = 0x24
-resmp0 = 0x28
-resmp1 = 0x29
-
-cxm0p, cxm1p, cxp0fb, cxp1fb, cxm0fb, cxm1fb, cxblpf, cxppmm, inpt4, inpt5 :: IReg
-cxm0p = 0x00
-cxm1p = 0x01
-cxp0fb = 0x02
-cxp1fb = 0x03
-cxm0fb = 0x04
-cxm1fb = 0x05
-cxblpf = 0x06
-cxppmm = 0x07
-inpt4 = 0x0c
-inpt5 = 0x0d
-
-swcha, swchb :: IReg
-swcha = 0x280
-swchb = 0x282
--}
-
-{-
-{-# INLINE backSurface #-}
-{-# INLINE frontSurface #-}
-{-# INLINE frontWindow #-}
-backSurface :: Lens' Atari2600 Surface
-frontSurface :: Lens' Atari2600 Surface
-frontWindow :: Lens' Atari2600 SDL.Window
-backSurface = stellaSDL . sdlBackSurface
-frontSurface = stellaSDL . sdlFrontSurface
-frontWindow = stellaSDL . sdlFrontWindow
--}
 
 {-# INLINE hpos #-}
 {-# INLINE vpos #-}
@@ -147,14 +92,6 @@ ppos1 = sprites . s_ppos1
 mpos0 = sprites . s_mpos0
 mpos1 = sprites . s_mpos1
 bpos = sprites . s_bpos
-
-{-
-{-# INLINE nowClock #-}
-{-# INLINE lastClock #-}
-nowClock, lastClock :: Lens' Atari2600 Int64
-nowClock = stellaClock . now
-lastClock = stellaClock . last
--}
 
 {- INLINE stellaDebugStr -}
 stellaDebugStr :: (MonadIO m, MonadState Atari2600 m) =>
@@ -176,73 +113,9 @@ stellaDebugStrLn n str = do
             liftIO $ putStrLn str
         else return ()
 
-{-# INLINE putORegister #-}
-putORegister :: OReg -> Word8 -> MonadAtari ()
-putORegister i v = do
-    r <- use oregisters
-    liftIO $ writeArray r i v
-
-{-# INLINE getORegister #-}
-getORegister :: OReg -> MonadAtari Word8
-getORegister i = do
-    r <- use oregisters
-    liftIO $ readArray r i
-
-{-
-{-# INLINE fastGetORegister #-}
-fastGetORegister :: IOUArray OReg Word8 -> OReg -> IO Word8
-fastGetORegister = readArray
--}
-
-{-# INLINE putIRegister #-}
-putIRegister :: IReg -> Word8 -> MonadAtari ()
-putIRegister i v = do
-    r <- use iregisters
-    liftIO $ writeArray r i v
-
-{-# INLINE modifyIRegister #-}
-modifyIRegister :: IReg -> (Word8 -> Word8) -> MonadAtari ()
-modifyIRegister i f = do
-    r <- use iregisters
-    liftIO $ (readArray r i >>= writeArray r i . f)
-
-{-
-{-# INLINE fastModifyIRegister #-}
-fastModifyIRegister :: IOUArray IReg Word8 -> IReg -> (Word8 -> Word8) -> IO ()
-fastModifyIRegister r i f = readArray r i >>= writeArray r i . f
--}
-
-{-# INLINE getIRegister #-}
-getIRegister :: IReg -> MonadAtari Word8
-getIRegister i = do
-    r <- use iregisters
-    liftIO $ readArray r i
-
-{-# INLINE orIRegister #-}
-orIRegister :: IReg -> Word8 -> MonadAtari ()
-orIRegister i v = modifyIRegister i (v .|.)
-
-{-
-{-# INLINE fastOrIRegister #-}
-fastOrIRegister :: IOUArray IReg Word8 -> IReg -> Word8 -> IO ()
-fastOrIRegister r i v = fastModifyIRegister r i (v .|.)
--}
-
 inBinary :: (Bits a) => Int -> a -> String
 inBinary 0 x = ""
 inBinary n x = inBinary (n-1) (x `shift` (-1)) ++ if testBit x 0 then "1" else "0"
-
-explainNusiz :: Word8 -> String
-explainNusiz nusiz =
-    case nusiz .&. 0b111 of
-        0b000 -> "one copy"
-        0b001 -> "two copies - close"
-        0b010 -> "two copies - med"
-        0b011 -> "three copies - close"
-        0b100 -> "two copies - wide"
-        0b101 -> "double size player"
-        0b110 -> "3 copies medium"
-        0b111 -> "quad sized player"
 
 {- INLINE playfield -}
 playfield :: IOUArray OReg Word8 -> Word8 -> Int -> IO Bool
@@ -366,11 +239,6 @@ ball graphics' ctrlpf' hpos' bpos' = do
             return $ o >= 0 && o < ballSize
         else return False
 
-{-
-screenWidth, screenHeight :: CInt
-(screenWidth, screenHeight) = (160, 192)
--}
-
 {-# INLINE clockMove #-}
 clockMove :: Word8 -> CInt
 clockMove i = fromIntegral ((fromIntegral i :: Int8) `shift` (-4))
@@ -444,28 +312,6 @@ stellaWsync = do
         clock' <- use clock
         stellaTickUntil (3*clock')
         stellaWsync
-
--- http://atariage.com/forums/topic/107527-atari-2600-vsyncvblank/
-
-{-
-xscale, yscale :: CInt
-xscale = 5
-yscale = 3
--}
-
-{-
-renderDisplay :: MonadAtari ()
-renderDisplay = do
-    backSurface' <- use backSurface
-    frontSurface' <- use frontSurface
-    window' <- use frontWindow
-    liftIO $ unlockSurface backSurface'
-    liftIO $ SDL.surfaceBlitScaled backSurface' Nothing frontSurface'
-                (Just (Rectangle (P (V2 0 0))
-                    (V2 (screenWidth*xscale) (screenHeight*yscale))))
-    liftIO $ lockSurface backSurface'
-    liftIO $ SDL.updateWindowSurface window'
-    -}
 
 {- INLINE stellaVsync -}
 stellaVsync :: Word8 -> MonadAtari ()

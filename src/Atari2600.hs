@@ -358,6 +358,7 @@ readStella addr =
         0x282 -> getIRegister swchb
         0x284 -> use (intervalTimer . intim)
         _ -> return 0 -- (liftIO $ putStrLn $ "reading TIA 0x" ++ showHex addr "") >> return 0
+-}
 
 {-# INLINE putORegister #-}
 putORegister :: OReg -> Word8 -> MonadAtari ()
@@ -393,6 +394,7 @@ getIRegister i = do
 orIRegister :: IReg -> Word8 -> MonadAtari ()
 orIRegister i v = modifyIRegister i (v .|.)
 
+{-
 {- INLINE stellaHmclr -}
 stellaHmclr :: MonadAtari ()
 stellaHmclr = do
@@ -750,6 +752,7 @@ dumpMemory = do
 inBinary :: (Bits a) => Int -> a -> String
 inBinary 0 _ = ""
 inBinary n m = inBinary (n-1) (m `shift` (-1)) ++ if testBit m 0 then "1" else "0"
+-}
 
 explainNusiz :: Word8 -> String
 explainNusiz nusiz =
@@ -763,4 +766,3 @@ explainNusiz nusiz =
         0b110 -> "3 copies medium"
         0b111 -> "quad sized player"
         _ -> error "Impossible to reach"
--}
