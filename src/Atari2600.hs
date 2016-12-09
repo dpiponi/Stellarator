@@ -485,22 +485,6 @@ stellaVsync v = do
     s <- use stellaSDL
     liftIO $ renderDisplay s
 
-{- INLINE stellaVblank -}
-stellaVblank :: Word8 -> MonadAtari ()
-stellaVblank v = do
-    stellaDebugStrLn 0 $ "VBLANK " ++ showHex v ""
-    --vold <- getORegister vblank
-    --vold <- use vblank
-    -- Set latches for INPT4 and INPT5
-    when (testBit v 6) $ do
-        i <- getIRegister inpt4 -- XXX write modifyIRegister
-        putIRegister inpt4 (setBit i 7)
-        i <- getIRegister inpt5
-        putIRegister inpt5 (setBit i 7)
-
-    --vblank .= v
-    putORegister vblank v
-
 stellaTick :: Int -> MonadAtari ()
 stellaTick n | n <= 0 = return ()
 stellaTick n = do
@@ -552,18 +536,6 @@ updatePos (hpos0, vpos0) =
                 then (0, vpos')
                 else (0, 0)
 
-{-# INLINE i8 #-}
-i8 :: Integral a => a -> Word8
-i8 = fromIntegral
-
-{-# INLINE i16 #-}
-i16 :: Integral a => a -> Word16
-i16 = fromIntegral
-
-{-# INLINE iz #-}
-iz :: Word16 -> Int -- or NUM
-iz = fromIntegral
-
 {-# INLINE hpos #-}
 {-# INLINE vpos #-}
 hpos, vpos :: Lens' Atari2600 CInt
@@ -581,10 +553,6 @@ ppos1 = sprites . s_ppos1
 mpos0 = sprites . s_mpos0
 mpos1 = sprites . s_mpos1
 bpos = sprites . s_bpos
-
-{-# INLINE bit #-}
-bit :: Int -> Bool -> Word8
-bit n t = if t then 1 `shift` n else 0
 
 {- INLINE compositeAndCollide -}
 compositeAndCollide :: Atari2600 -> CInt -> CInt -> IOUArray OReg Word8 -> IO Word8
@@ -761,3 +729,35 @@ wrap160 i = i
 {-# INLINE clockMove #-}
 clockMove :: Word8 -> CInt
 clockMove i = fromIntegral ((fromIntegral i :: Int8) `shift` (-4))
+
+{-# INLINE i8 #-}
+i8 :: Integral a => a -> Word8
+i8 = fromIntegral
+
+{-# INLINE i16 #-}
+i16 :: Integral a => a -> Word16
+i16 = fromIntegral
+
+{-# INLINE iz #-}
+iz :: Word16 -> Int -- or NUM
+iz = fromIntegral
+
+{-# INLINE bit #-}
+bit :: Int -> Bool -> Word8
+bit n t = if t then 1 `shift` n else 0
+
+{- INLINE stellaVblank -}
+stellaVblank :: Word8 -> MonadAtari ()
+stellaVblank v = do
+    stellaDebugStrLn 0 $ "VBLANK " ++ showHex v ""
+    --vold <- getORegister vblank
+    --vold <- use vblank
+    -- Set latches for INPT4 and INPT5
+    when (testBit v 6) $ do
+        i <- getIRegister inpt4 -- XXX write modifyIRegister
+        putIRegister inpt4 (setBit i 7)
+        i <- getIRegister inpt5
+        putIRegister inpt5 (setBit i 7)
+
+    --vblank .= v
+    putORegister vblank v
