@@ -73,7 +73,6 @@ $(makeLenses ''Registers)
 newtype MonadAtari a = M { unM :: StateT Atari2600 IO a }
     deriving (Functor, Applicative, Monad, MonadState Atari2600, MonadIO)
 
-{-
 initState :: BankMode ->
              IOUArray Int Word8 ->
              IOUArray OReg Word8 ->
@@ -98,9 +97,10 @@ initState mode memory oregs iregs initialPC helloWorld screenSurface window = At
       _graphics = Stella.Graphics.start,
       _stellaClock = 0,
       _stellaDebug = DebugState.start,
-      _bankMode = UnBanked,
+      _bankMode = mode,
       _bankOffset = 0
   }
+{-
 
 {-# INLINE flagC #-}
 flagC :: Lens' Registers Bool

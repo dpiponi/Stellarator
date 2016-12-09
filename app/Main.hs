@@ -1336,6 +1336,7 @@ handleKey motion sym = do
             liftIO $ killThread t
         otherwise -> return ()
 
+{-
 initState :: IOUArray Int Word8 ->
              IOUArray OReg Word8 ->
              IOUArray IReg Word8 ->
@@ -1360,6 +1361,7 @@ initState memory oregs iregs initialPC helloWorld screenSurface window = Atari26
       _stellaClock = 0,
       _stellaDebug = DebugState.start
   }
+  -}
 
 main :: IO ()
 main = do
@@ -1380,7 +1382,7 @@ main = do
     oregs <- newArray (0, 0x3f) 0
     --iregs <- newArray (0, 0x0d) 0
     iregs <- newArray (0, 0x300) 0 -- XXX no need for that many really
-    let state = initState memory oregs iregs initialPC helloWorld screenSurface window
+    let state = initState UnBanked memory oregs iregs initialPC helloWorld screenSurface window
 
     let loopUntil n = do
             stellaClock' <-  use stellaClock
