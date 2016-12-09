@@ -51,6 +51,7 @@ import Disasm
 import System.Console.Haskeline
 import Control.Concurrent
 import Stella.IntervalTimer
+import Stella.SDLState
 
 import DebugCmd
 import MemoryMap
@@ -86,6 +87,7 @@ data StellaDebug = Debug {
 
 $(makeLenses '' StellaDebug)
 
+{-
 data StellaSDL = StellaSDL {
     _sdlBackSurface :: !Surface,
     _sdlFrontSurface :: !Surface,
@@ -93,6 +95,7 @@ data StellaSDL = StellaSDL {
 }
 
 $(makeLenses '' StellaSDL)
+-}
 
 data StateAtari = S {
      _mem :: IOUArray Int Word8,
@@ -103,7 +106,7 @@ data StateAtari = S {
      _iregisters :: IOUArray IReg Word8,
 
     _stellaDebug :: StellaDebug,
-    _stellaSDL :: StellaSDL,
+    _stellaSDL :: SDLState,
 
     _position :: (CInt, CInt),
     _stellaClock :: StellaClock,
@@ -169,6 +172,7 @@ swcha, swchb :: IReg
 swcha = 0x280
 swchb = 0x282
 
+{-
 {-# INLINE backSurface #-}
 {-# INLINE frontSurface #-}
 {-# INLINE frontWindow #-}
@@ -178,6 +182,7 @@ frontWindow :: Lens' StateAtari SDL.Window
 backSurface = stellaSDL . sdlBackSurface
 frontSurface = stellaSDL . sdlFrontSurface
 frontWindow = stellaSDL . sdlFrontWindow
+-}
 
 {-# INLINE hpos #-}
 {-# INLINE vpos #-}
@@ -413,8 +418,10 @@ ball graphics' ctrlpf' hpos' bpos' = do
             return $ o >= 0 && o < ballSize
         else return False
 
+{-
 screenWidth, screenHeight :: CInt
 (screenWidth, screenHeight) = (160, 192)
+-}
 
 {-# INLINE clockMove #-}
 clockMove :: Word8 -> CInt
@@ -492,10 +499,13 @@ stellaWsync = do
 
 -- http://atariage.com/forums/topic/107527-atari-2600-vsyncvblank/
 
+{-
 xscale, yscale :: CInt
 xscale = 5
 yscale = 3
+-}
 
+{-
 renderDisplay :: MonadAtari ()
 renderDisplay = do
     backSurface' <- use backSurface
@@ -507,6 +517,7 @@ renderDisplay = do
                     (V2 (screenWidth*xscale) (screenHeight*yscale))))
     liftIO $ lockSurface backSurface'
     liftIO $ SDL.updateWindowSurface window'
+    -}
 
 {- INLINE stellaVsync -}
 stellaVsync :: Word8 -> MonadAtari ()
@@ -517,7 +528,8 @@ stellaVsync v = do
             hpos .= 0
             vpos .= 0
     putORegister vsync v
-    renderDisplay
+    stella <- use stellaSDL
+    liftIO $ renderDisplay stella
 
 {- INLINE stellaVblank -}
 stellaVblank :: Word8 -> MonadAtari ()
@@ -639,7 +651,7 @@ stellaTick n = do
     
     -- Display
     when (vpos' >= picy && vpos' < picy+192 && hpos' >= picx) $ do
-        let !surface = stella ^. backSurface
+        let !surface = _sdlBackSurface (_stellaSDL stella)
         !ptr <- liftIO $ surfacePixels surface
         let !ptr' = castPtr ptr :: Ptr Word32
         let !x = hpos'-picx
@@ -1315,7 +1327,7 @@ initState memory oregs iregs initialPC helloWorld screenSurface window = Main.S 
       _oregisters = oregs,
       _iregisters = iregs,
       _position = (0, 0),
-      _stellaSDL = StellaSDL {
+      _stellaSDL = SDLState {
           _sdlBackSurface = helloWorld,
           _sdlFrontSurface = screenSurface,
           _sdlFrontWindow = window
