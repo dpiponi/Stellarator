@@ -602,17 +602,17 @@ stellaTick n = do
     
     -- Display
     when (vpos' >= picy && vpos' < picy+192 && hpos' >= picx) $ do
-        let !surface = stella ^. hardware ^. stellaSDL ^. sdlBackSurface
+        stella <- get
+        let hardware' = stella ^. hardware
+        let !surface = hardware' ^. stellaSDL ^. sdlBackSurface
         !ptr <- liftIO $ surfacePixels surface
         let !ptr' = castPtr ptr :: Ptr Word32
         let !pixelx = hpos'-picx
         let !pixely = vpos'-picy
         let !i = screenWidth*pixely+pixelx
 
-        stella <- get
-
-        let r = stella ^. hardware ^. oregisters
-        let (hpos', _) = stella ^. hardware ^. position
+        let r = hardware' ^. oregisters
+        let (hpos', _) = hardware' ^. position
         resmp0' <- liftIO $ fastGetORegister r resmp0
         resmp1' <- liftIO $ fastGetORegister r resmp1
         ppos0' <- use ppos0
