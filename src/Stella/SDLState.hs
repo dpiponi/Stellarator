@@ -3,12 +3,10 @@
 module Stella.SDLState where
 
 --import Control.Lens
-import SDL.Event
-import SDL.Input.Keyboard
 import SDL.Vect
 import SDL.Video
-import SDL.Video.Renderer
 import Foreign.C.Types
+import Control.Lens
 
 data SDLState = SDLState {
     _sdlBackSurface :: !Surface,
@@ -16,7 +14,7 @@ data SDLState = SDLState {
     _sdlFrontWindow :: !Window
 }
 
--- $(makeLenses '' SDLState)
+$(makeLenses '' SDLState)
 
 screenWidth, screenHeight :: CInt
 (screenWidth, screenHeight) = (160, 192)

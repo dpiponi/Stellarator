@@ -161,7 +161,7 @@ eval Col = do
     return (EInt (fromIntegral n))
 
 eval (Var s) = do
-    v <- use (stellaDebug . variables)
+    v <- use (hardware . stellaDebug . variables)
     case Map.lookup s v of
         Nothing -> return EFail
         Just x -> return x
@@ -250,8 +250,8 @@ execCommand cmd =
     case cmd of
         Let var e -> do
             e' <- eval e
-            stellaDebug . variables %= Map.insert var e'
-            v <- use (stellaDebug . variables)
+            hardware . stellaDebug . variables %= Map.insert var e'
+            v <- use (hardware . stellaDebug . variables)
             --liftIO $ print v
             return False
         Block cmds -> do
@@ -321,7 +321,7 @@ handleKey motion sym = do
         SDL.ScancodeV ->  modifyIRegister swchb (setBitTo 0 (not pressed))
         SDL.ScancodeSpace ->  do
             vblank' <- getORegister vblank
-            trigger1 .= pressed
+            hardware . trigger1 .= pressed
             let latch = testBit vblank' 6
             case (latch, pressed) of
                 (False, _) -> do
@@ -364,7 +364,7 @@ main = do
                           initialPC helloWorld screenSurface window
 
     let loopUntil n = do
-            stellaClock' <-  use stellaClock
+            stellaClock' <-  use (hardware . stellaClock)
             when (stellaClock' < n) $ do
                 step
                 loopUntil n
@@ -377,7 +377,7 @@ main = do
 
             let quit = elem SDL.QuitEvent $ map SDL.eventPayload events
             forM_ events handleEvent
-            stellaClock' <-  use stellaClock
+            stellaClock' <-  use (hardware . stellaClock)
             loopUntil (stellaClock' + 250)
 
             loop
