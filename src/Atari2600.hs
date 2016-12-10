@@ -186,23 +186,27 @@ orIRegister i v = modifyIRegister i (v .|.)
 {- INLINE stellaHmclr -}
 stellaHmclr :: MonadAtari ()
 stellaHmclr = do
-    putORegister hmp0 0
-    putORegister hmp1 0
-    putORegister hmm0 0
-    putORegister hmm1 0
-    putORegister hmbl 0
+    r <- use (hardware . oregisters)
+    liftIO $ do
+        fastPutORegister r hmp0 0
+        fastPutORegister r hmp1 0
+        fastPutORegister r hmm0 0
+        fastPutORegister r hmm1 0
+        fastPutORegister r hmbl 0
 
 {- INLINE stellaCxclr -}
 stellaCxclr :: MonadAtari ()
 stellaCxclr = do
-    putIRegister cxm0p 0
-    putIRegister cxm1p 0
-    putIRegister cxm0fb 0
-    putIRegister cxm1fb 0
-    putIRegister cxp0fb 0
-    putIRegister cxp1fb 0
-    putIRegister cxblpf 0
-    putIRegister cxppmm 0
+    r <- use (hardware . iregisters)
+    liftIO $ do
+        fastPutIRegister r cxm0p 0
+        fastPutIRegister r cxm1p 0
+        fastPutIRegister r cxm0fb 0
+        fastPutIRegister r cxm1fb 0
+        fastPutIRegister r cxp0fb 0
+        fastPutIRegister r cxp1fb 0
+        fastPutIRegister r cxblpf 0
+        fastPutIRegister r cxppmm 0
 
 picy :: CInt
 picy = 40
