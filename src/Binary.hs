@@ -13,7 +13,7 @@ import Control.Exception.Base
 
 import Data.Word
 import Data.Bits
-import qualified Data.ByteString.Internal as BS (c2w, w2c)
+import qualified Data.ByteString.Internal as BS (c2w)
 
 readBinary :: IOUArray Int Word8 -> FilePath -> Word16 -> IO ()
 readBinary arr filename origin = do

@@ -10,7 +10,7 @@ module Atari2600 where
 --import Data.Monoid
 --import Debug.Trace
 import Control.Lens
-import Control.Monad.State
+import Control.Monad.State.Strict
 import Core
 import Data.Data
 import Data.Array.IO
