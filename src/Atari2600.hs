@@ -615,10 +615,11 @@ stellaTick n = do
         (hpos', _) <- use position
         resmp0' <- liftIO $ fastGetORegister r resmp0
         resmp1' <- liftIO $ fastGetORegister r resmp1
-        ppos0' <- use (sprites . s_ppos0)
-        ppos1' <- use (sprites . s_ppos1)
-        when (testBit resmp0' 1) $ sprites . s_mpos0 .= ppos0'
-        when (testBit resmp1' 1) $ sprites . s_mpos1 .= ppos1'
+        zoom sprites $ do
+            ppos0' <- use s_ppos0
+            ppos1' <- use s_ppos1
+            when (testBit resmp0' 1) $ s_mpos0 .= ppos0'
+            when (testBit resmp1' 1) $ s_mpos1 .= ppos1'
 
         hardware' <- get
         liftIO $ do
