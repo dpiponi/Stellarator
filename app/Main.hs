@@ -69,7 +69,16 @@ instance Emu6502 MonadAtari where
             if addr >= 0x1000
             then do
                 m <- use rom
-                liftIO $ readArray m (iz addr .&. 0xfff)
+                offset <- use bankOffset
+                byte <- liftIO $ readArray m ((iz addr .&. 0xfff)+fromIntegral offset)
+                when (addr >= 0x1ff8) $ do
+                    bankType <- use bankMode
+                    case bankType of
+                        UnBanked -> return ()
+                        F8 -> do
+                            when (addr == 0x1ff8) $ bankOffset .= 0
+                            when (addr == 0x1ff9) $ bankOffset .= 0x1000
+                return byte
             else if isRAM addr
                 then do
                     m <- use ram
@@ -86,7 +95,13 @@ instance Emu6502 MonadAtari where
         let addr = addr' .&. 0b1111111111111 in -- 6507
         if addr >= 0x1000
             then do
-                return ()
+                when (addr >= 0x1ff8) $ do
+                    bankType <- use bankMode
+                    case bankType of
+                        UnBanked -> return ()
+                        F8 -> do
+                            when (addr == 0x1ff8) $ bankOffset .= 0
+                            when (addr == 0x1ff9) $ bankOffset .= 0x1000
             else if isRAM addr
                 then do
                     m <- use ram
@@ -689,7 +704,7 @@ main = do
     oregs <- newArray (0, 0x3f) 0
     --iregs <- newArray (0, 0x0d) 0
     iregs <- newArray (0, 0x300) 0 -- XXX no need for that many really
-    let state = initState ram UnBanked rom oregs iregs
+    let state = initState ram F8 rom oregs iregs
                 initialPC helloWorld screenSurface window
 
     let loopUntil n = do
