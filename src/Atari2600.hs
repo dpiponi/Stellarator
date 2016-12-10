@@ -585,45 +585,44 @@ stellaVsync v = do
     s <- use (hardware . stellaSDL)
     liftIO $ renderDisplay s
 
-stellaTick :: Int -> MonadAtari ()
+stellaTick :: Int -> StateT Hardware IO ()
 stellaTick n | n <= 0 = return ()
-stellaTick n = M $ do
-    zoom hardware $ do
-        (xbreak', ybreak') <- use (stellaDebug . posbreak)
-        (hpos', vpos') <- use position
-        when ((hpos', vpos') == (xbreak', ybreak')) $ do
-            --dumpStella
-            stellaDebug . posbreak .= (-1, -1) -- Maybe maybe
+stellaTick n = do
+    (xbreak', ybreak') <- use (stellaDebug . posbreak)
+    (hpos', vpos') <- use position
+    when ((hpos', vpos') == (xbreak', ybreak')) $ do
+        --dumpStella
+        stellaDebug . posbreak .= (-1, -1) -- Maybe maybe
 
-        stellaClock += 1
-        intervalTimer %= timerTick
-        
-        -- Display
-        when (vpos' >= picy && vpos' < picy+192 && hpos' >= picx) $ do
-            !surface <- use (stellaSDL . sdlBackSurface)
-            !ptr <- liftIO $ surfacePixels surface
-            let !ptr' = castPtr ptr :: Ptr Word32
-            let !pixelx = hpos'-picx
-            let !pixely = vpos'-picy
-            let !i = screenWidth*pixely+pixelx
+    stellaClock += 1
+    intervalTimer %= timerTick
+    
+    -- Display
+    when (vpos' >= picy && vpos' < picy+192 && hpos' >= picx) $ do
+        !surface <- use (stellaSDL . sdlBackSurface)
+        !ptr <- liftIO $ surfacePixels surface
+        let !ptr' = castPtr ptr :: Ptr Word32
+        let !pixelx = hpos'-picx
+        let !pixely = vpos'-picy
+        let !i = screenWidth*pixely+pixelx
 
-            r <- use oregisters
-            (hpos', _) <- use position
-            resmp0' <- liftIO $ fastGetORegister r resmp0
-            resmp1' <- liftIO $ fastGetORegister r resmp1
-            ppos0' <- use (sprites . s_ppos0)
-            ppos1' <- use (sprites . s_ppos1)
-            when (testBit resmp0' 1) $ sprites . s_mpos0 .= ppos0'
-            when (testBit resmp1' 1) $ sprites . s_mpos1 .= ppos1'
+        r <- use oregisters
+        (hpos', _) <- use position
+        resmp0' <- liftIO $ fastGetORegister r resmp0
+        resmp1' <- liftIO $ fastGetORegister r resmp1
+        ppos0' <- use (sprites . s_ppos0)
+        ppos1' <- use (sprites . s_ppos1)
+        when (testBit resmp0' 1) $ sprites . s_mpos0 .= ppos0'
+        when (testBit resmp1' 1) $ sprites . s_mpos1 .= ppos1'
 
-            hardware' <- get
-            liftIO $ do
-                !final <- compositeAndCollide hardware' pixelx hpos' r
-                pokeElemOff ptr' (fromIntegral i) (lut!(final `shift` (-1)))
+        hardware' <- get
+        liftIO $ do
+            !final <- compositeAndCollide hardware' pixelx hpos' r
+            pokeElemOff ptr' (fromIntegral i) (lut!(final `shift` (-1)))
 
-        position %= updatePos
+    position %= updatePos
 
-    unM $ stellaTick (n-1)
+    stellaTick (n-1)
 
 {- INLINE stellaWsync -}
 stellaWsync :: MonadAtari ()
@@ -636,16 +635,16 @@ stellaWsync = do
     when (hpos' > 2) $ do
         clock += 1 -- sleep the CPU
         clock' <- use clock
-        stellaTickUntil (3*clock')
+        M $ zoom hardware $ stellaTickUntil (3*clock')
         stellaWsync
 
 -- http://atariage.com/forums/topic/107527-atari-2600-vsyncvblank/
 
 
 
-stellaTickUntil :: Int64 -> MonadAtari ()
+stellaTickUntil :: Int64 -> StateT Hardware IO ()
 stellaTickUntil n = do
-    c <- use (hardware . stellaClock)
+    c <- use stellaClock
     stellaTick (fromIntegral (n-c))
 
 instance Emu6502 MonadAtari where
@@ -704,7 +703,7 @@ instance Emu6502 MonadAtari where
     tick n = do
         clock += fromIntegral n
         c <- use clock
-        stellaTickUntil (3*c)
+        M $ zoom hardware $ stellaTickUntil (3*c)
     {-# INLINE putC #-}
     putC b = regs . flagC .= b
     {-# INLINE getC #-}
@@ -868,7 +867,7 @@ setBreak x y = hardware . stellaDebug . posbreak .= (x+picx, y+picy)
 graphicsDelay :: Int64 -> MonadAtari ()
 graphicsDelay n = do
     c <- use clock
-    stellaTickUntil (3*c+n)
+    M $ zoom hardware $ stellaTickUntil (3*c+n)
 
 {- INLINABLE writeStella -}
 writeStella :: Word16 -> Word8 -> MonadAtari ()
