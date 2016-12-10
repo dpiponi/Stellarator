@@ -141,7 +141,7 @@ main = do
 
     helloWorld <- createRGBSurface (V2 screenWidth screenHeight) RGB888
 
-    rom <- newArray (0, 0x1fff) 0 :: IO (IOUArray Int Word8)
+    rom <- newArray (0, 0x3fff) 0 :: IO (IOUArray Int Word8)
     ram <- newArray (0, 0x7f) 0 :: IO (IOUArray Int Word8)
     readBinary rom (file args) 0x0000
     pclo <- readArray rom 0x0ffc

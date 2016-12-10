@@ -45,7 +45,8 @@ data Registers = R {
     _s :: !Word8
 }
 
-data BankMode = UnBanked | F8 deriving (Show, Data, Typeable)
+-- http://www.classic-games.com/atari2600/bankswitch.html
+data BankMode = UnBanked | F6 | F8 deriving (Show, Data, Typeable)
 
 data Memory = Memory {
     _ram :: IOUArray Int Word8,
@@ -481,6 +482,7 @@ playfield r ctrlpf' i | i >= 0 && i < 4 = flip testBit (i+4) <$> fastGetORegiste
                       | i >=4 && i < 12 = flip testBit (11-i) <$> fastGetORegister r pf1
                       | i >= 12 && i < 20 = flip testBit (i-12) <$> fastGetORegister r pf2
 playfield r ctrlpf' i | i >= 20 && i < 40 = playfield r ctrlpf' $ if testBit ctrlpf' 0 then 39-i else i-20
+playfield _ _ _ = return False -- ???
 
 missileSize :: Word8 -> CInt
 missileSize nusiz = 1 `shift` (fromIntegral ((nusiz `shift` (-4)) .&. 0b11))
@@ -632,10 +634,6 @@ stellaTick n = do
 stellaWsync :: MonadAtari ()
 stellaWsync = do
     hpos' <- use hpos
-    --stellaTick (233-fromIntegral hpos') -- 228
-    --stellaTick (232-fromIntegral hpos') -- 228
-    -- This isn't quite right. I think CPU clock should be able to shift
-    -- phase relative to pixel click. XXX
     when (hpos' > 2) $ do
         clock += 1 -- sleep the CPU
         clock' <- use clock
@@ -651,23 +649,35 @@ stellaTickUntil n = do
     c <- use stellaClock
     stellaTick (fromIntegral (n-c))
 
+readRom :: Word16 -> StateT Memory IO Word8
+readRom addr = do
+    m <- use rom
+    offset <- use bankOffset
+    byte <- liftIO $ readArray m ((iz addr .&. 0xfff)+fromIntegral offset)
+    bankSwitch addr
+    return byte
+
+bankSwitch :: Word16 -> StateT Memory IO ()
+bankSwitch addr = do
+    when (addr >= 0x1ff6) $ do
+        bankType <- use bankMode
+        case bankType of
+            UnBanked -> return ()
+            F8 -> do
+                when (addr == 0x1ff8) $ bankOffset .= 0
+                when (addr == 0x1ff9) $ bankOffset .= 0x1000
+            F6 -> do
+                when (addr == 0x1ff6) $ bankOffset .= 0
+                when (addr == 0x1ff7) $ bankOffset .= 0x1000
+                when (addr == 0x1ff8) $ bankOffset .= 0x2000
+                when (addr == 0x1ff9) $ bankOffset .= 0x3000
+
 instance Emu6502 MonadAtari where
     {-# INLINE readMemory #-}
     readMemory addr' =
-        let addr = addr' .&. 0b1111111111111 in -- 6507
+        let addr = addr' .&. 0x1fff in -- 6507
             if addr >= 0x1000
-            then do
-                m <- use (memory . rom)
-                offset <- use (memory . bankOffset)
-                byte <- liftIO $ readArray m ((iz addr .&. 0xfff)+fromIntegral offset)
-                when (addr >= 0x1ff8) $ do
-                    bankType <- use (memory . bankMode)
-                    case bankType of
-                        UnBanked -> return ()
-                        F8 -> do
-                            when (addr == 0x1ff8) $ memory . bankOffset .= 0
-                            when (addr == 0x1ff9) $ memory . bankOffset .= 0x1000
-                return byte
+            then M $ zoom memory $ readRom addr
             else if isRAM addr
                 then do
                     m <- use (memory . ram)
@@ -681,16 +691,9 @@ instance Emu6502 MonadAtari where
 
     {-# INLINE writeMemory #-}
     writeMemory addr' v =
-        let addr = addr' .&. 0b1111111111111 in -- 6507
+        let addr = addr' .&. 0x1fff in -- 6507
         if addr >= 0x1000
-            then do
-                when (addr >= 0x1ff8) $ do
-                    bankType <- use (memory . bankMode)
-                    case bankType of
-                        UnBanked -> return ()
-                        F8 -> do
-                            when (addr == 0x1ff8) $ memory . bankOffset .= 0
-                            when (addr == 0x1ff9) $ memory . bankOffset .= 0x1000
+            then M $ zoom memory $ bankSwitch addr
             else if isRAM addr
                 then do
                     m <- use (memory . ram)
