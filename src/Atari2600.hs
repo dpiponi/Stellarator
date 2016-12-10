@@ -580,9 +580,7 @@ readStella addr =
 stellaVsync :: Word8 -> MonadAtari ()
 stellaVsync v = do
     oldv <- getORegister vsync
-    when (testBit oldv 1 && not (testBit v 1)) $ do
-            hpos .= 0
-            vpos .= 0
+    when (testBit oldv 1 && not (testBit v 1)) $ hardware . position .= (0, 0)
     putORegister vsync v
     s <- use (hardware . stellaSDL)
     liftIO $ renderDisplay s
@@ -622,7 +620,6 @@ stellaTick n = do
 
         liftIO $ do
             !final <- compositeAndCollide stella pixelx hpos' r
-            --print final
             pokeElemOff ptr' (fromIntegral i) (lut!(final `shift` (-1)))
 
     hardware . position %= updatePos
@@ -926,47 +923,3 @@ writeStella addr v =
        0x296 -> hardware . intervalTimer .= start64 v -- TIM64T
        0x297 -> hardware . intervalTimer .= start1024 v -- TIM1024T
        otherwise -> return () -- liftIO $ putStrLn $ "writing TIA 0x" ++ showHex addr ""
-
--- http://www.qotile.net/minidig/docs/2600_mem_map.txt
-
---
--- Decision tree for type of memory
---
--- testBit a 12
--- True -> ROM
--- False -> testBit a 7
---          False -> TIA
---          True -> testBit a 9
---                  True -> RIOT
---                  False -> RAM
-
-{-
-{-# INLINE flagC #-}
-flagC :: Lens' Registers Bool
-flagC = p . bitAt 0
-
-{-# INLINE flagZ #-}
-flagZ :: Lens' Registers Bool
-flagZ = p . bitAt 1
-
-{-# INLINE flagI #-}
-flagI :: Lens' Registers Bool
-flagI = p . bitAt 2
-
-{-# INLINE flagD #-}
-flagD :: Lens' Registers Bool
-flagD = p . bitAt 3
-
-{-# INLINE flagB #-}
-flagB :: Lens' Registers Bool
-flagB = p . bitAt 4
-
-{-# INLINE flagV #-}
-flagV :: Lens' Registers Bool
-flagV = p . bitAt 6
-
-{-# INLINE flagN #-}
-flagN :: Lens' Registers Bool
-flagN = p . bitAt 7
--}
-
