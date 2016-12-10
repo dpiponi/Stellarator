@@ -65,7 +65,8 @@ data Atari2600 = Atari2600 {
     _stellaClock :: !Int64,
     _graphics :: Graphics,
     _sprites :: Sprites,
-    _intervalTimer :: IntervalTimer
+    _intervalTimer :: IntervalTimer,
+    _trigger1 :: Bool
 }
 
 $(makeLenses ''Atari2600)
@@ -100,7 +101,8 @@ initState ram' mode rom' oregs iregs initialPC helloWorld screenSurface window =
       _stellaClock = 0,
       _stellaDebug = DebugState.start,
       _bankMode = mode,
-      _bankOffset = 0
+      _bankOffset = 0,
+      _trigger1 = False
   }
 
 {-# INLINE flagC #-}
@@ -297,11 +299,14 @@ stellaVblank v = do
     --vold <- getORegister vblank
     --vold <- use vblank
     -- Set latches for INPT4 and INPT5
-    when (testBit v 6) $ do
-        i <- getIRegister inpt4 -- XXX write modifyIRegister
-        putIRegister inpt4 (setBit i 7)
-        i <- getIRegister inpt5
-        putIRegister inpt5 (setBit i 7)
+    trigger <- use trigger1
+    if not trigger
+        then do
+            i <- getIRegister inpt4 -- XXX write modifyIRegister
+            putIRegister inpt4 (setBit i 7)
+        else do
+            i <- getIRegister inpt4 -- XXX write modifyIRegister
+            putIRegister inpt4 (clearBit i 7)
 
     --vblank .= v
     putORegister vblank v
@@ -521,6 +526,7 @@ readStella addr =
         0x06 -> getIRegister cxblpf
         0x07 -> getIRegister cxppmm
         0x0c -> getIRegister inpt4
+        0x0d -> getIRegister inpt5
         0x10 -> getIRegister cxm0p
         0x11 -> getIRegister cxm1p
         0x12 -> getIRegister cxp0fb
@@ -530,6 +536,7 @@ readStella addr =
         0x16 -> getIRegister cxblpf
         0x17 -> getIRegister cxppmm
         0x1c -> getIRegister inpt4
+        0x1d -> getIRegister inpt5
         0x20 -> getIRegister cxm0p
         0x21 -> getIRegister cxm1p
         0x22 -> getIRegister cxp0fb
@@ -539,6 +546,7 @@ readStella addr =
         0x26 -> getIRegister cxblpf
         0x27 -> getIRegister cxppmm
         0x2c -> getIRegister inpt4
+        0x2d -> getIRegister inpt5
         0x30 -> getIRegister cxm0p
         0x31 -> getIRegister cxm1p
         0x32 -> getIRegister cxp0fb
@@ -548,6 +556,7 @@ readStella addr =
         0x36 -> getIRegister cxblpf
         0x37 -> getIRegister cxppmm
         0x3c -> getIRegister inpt4
+        0x3d -> getIRegister inpt5
         0x280 -> getIRegister swcha
         0x282 -> getIRegister swchb
         0x284 -> use (intervalTimer . intim)
@@ -592,8 +601,10 @@ stellaTick n = do
         let (hpos', _) = _position stella
         resmp0' <- liftIO $ fastGetORegister r resmp0
         resmp1' <- liftIO $ fastGetORegister r resmp1
-        when (testBit resmp0' 1) $ mpos0 .= hpos'
-        when (testBit resmp1' 1) $ mpos1 .= hpos'
+        ppos0' <- use ppos0
+        ppos1' <- use ppos1
+        when (testBit resmp0' 1) $ mpos0 .= ppos0'
+        when (testBit resmp1' 1) $ mpos1 .= ppos1'
 
         liftIO $ do
             !final <- compositeAndCollide stella pixelx hpos' r
@@ -869,7 +880,7 @@ writeStella addr v =
        0x0d -> graphicsDelay 4 >> putORegister pf0 v                  -- PF0
        0x0e -> graphicsDelay 4 >> putORegister pf1 v                  -- PF1
        0x0f -> graphicsDelay 4 >> putORegister pf2 v                  -- PF2
-       0x10 -> graphicsDelay 5 >> use hpos >>= (ppos0 .=)   -- RESP0 XXX FUDGE FACTORS
+       0x10 -> graphicsDelay 5 >> use hpos >>= (ppos0 .=)   -- RESP0
        0x11 -> graphicsDelay 5 >> use hpos >>= (ppos1 .=)   -- RESP1
        0x12 -> graphicsDelay 4 >> use hpos >>= (mpos0 .=)   -- RESM0
        0x13 -> graphicsDelay 4 >> use hpos >>= (mpos1 .=)   -- RESM1

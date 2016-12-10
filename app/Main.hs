@@ -321,6 +321,7 @@ handleKey motion sym = do
         SDL.ScancodeV ->  modifyIRegister swchb (setBitTo 0 (not pressed))
         SDL.ScancodeSpace ->  do
             vblank' <- getORegister vblank
+            trigger1 .= pressed
             let latch = testBit vblank' 6
             case (latch, pressed) of
                 (False, _) -> do
@@ -337,33 +338,6 @@ handleKey motion sym = do
             runDebugger
             liftIO $ killThread t
         otherwise -> return ()
-
-{-
-initState :: IOUArray Int Word8 ->
-             IOUArray OReg Word8 ->
-             IOUArray IReg Word8 ->
-             Word16 ->
-             Surface -> Surface ->
-             SDL.Window -> Atari2600
-initState memory oregs iregs initialPC helloWorld screenSurface window = Atari2600 {
-      _mem = memory,  _clock = 0, _regs = R initialPC 0 0 0 0 0xff,
-      _debug = 8,
-
-      _oregisters = oregs,
-      _iregisters = iregs,
-      _position = (0, 0),
-      _stellaSDL = SDLState {
-          _sdlBackSurface = helloWorld,
-          _sdlFrontSurface = screenSurface,
-          _sdlFrontWindow = window
-      },
-      _sprites = Stella.Sprites.start,
-      _intervalTimer = Stella.IntervalTimer.start,
-      _graphics = Stella.Graphics.start,
-      _stellaClock = 0,
-      _stellaDebug = DebugState.start
-  }
-  -}
 
 main :: IO ()
 main = do
@@ -387,7 +361,7 @@ main = do
     iregs <- newArray (0, 0x300) 0 -- XXX no need for that many really
     let style = bank args
     let state = initState ram style rom oregs iregs
-                initialPC helloWorld screenSurface window
+                          initialPC helloWorld screenSurface window
 
     let loopUntil n = do
             stellaClock' <-  use stellaClock
