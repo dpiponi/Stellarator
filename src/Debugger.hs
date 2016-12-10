@@ -4,11 +4,15 @@ import qualified Data.Map.Strict as Map
 
 import Core
 import Atari2600
+import Disasm
 import DebugCmd
 import Data.Bits
 import DebugState
+import Control.Monad
+import Text.Parsec
 import Control.Monad.State.Strict
 import Control.Lens
+import System.Console.Haskeline
 
 comparison :: (Int -> Int -> Bool) -> Expr -> Expr -> MonadAtari Value
 comparison op x y = do
@@ -16,7 +20,7 @@ comparison op x y = do
         y' <- eval y
         case (x', y') of
             (EInt x, EInt y) -> return $ EBool (x `op` y)
-            otherwise -> return EFail
+            _ -> return EFail
 
 arith :: (Int -> Int -> Int) -> Expr -> Expr -> MonadAtari Value
 arith op x y = do
@@ -24,7 +28,7 @@ arith op x y = do
         y' <- eval y
         case (x', y') of
             (EInt x, EInt y) -> return $ EInt (x `op` y)
-            otherwise -> return EFail
+            _ -> return EFail
 
 eval :: Expr -> MonadAtari Value
 eval A = do
@@ -82,7 +86,7 @@ eval (Or x y) = do
         case (x', y') of
             (EInt x, EInt y) -> return $ EInt (x .|. y)
             (EBool x, EBool y) -> return $ EBool (x || y)
-            otherwise -> return EFail
+            _ -> return EFail
 
 eval (And x y) = do
         x' <- eval x
@@ -90,7 +94,7 @@ eval (And x y) = do
         case (x', y') of
             (EInt x, EInt y) -> return $ EInt (x .&. y)
             (EBool x, EBool y) -> return $ EBool (x && y)
-            otherwise -> return EFail
+            _ -> return EFail
 
 eval (Gt x y) = comparison (>) x y
 eval (Ge x y) = comparison (>=) x y
@@ -111,7 +115,7 @@ eval (PeekByte x) = do
             EInt x -> do
                 y <- readMemory (fromIntegral x)
                 return (EInt $ fromIntegral y)
-            otherwise -> return EFail
+            _ -> return EFail
 
 eval (PeekWord x) = do
         x' <- eval x
@@ -120,14 +124,14 @@ eval (PeekWord x) = do
                 lo <- readMemory (fromIntegral x)
                 hi <- readMemory (fromIntegral x+1)
                 return (EInt $ fromIntegral $ Core.make16 lo hi)
-            otherwise -> return EFail
+            _ -> return EFail
 
 eval (Not x) = do
         x' <- eval x
         case x' of
             EBool x -> return $ EBool (not x)
             EInt x -> return $ EInt (-1-x)
-            otherwise -> return EFail
+            _ -> return EFail
 
 eval (EConst x) = return (EInt x)
 eval (EConstString s) = return (EString s)
@@ -135,3 +139,81 @@ eval (EConstString s) = return (EString s)
 eval x = do
     liftIO $ print x
     return EFail
+
+disassemble :: Maybe Expr -> Maybe Expr -> MonadAtari ()
+disassemble addr n = do
+    n' <- case n of
+        Just e -> do
+            x' <- eval e
+            case x' of
+                EInt n'' -> return n''
+                _ -> return 1
+        _ -> return 1
+    pc <- case addr of
+        Just x -> do
+            x' <- eval x
+            case x' of
+                EInt z -> return (fromIntegral z)
+                _ -> return 0 -- error
+        Nothing -> getPC
+    bytes <- forM [pc..pc+3*fromIntegral n'] $ \p -> readMemory p
+    liftIO $ dis n' pc bytes
+
+execCommand :: Command -> MonadAtari Bool
+execCommand cmd = 
+    case cmd of
+        Let var e -> do
+            e' <- eval e
+            hardware . stellaDebug . variables %= Map.insert var e'
+            v <- use (hardware . stellaDebug . variables)
+            --liftIO $ print v
+            return False
+        Block cmds -> do
+            forM_ cmds execCommand
+            return False
+        DebugCmd.List addr n -> do
+            disassemble addr n
+            return False
+        Repeat n cmd -> do
+            n' <- eval n
+            case n' of
+                EInt n'' -> do
+                    replicateM_ n'' (execCommand cmd)
+                _ -> return ()
+            return False
+        Cont -> do
+            liftIO $ putStrLn "Continuing..."
+            return True
+        DumpGraphics -> dumpStella >> return False
+        Step -> step >> return False
+        Print es -> do
+            forM_ es $ \e -> do
+                val <- eval e
+                liftIO $ putStr (show val)
+            liftIO $ putStrLn ""
+            return False
+        Until cond cmd -> do
+            let loop = (do
+                            c <- eval cond
+                            case c of
+                                EBool True -> return ()
+                                EBool False -> do
+                                    void $ execCommand cmd
+                                    loop
+                                _ -> do
+                                    liftIO $ putStrLn "Non-boolean condition"
+                                    return ())
+            loop
+            return False
+
+runDebugger :: MonadAtari ()
+runDebugger = do
+    Just line <- liftIO $ runInputT (defaultSettings { historyFile=Just ".stellarator" }) $ getInputLine "> "
+    let cmd = parse parseCommand "" line
+    case cmd of
+        Right cmd' -> do
+            q <- execCommand cmd'
+            when (not q) runDebugger
+        Left e -> do
+            liftIO $ print e
+            runDebugger

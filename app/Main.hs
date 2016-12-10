@@ -41,7 +41,6 @@ import SDL.Vect
 import SDL.Video.Renderer
 import System.Console.CmdArgs hiding ((+=))
 import System.IO
---import System.Random
 import TIAColors
 import qualified Data.ByteString.Internal as BS (c2w, w2c)
 import qualified SDL
@@ -100,88 +99,6 @@ handleEvent event =
 
 setBitTo :: Int -> Bool -> Word8 -> Word8
 setBitTo i b a = if b then setBit a i else clearBit a i
-
-disassemble :: Maybe Expr -> Maybe Expr -> MonadAtari ()
-disassemble addr n = do
-    n' <- case n of
-        Just e -> do
-            x' <- eval e
-            case x' of
-                EInt n'' -> return n''
-                otherwise -> return 1
-        otherwise -> return 1
-    pc <- case addr of
-        Just x -> do
-            x' <- eval x
-            case x' of
-                EInt z -> return (fromIntegral z)
-                otherwise -> return 0 -- error
-        Nothing -> getPC
-    bytes <- forM [pc..pc+3*fromIntegral n'] $ \p -> readMemory p
-    liftIO $ dis n' pc bytes
-
-execCommand :: Command -> MonadAtari Bool
-execCommand cmd = 
-    case cmd of
-        Let var e -> do
-            e' <- eval e
-            hardware . stellaDebug . variables %= Map.insert var e'
-            v <- use (hardware . stellaDebug . variables)
-            --liftIO $ print v
-            return False
-        Block cmds -> do
-            forM_ cmds execCommand
-            return False
-        DebugCmd.List addr n -> do
-            disassemble addr n
-            return False
-        Repeat n cmd -> do
-            n' <- eval n
-            case n' of
-                EInt n'' -> do
-                    times n'' (execCommand cmd)
-                otherwise -> return ()
-            return False
-        Cont -> do
-            liftIO $ putStrLn "Continuing..."
-            return True
-        DumpGraphics -> dumpStella >> return False
-        Step -> step >> return False
-        Print es -> do
-            forM_ es $ \e -> do
-                val <- eval e
-                liftIO $ putStr (show val)
-            liftIO $ putStrLn ""
-            return False
-        Until cond cmd -> do
-            let loop = (do
-                            c <- eval cond
-                            case c of
-                                EBool True -> return ()
-                                EBool False -> do
-                                    execCommand cmd
-                                    loop
-                                otherwise -> do
-                                    liftIO $ putStrLn "Non-boolean condition"
-                                    return ())
-            loop
-            return False
-        cmd -> do
-            liftIO $ putStrLn "Unimplemented command:"
-            liftIO $ print cmd
-            return False
-
-runDebugger :: MonadAtari ()
-runDebugger = do
-    Just line <- liftIO $ runInputT (defaultSettings { historyFile=Just ".stellarator" }) $ getInputLine "> "
-    let cmd = parse parseCommand "" line
-    case cmd of
-        Right cmd' -> do
-            q <- execCommand cmd'
-            when (not q) runDebugger
-        Left e -> do
-            liftIO $ print e
-            runDebugger
 
 handleKey :: InputMotion -> Keysym -> MonadAtari ()
 handleKey motion sym = do

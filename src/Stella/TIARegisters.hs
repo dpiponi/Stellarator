@@ -56,6 +56,10 @@ swchb = 0x282
 fastGetORegister :: IOUArray OReg Word8 -> OReg -> IO Word8
 fastGetORegister = readArray
 
+{-# INLINE fastGetIRegister #-}
+fastGetIRegister :: IOUArray IReg Word8 -> IReg -> IO Word8
+fastGetIRegister = readArray
+
 {-# INLINE fastPutORegister #-}
 fastPutORegister :: IOUArray OReg Word8 -> OReg -> Word8 -> IO ()
 fastPutORegister = writeArray

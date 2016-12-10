@@ -312,23 +312,20 @@ bit :: Int -> Bool -> Word8
 bit n t = if t then 1 `shift` n else 0
 
 {- INLINE stellaVblank -}
-stellaVblank :: Word8 -> MonadAtari ()
+stellaVblank :: Word8 -> StateT Hardware IO ()
 stellaVblank v = do
-    stellaDebugStrLn 0 $ "VBLANK " ++ showHex v ""
-    --vold <- getORegister vblank
-    --vold <- use vblank
-    -- Set latches for INPT4 and INPT5
-    trigger <- use (hardware . trigger1)
+    ir <- use iregisters
+    or <- use oregisters
+    trigger <- use trigger1
     if not trigger
         then do
-            i <- getIRegister inpt4 -- XXX write modifyIRegister
-            putIRegister inpt4 (setBit i 7)
+            i <- liftIO $ fastGetIRegister ir inpt4 -- XXX write modifyIRegister
+            liftIO $ fastPutIRegister ir inpt4 (setBit i 7)
         else do
-            i <- getIRegister inpt4 -- XXX write modifyIRegister
-            putIRegister inpt4 (clearBit i 7)
+            i <- liftIO $ fastGetIRegister ir inpt4 -- XXX write modifyIRegister
+            liftIO $ fastPutIRegister ir inpt4 (clearBit i 7)
 
-    --vblank .= v
-    putORegister vblank v
+    liftIO $ fastPutORegister or vblank v
 
 {-# INLINE hpos #-}
 {-# INLINE vpos #-}
@@ -587,8 +584,8 @@ stellaVsync v = do
     oldv <- getORegister vsync
     when (testBit oldv 1 && not (testBit v 1)) $ hardware . position .= (0, 0)
     putORegister vsync v
-    s <- use (hardware . stellaSDL)
-    liftIO $ renderDisplay s
+    sdlState <- use (hardware . stellaSDL)
+    liftIO $ renderDisplay sdlState
 
 stellaTick :: Int -> StateT Hardware IO ()
 stellaTick n | n <= 0 = return ()
@@ -868,7 +865,7 @@ dumpState = do
 
 {- INLINE setBreak -}
 setBreak :: CInt -> CInt -> MonadAtari ()
-setBreak x y = hardware . stellaDebug . posbreak .= (x+picx, y+picy)
+setBreak breakX breakY = hardware . stellaDebug . posbreak .= (breakX+picx, breakY+picy)
 
 graphicsDelay :: Int64 -> MonadAtari ()
 graphicsDelay n = do
@@ -880,7 +877,7 @@ writeStella :: Word16 -> Word8 -> MonadAtari ()
 writeStella addr v = 
     case addr of
        0x00 -> stellaVsync v             -- VSYNC
-       0x01 -> stellaVblank v            -- VBLANK
+       0x01 -> M $ zoom hardware $ stellaVblank v            -- VBLANK
        0x02 -> stellaWsync               -- WSYNC
        0x04 -> putORegister nusiz0 v        -- NUSIZ0
        0x05 -> putORegister nusiz1 v        -- NUSIZ1
@@ -926,4 +923,4 @@ writeStella addr v =
        0x295 -> hardware . intervalTimer .= start8 v -- TIM8T
        0x296 -> hardware . intervalTimer .= start64 v -- TIM64T
        0x297 -> hardware . intervalTimer .= start1024 v -- TIM1024T
-       otherwise -> return () -- liftIO $ putStrLn $ "writing TIA 0x" ++ showHex addr ""
+       _ -> return () -- liftIO $ putStrLn $ "writing TIA 0x" ++ showHex addr ""
