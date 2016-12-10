@@ -355,12 +355,12 @@ updatePos (hpos0, vpos0) =
                 else (0, 0)
 
 {- INLINE compositeAndCollide -}
-compositeAndCollide :: Atari2600 -> CInt -> CInt -> IOUArray OReg Word8 -> IO Word8
-compositeAndCollide stella pixelx hpos' r = do
+compositeAndCollide :: Hardware -> CInt -> CInt -> IOUArray OReg Word8 -> IO Word8
+compositeAndCollide hardware' pixelx hpos' r = do
     resmp0' <- fastGetORegister r resmp0
     resmp1' <- fastGetORegister r resmp1
 
-    let ir = stella ^. hardware . iregisters
+    let ir = hardware' ^. iregisters
     !ctrlpf' <- fastGetORegister r ctrlpf
     !colupf' <- fastGetORegister r colupf
     !colup0' <- fastGetORegister r colup0
@@ -372,8 +372,8 @@ compositeAndCollide stella pixelx hpos' r = do
                 else colup1'
             else colupf' -- does ball get this too?
 
-    let graphics' = stella ^. hardware . graphics
-    let sprites' = stella ^. hardware . sprites
+    let graphics' = hardware' ^. graphics
+    let sprites' = hardware' ^. sprites
     -- XXX Side effects in missile0/1
     !enam0' <- fastGetORegister r enam0
     !enam1' <- fastGetORegister r enam1
@@ -587,44 +587,43 @@ stellaVsync v = do
 
 stellaTick :: Int -> MonadAtari ()
 stellaTick n | n <= 0 = return ()
-stellaTick n = do
-    stella <- get
-    let (xbreak', ybreak') = stella ^. hardware . stellaDebug . posbreak
-    let (hpos', vpos') = stella ^. hardware . position
-    when ((hpos', vpos') == (xbreak', ybreak')) $ do
-        --dumpStella
-        hardware . stellaDebug . posbreak .= (-1, -1) -- Maybe maybe
+stellaTick n = M $ do
+    zoom hardware $ do
+        (xbreak', ybreak') <- use (stellaDebug . posbreak)
+        (hpos', vpos') <- use position
+        when ((hpos', vpos') == (xbreak', ybreak')) $ do
+            --dumpStella
+            stellaDebug . posbreak .= (-1, -1) -- Maybe maybe
 
-    hardware . stellaClock += 1
-    hardware . intervalTimer %= timerTick
-    
-    -- Display
-    when (vpos' >= picy && vpos' < picy+192 && hpos' >= picx) $ do
-        stella <- get
-        let hardware' = stella ^. hardware
-        let !surface = hardware' ^. stellaSDL ^. sdlBackSurface
-        !ptr <- liftIO $ surfacePixels surface
-        let !ptr' = castPtr ptr :: Ptr Word32
-        let !pixelx = hpos'-picx
-        let !pixely = vpos'-picy
-        let !i = screenWidth*pixely+pixelx
+        stellaClock += 1
+        intervalTimer %= timerTick
+        
+        -- Display
+        when (vpos' >= picy && vpos' < picy+192 && hpos' >= picx) $ do
+            !surface <- use (stellaSDL . sdlBackSurface)
+            !ptr <- liftIO $ surfacePixels surface
+            let !ptr' = castPtr ptr :: Ptr Word32
+            let !pixelx = hpos'-picx
+            let !pixely = vpos'-picy
+            let !i = screenWidth*pixely+pixelx
 
-        let r = hardware' ^. oregisters
-        let (hpos', _) = hardware' ^. position
-        resmp0' <- liftIO $ fastGetORegister r resmp0
-        resmp1' <- liftIO $ fastGetORegister r resmp1
-        ppos0' <- use ppos0
-        ppos1' <- use ppos1
-        when (testBit resmp0' 1) $ mpos0 .= ppos0'
-        when (testBit resmp1' 1) $ mpos1 .= ppos1'
+            r <- use oregisters
+            (hpos', _) <- use position
+            resmp0' <- liftIO $ fastGetORegister r resmp0
+            resmp1' <- liftIO $ fastGetORegister r resmp1
+            ppos0' <- use (sprites . s_ppos0)
+            ppos1' <- use (sprites . s_ppos1)
+            when (testBit resmp0' 1) $ sprites . s_mpos0 .= ppos0'
+            when (testBit resmp1' 1) $ sprites . s_mpos1 .= ppos1'
 
-        liftIO $ do
-            !final <- compositeAndCollide stella pixelx hpos' r
-            pokeElemOff ptr' (fromIntegral i) (lut!(final `shift` (-1)))
+            hardware' <- get
+            liftIO $ do
+                !final <- compositeAndCollide hardware' pixelx hpos' r
+                pokeElemOff ptr' (fromIntegral i) (lut!(final `shift` (-1)))
 
-    hardware . position %= updatePos
+        position %= updatePos
 
-    stellaTick (n-1)
+    unM $ stellaTick (n-1)
 
 {- INLINE stellaWsync -}
 stellaWsync :: MonadAtari ()
