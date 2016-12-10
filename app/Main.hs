@@ -68,12 +68,12 @@ instance Emu6502 MonadAtari where
         let addr = addr' .&. 0b1111111111111 in -- 6507
             if addr >= 0x1000
             then do
-                m <- use mem
+                m <- use rom
                 liftIO $ readArray m (iz addr)
             else if isRAM addr
                 then do
-                    m <- use mem
-                    liftIO $ readArray m (iz addr .&. 0xff)
+                    m <- use ram
+                    liftIO $ readArray m (iz addr .&. 0x7f)
                 else if isTIA addr
                         then readStella (addr .&. 0x3f)
                         else if isRIOT addr
@@ -86,12 +86,12 @@ instance Emu6502 MonadAtari where
         let addr = addr' .&. 0b1111111111111 in -- 6507
         if addr >= 0x1000
             then do
-                m <- use mem
+                m <- use rom
                 liftIO $ writeArray m (iz addr) v
             else if isRAM addr
                 then do
-                    m <- use mem
-                    liftIO $ writeArray m (iz addr .&. 0xff) v
+                    m <- use ram
+                    liftIO $ writeArray m (iz addr .&. 0x7f) v
                 else if isTIA addr
                     then writeStella (addr .&. 0x3f) v
                     else if isRIOT addr
@@ -680,16 +680,17 @@ main = do
 
     helloWorld <- createRGBSurface (V2 screenWidth screenHeight) RGB888
 
-    memory <- newArray (0, 0x2000) 0 :: IO (IOUArray Int Word8)
-    readBinary memory (file args) 0x1000
-    pclo <- readArray memory 0x1ffc
-    pchi <- readArray memory 0x1ffd
+    rom <- newArray (0, 0x1fff) 0 :: IO (IOUArray Int Word8)
+    ram <- newArray (0, 0x7f) 0 :: IO (IOUArray Int Word8)
+    readBinary rom (file args) 0x1000
+    pclo <- readArray rom 0x1ffc
+    pchi <- readArray rom 0x1ffd
     let initialPC = fromIntegral pclo+(fromIntegral pchi `shift` 8)
 
     oregs <- newArray (0, 0x3f) 0
     --iregs <- newArray (0, 0x0d) 0
     iregs <- newArray (0, 0x300) 0 -- XXX no need for that many really
-    let state = initState UnBanked memory oregs iregs initialPC helloWorld screenSurface window
+    let state = initState ram UnBanked rom oregs iregs initialPC helloWorld screenSurface window
 
     let loopUntil n = do
             stellaClock' <-  use stellaClock

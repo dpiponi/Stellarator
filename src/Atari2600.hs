@@ -48,7 +48,8 @@ data Registers = R {
 data BankMode = UnBanked | F8 deriving (Show, Data, Typeable)
 
 data Atari2600 = Atari2600 {
-    _mem :: IOUArray Int Word8,
+    _ram :: IOUArray Int Word8,
+    _rom :: IOUArray Int Word8,
     _regs :: !Registers,
     _clock :: !Int64,
     _debug :: !Int,
@@ -73,15 +74,16 @@ $(makeLenses ''Registers)
 newtype MonadAtari a = M { unM :: StateT Atari2600 IO a }
     deriving (Functor, Applicative, Monad, MonadState Atari2600, MonadIO)
 
-initState :: BankMode ->
+initState :: IOUArray Int Word8 ->
+             BankMode ->
              IOUArray Int Word8 ->
              IOUArray OReg Word8 ->
              IOUArray IReg Word8 ->
              Word16 ->
              SDL.Surface -> SDL.Surface ->
              SDL.Window -> Atari2600
-initState mode memory oregs iregs initialPC helloWorld screenSurface window = Atari2600 {
-      _mem = memory,  _clock = 0, _regs = R initialPC 0 0 0 0 0xff,
+initState ram' mode rom' oregs iregs initialPC helloWorld screenSurface window = Atari2600 {
+      _rom = rom', _ram = ram',  _clock = 0, _regs = R initialPC 0 0 0 0 0xff,
       _debug = 8,
 
       _oregisters = oregs,
