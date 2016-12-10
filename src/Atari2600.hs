@@ -579,12 +579,13 @@ readStella addr =
         _ -> return 0 -- (liftIO $ putStrLn $ "reading TIA 0x" ++ showHex addr "") >> return 0
 
 {- INLINE stellaVsync -}
-stellaVsync :: Word8 -> MonadAtari ()
+stellaVsync :: Word8 -> StateT Hardware IO ()
 stellaVsync v = do
-    oldv <- getORegister vsync
-    when (testBit oldv 1 && not (testBit v 1)) $ hardware . position .= (0, 0)
-    putORegister vsync v
-    sdlState <- use (hardware . stellaSDL)
+    or <- use oregisters
+    oldv <- liftIO $ fastGetORegister or vsync
+    when (testBit oldv 1 && not (testBit v 1)) $ position .= (0, 0)
+    liftIO $ fastPutORegister or vsync v
+    sdlState <- use stellaSDL
     liftIO $ renderDisplay sdlState
 
 stellaTick :: Int -> StateT Hardware IO ()
@@ -876,7 +877,7 @@ graphicsDelay n = do
 writeStella :: Word16 -> Word8 -> MonadAtari ()
 writeStella addr v = 
     case addr of
-       0x00 -> stellaVsync v             -- VSYNC
+       0x00 -> M $ zoom hardware $ stellaVsync v             -- VSYNC
        0x01 -> M $ zoom hardware $ stellaVblank v            -- VBLANK
        0x02 -> stellaWsync               -- WSYNC
        0x04 -> putORegister nusiz0 v        -- NUSIZ0
