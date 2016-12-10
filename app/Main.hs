@@ -722,7 +722,7 @@ main = do
             let quit = elem SDL.QuitEvent $ map SDL.eventPayload events
             forM_ events handleEvent
             stellaClock' <-  use stellaClock
-            loopUntil (stellaClock' + 1000)
+            loopUntil (stellaClock' + 250)
 
             loop
 
