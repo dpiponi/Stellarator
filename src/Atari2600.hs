@@ -627,17 +627,15 @@ stellaTickUntil n = do
     c <- use stellaClock
     stellaTick (fromIntegral (n-c))
 
-{-
 instance Emu6502 MonadAtari where
     {-# INLINE readMemory #-}
     readMemory addr' =
         let addr = addr' .&. 0b1111111111111 in -- 6507
-        if addr >= 0x1000
+            if addr >= 0x1000
             then do
-                m <- use mem
+                m <- use rom
                 offset <- use bankOffset
-                byte <- liftIO $ readArray m (iz (addr-0x1000+offset))
-
+                byte <- liftIO $ readArray m ((iz addr .&. 0xfff)+fromIntegral offset)
                 when (addr >= 0x1ff8) $ do
                     bankType <- use bankMode
                     case bankType of
@@ -645,12 +643,11 @@ instance Emu6502 MonadAtari where
                         F8 -> do
                             when (addr == 0x1ff8) $ bankOffset .= 0
                             when (addr == 0x1ff9) $ bankOffset .= 0x1000
-
                 return byte
             else if isRAM addr
                 then do
-                    m <- use mem
-                    liftIO $ readArray m (iz addr .&. 0xff)
+                    m <- use ram
+                    liftIO $ readArray m (iz addr .&. 0x7f)
                 else if isTIA addr
                         then readStella (addr .&. 0x3f)
                         else if isRIOT addr
@@ -672,8 +669,8 @@ instance Emu6502 MonadAtari where
                             when (addr == 0x1ff9) $ bankOffset .= 0x1000
             else if isRAM addr
                 then do
-                    m <- use mem
-                    liftIO $ writeArray m (iz addr .&. 0xff) v
+                    m <- use ram
+                    liftIO $ writeArray m (iz addr .&. 0x7f) v
                 else if isTIA addr
                     then writeStella (addr .&. 0x3f) v
                     else if isRIOT addr
@@ -757,61 +754,6 @@ instance Emu6502 MonadAtari where
     {- INLINE illegal -}
     illegal i = error $ "Illegal opcode 0x" ++ showHex i ""
 
-{- INLINABLE writeStella -}
-writeStella :: Word16 -> Word8 -> MonadAtari ()
-writeStella addr v = 
-    --(liftIO $ print $ "Hello!!!! " ++ showHex addr "" ++ " " ++ showHex v "") >>
-    case addr of
-       0x00 -> stellaVsync v             -- VSYNC
-       0x01 -> stellaVblank v            -- VBLANK
-       0x02 -> stellaWsync               -- WSYNC
-       0x04 -> putORegister nusiz0 v        -- NUSIZ0
-       0x05 -> putORegister nusiz1 v        -- NUSIZ1
-       0x06 -> putORegister colup0 v               -- COLUP0
-       0x07 -> putORegister colup1 v               -- COLUP1
-       0x08 -> putORegister colupf v               -- COLUPF
-       0x09 -> putORegister colubk v               -- COLUBK
-       0x0a -> putORegister ctrlpf v               -- COLUPF
-       0x0b -> putORegister refp0 v               -- REFP0
-       0x0c -> putORegister refp1 v               -- REFP1
-       0x0d -> graphicsDelay 4 >> putORegister pf0 v                  -- PF0
-       0x0e -> graphicsDelay 4 >> putORegister pf1 v                  -- PF1
-       0x0f -> graphicsDelay 4 >> putORegister pf2 v                  -- PF2
-       0x10 -> graphicsDelay 5 >> use hpos >>= (ppos0 .=)   -- RESP0 XXX FUDGE FACTORS
-       0x11 -> graphicsDelay 5 >> use hpos >>= (ppos1 .=)   -- RESP1
-       0x12 -> graphicsDelay 4 >> use hpos >>= (mpos0 .=)   -- RESM0
-       0x13 -> graphicsDelay 4 >> use hpos >>= (mpos1 .=)   -- RESM1
-       0x14 -> graphicsDelay 4 >> use hpos >>= (bpos .=)     -- RESBL
-       0x1b -> do -- GRP0
-                graphics . newGrp0 .= v
-                use (graphics . newGrp1) >>= (graphics . oldGrp1 .=)
-       0x1c -> do -- GRP1
-                graphics . newGrp1 .= v
-                use (graphics . newGrp0) >>= (graphics . oldGrp0 .=)
-                use (graphics . newBall) >>= (graphics . oldBall .=)
-       0x1d -> putORegister enam0 v                -- ENAM0
-       0x1e -> putORegister enam1 v                -- ENAM1
-       0x1f -> graphics . newBall .= testBit v 1   -- ENABL
-       0x20 -> putORegister hmp0 v                 -- HMP0
-       0x21 -> putORegister hmp1 v                 -- HMP1
-       0x22 -> putORegister hmm0 v                 -- HMM0
-       0x23 -> putORegister hmm1 v                 -- HMM1
-       0x24 -> putORegister hmbl v                 -- HMBL
-       0x25 -> graphics . delayP0 .= testBit v 0   -- VDELP0
-       0x26 -> graphics . delayP1 .= testBit v 0   -- VDELP1
-       0x27 -> graphics . delayBall .= testBit v 0   -- VDELBL
-       0x28 -> putORegister resmp0 v
-       0x29 -> putORegister resmp1 v
-       0x2a -> stellaHmove               -- HMOVE
-       0x2b -> stellaHmclr               -- HMCLR
-       0x2c -> stellaCxclr               -- CXCLR
-
-       0x294 -> intervalTimer .= start1 v -- TIM1T
-       0x295 -> intervalTimer .= start8 v -- TIM8T
-       0x296 -> intervalTimer .= start64 v -- TIM64T
-       0x297 -> intervalTimer .= start1024 v -- TIM1024T
-       _ -> return () -- liftIO $ putStrLn $ "writing TIA 0x" ++ showHex addr ""
-
 dumpStella :: MonadAtari ()
 dumpStella = do
     liftIO $ putStrLn "--------"
@@ -865,4 +807,142 @@ dumpMemory = do
     liftIO $ putStrLn $ showHex b2 ""
     let (_, mne, _) = disasm regPC [b0, b1, b2]
     liftIO $ putStrLn $ mne
+
+{-# INLINABLE dumpRegisters #-}
+dumpRegisters :: MonadAtari ()
+dumpRegisters = do
+    -- XXX bring clock back
+    --tClock <- use clock
+    --putStr 9 $ "clock = " ++ show tClock
+    regPC <- getPC
+    liftIO $ putStr $ " pc = " ++ showHex regPC ""
+    regP <- getP
+    liftIO $ putStr $ " flags = " ++ showHex regP ""
+    liftIO $ putStr $ "(N=" ++ showHex ((regP `shift` (-7)) .&. 1) ""
+    liftIO $ putStr $ ",V=" ++ showHex ((regP `shift` (-6)) .&. 1) ""
+    liftIO $ putStr $ ",B=" ++ showHex (regP `shift` ((-4)) .&. 1) ""
+    liftIO $ putStr $ ",D=" ++ showHex (regP `shift` ((-3)) .&. 1) ""
+    liftIO $ putStr $ ",I=" ++ showHex (regP `shift` ((-2)) .&. 1) ""
+    liftIO $ putStr $ ",Z=" ++ showHex (regP `shift` ((-1)) .&. 1) ""
+    liftIO $ putStr $ ",C=" ++ showHex (regP .&. 1) ""
+    regA <- getA 
+    liftIO $ putStr $ ") A = " ++ showHex regA ""
+    regX <- getX
+    liftIO $ putStr $ " X = " ++ showHex regX ""
+    regY <- getY
+    liftIO $ putStrLn $ " Y = " ++ showHex regY ""
+    regS <- getS
+    liftIO $ putStrLn $ " N = " ++ showHex regS ""
+
+{-# INLINABLE dumpState #-}
+dumpState :: MonadAtari ()
+dumpState = do
+    dumpMemory
+    dumpRegisters
+
+{- INLINE setBreak -}
+setBreak :: (MonadIO m, MonadState Atari2600 m) =>
+               CInt -> CInt -> m ()
+setBreak x y = stellaDebug . posbreak .= (x+picx, y+picy)
+
+graphicsDelay :: Int64 -> MonadAtari ()
+graphicsDelay n = do
+    c <- use clock
+    stellaTickUntil (3*c+n)
+
+{- INLINABLE writeStella -}
+writeStella :: Word16 -> Word8 -> MonadAtari ()
+writeStella addr v = 
+    case addr of
+       0x00 -> stellaVsync v             -- VSYNC
+       0x01 -> stellaVblank v            -- VBLANK
+       0x02 -> stellaWsync               -- WSYNC
+       0x04 -> putORegister nusiz0 v        -- NUSIZ0
+       0x05 -> putORegister nusiz1 v        -- NUSIZ1
+       0x06 -> putORegister colup0 v               -- COLUP0
+       0x07 -> putORegister colup1 v               -- COLUP1
+       0x08 -> putORegister colupf v               -- COLUPF
+       0x09 -> putORegister colubk v               -- COLUBK
+       0x0a -> putORegister ctrlpf v               -- COLUPF
+       0x0b -> putORegister refp0 v               -- REFP0
+       0x0c -> putORegister refp1 v               -- REFP1
+       0x0d -> graphicsDelay 4 >> putORegister pf0 v                  -- PF0
+       0x0e -> graphicsDelay 4 >> putORegister pf1 v                  -- PF1
+       0x0f -> graphicsDelay 4 >> putORegister pf2 v                  -- PF2
+       0x10 -> graphicsDelay 5 >> use hpos >>= (ppos0 .=)   -- RESP0 XXX FUDGE FACTORS
+       0x11 -> graphicsDelay 5 >> use hpos >>= (ppos1 .=)   -- RESP1
+       0x12 -> graphicsDelay 4 >> use hpos >>= (mpos0 .=)   -- RESM0
+       0x13 -> graphicsDelay 4 >> use hpos >>= (mpos1 .=)   -- RESM1
+       0x14 -> graphicsDelay 4 >> use hpos >>= (bpos .=)     -- RESBL
+       0x1b -> do -- GRP0
+                graphics . newGrp0 .= v
+                use (graphics . newGrp1) >>= (graphics . oldGrp1 .=)
+       0x1c -> do -- GRP1
+                graphics . newGrp1 .= v
+                use (graphics . newGrp0) >>= (graphics . oldGrp0 .=)
+                use (graphics . newBall) >>= (graphics . oldBall .=)
+       0x1d -> putORegister enam0 v                -- ENAM0
+       0x1e -> putORegister enam1 v                -- ENAM1
+       0x1f -> graphics . newBall .= testBit v 1   -- ENABL
+       0x20 -> putORegister hmp0 v                 -- HMP0
+       0x21 -> putORegister hmp1 v                 -- HMP1
+       0x22 -> putORegister hmm0 v                 -- HMM0
+       0x23 -> putORegister hmm1 v                 -- HMM1
+       0x24 -> putORegister hmbl v                 -- HMBL
+       0x25 -> graphics . delayP0 .= testBit v 0   -- VDELP0
+       0x26 -> graphics . delayP1 .= testBit v 0   -- VDELP1
+       0x27 -> graphics . delayBall .= testBit v 0   -- VDELBL
+       0x28 -> putORegister resmp0 v
+       0x29 -> putORegister resmp1 v
+       0x2a -> stellaHmove               -- HMOVE
+       0x2b -> stellaHmclr               -- HMCLR
+       0x2c -> stellaCxclr               -- CXCLR
+       0x294 -> intervalTimer .= start1 v -- TIM1T
+       0x295 -> intervalTimer .= start8 v -- TIM8T
+       0x296 -> intervalTimer .= start64 v -- TIM64T
+       0x297 -> intervalTimer .= start1024 v -- TIM1024T
+       otherwise -> return () -- liftIO $ putStrLn $ "writing TIA 0x" ++ showHex addr ""
+
+-- http://www.qotile.net/minidig/docs/2600_mem_map.txt
+
+--
+-- Decision tree for type of memory
+--
+-- testBit a 12
+-- True -> ROM
+-- False -> testBit a 7
+--          False -> TIA
+--          True -> testBit a 9
+--                  True -> RIOT
+--                  False -> RAM
+
+{-
+{-# INLINE flagC #-}
+flagC :: Lens' Registers Bool
+flagC = p . bitAt 0
+
+{-# INLINE flagZ #-}
+flagZ :: Lens' Registers Bool
+flagZ = p . bitAt 1
+
+{-# INLINE flagI #-}
+flagI :: Lens' Registers Bool
+flagI = p . bitAt 2
+
+{-# INLINE flagD #-}
+flagD :: Lens' Registers Bool
+flagD = p . bitAt 3
+
+{-# INLINE flagB #-}
+flagB :: Lens' Registers Bool
+flagB = p . bitAt 4
+
+{-# INLINE flagV #-}
+flagV :: Lens' Registers Bool
+flagV = p . bitAt 6
+
+{-# INLINE flagN #-}
+flagN :: Lens' Registers Bool
+flagN = p . bitAt 7
 -}
+
