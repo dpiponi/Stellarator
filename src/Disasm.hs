@@ -19,6 +19,7 @@ import Data.ByteString as B hiding (putStr, putStrLn, getLine, length)
 import System.IO
 import Data.Binary.Get
 import Data.Binary
+import Text.Printf
 import Data.Int
 import Numeric
 import qualified Data.ByteString.Internal as BS (c2w, w2c)
@@ -234,8 +235,12 @@ dis :: Int -> Word16 -> [Word8] -> IO ()
 dis 0 _ _ = return ()
 dis m pc bs = do
     let (n, mne, bs') = disasm pc bs
-    let addr = "0x" ++ showHex pc ""
-    putStrLn $ addr ++ "  " ++ mne
+    printf "%04x " pc
+    forM_ [0..n-1] $ \i ->
+        printf "%02x " (bs!!i)
+    forM_ [n..3] $ \i ->
+        putStr "   "
+    putStrLn mne
     dis (m-1) (pc+fromIntegral n) bs'
 
 {-
