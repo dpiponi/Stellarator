@@ -184,9 +184,9 @@ orIRegister :: IReg -> Word8 -> MonadAtari ()
 orIRegister i v = modifyIRegister i (v .|.)
 
 {- INLINE stellaHmclr -}
-stellaHmclr :: MonadAtari ()
+stellaHmclr :: StateT Hardware IO ()
 stellaHmclr = do
-    r <- use (hardware . oregisters)
+    r <- use oregisters
     liftIO $ do
         fastPutORegister r hmp0 0
         fastPutORegister r hmp1 0
@@ -195,9 +195,9 @@ stellaHmclr = do
         fastPutORegister r hmbl 0
 
 {- INLINE stellaCxclr -}
-stellaCxclr :: MonadAtari ()
+stellaCxclr :: StateT Hardware IO ()
 stellaCxclr = do
-    r <- use (hardware . iregisters)
+    r <- use iregisters
     liftIO $ do
         fastPutIRegister r cxm0p 0
         fastPutIRegister r cxm1p 0
@@ -214,26 +214,27 @@ picx :: CInt
 picx = 68
 
 {- INLINE stellaHmove -}
-stellaHmove :: MonadAtari ()
+stellaHmove :: StateT Hardware IO ()
 stellaHmove = do
-    Sprites ppos0' ppos1' mpos0' mpos1' bpos' <- use (hardware . sprites)
+    Sprites ppos0' ppos1' mpos0' mpos1' bpos' <- use sprites
 
-    poffset0 <- getORegister hmp0
+    r <- use oregisters
+    poffset0 <- liftIO $ fastGetORegister r hmp0
     let ppos0'' = wrap160 (ppos0'-clockMove poffset0)
 
-    poffset1 <- getORegister hmp1
+    poffset1 <- liftIO $ fastGetORegister r hmp1
     let ppos1'' = wrap160 (ppos1'-clockMove poffset1)
 
-    moffset0 <- getORegister hmm0
+    moffset0 <- liftIO $ fastGetORegister r hmm0
     let mpos0'' = wrap160 (mpos0'-clockMove moffset0) -- XXX do rest
 
-    moffset1 <- getORegister hmm1
+    moffset1 <- liftIO $ fastGetORegister r hmm1
     let mpos1'' = wrap160 (mpos1'-clockMove moffset1) -- XXX do rest
 
-    boffset <- getORegister hmbl
+    boffset <- liftIO $ fastGetORegister r hmbl
     let bpos'' = wrap160 (bpos'-clockMove boffset)
 
-    hardware . sprites .= Sprites {
+    sprites .= Sprites {
         _s_ppos0 = ppos0'',
         _s_ppos1 = ppos1'',
         _s_mpos0 = mpos0'',
@@ -917,9 +918,9 @@ writeStella addr v =
        0x27 -> hardware . graphics . delayBall .= testBit v 0   -- VDELBL
        0x28 -> putORegister resmp0 v
        0x29 -> putORegister resmp1 v
-       0x2a -> stellaHmove               -- HMOVE
-       0x2b -> stellaHmclr               -- HMCLR
-       0x2c -> stellaCxclr               -- CXCLR
+       0x2a -> M $ zoom hardware $ stellaHmove               -- HMOVE
+       0x2b -> M $ zoom hardware $ stellaHmclr               -- HMCLR
+       0x2c -> M $ zoom hardware $ stellaCxclr               -- CXCLR
        0x294 -> hardware . intervalTimer .= start1 v -- TIM1T
        0x295 -> hardware . intervalTimer .= start8 v -- TIM8T
        0x296 -> hardware . intervalTimer .= start64 v -- TIM64T
