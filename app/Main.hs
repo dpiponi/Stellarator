@@ -177,7 +177,6 @@ instance Emu6502 MonadAtari where
 
 dumpStella :: MonadAtari ()
 dumpStella = do
-    dumpMemory
     liftIO $ putStrLn "--------"
     hpos' <- use hpos
     vpos' <- use vpos

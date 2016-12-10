@@ -812,7 +812,6 @@ writeStella addr v =
 
 dumpStella :: MonadAtari ()
 dumpStella = do
-    dumpMemory
     liftIO $ putStrLn "--------"
     hpos' <- use hpos
     vpos' <- use vpos
