@@ -69,7 +69,7 @@ instance Emu6502 MonadAtari where
             if addr >= 0x1000
             then do
                 m <- use rom
-                liftIO $ readArray m (iz addr)
+                liftIO $ readArray m (iz addr .&. 0xfff)
             else if isRAM addr
                 then do
                     m <- use ram
@@ -86,8 +86,7 @@ instance Emu6502 MonadAtari where
         let addr = addr' .&. 0b1111111111111 in -- 6507
         if addr >= 0x1000
             then do
-                m <- use rom
-                liftIO $ writeArray m (iz addr) v
+                return ()
             else if isRAM addr
                 then do
                     m <- use ram
@@ -682,15 +681,16 @@ main = do
 
     rom <- newArray (0, 0x1fff) 0 :: IO (IOUArray Int Word8)
     ram <- newArray (0, 0x7f) 0 :: IO (IOUArray Int Word8)
-    readBinary rom (file args) 0x1000
-    pclo <- readArray rom 0x1ffc
-    pchi <- readArray rom 0x1ffd
+    readBinary rom (file args) 0x0000
+    pclo <- readArray rom 0x0ffc
+    pchi <- readArray rom 0x0ffd
     let initialPC = fromIntegral pclo+(fromIntegral pchi `shift` 8)
 
     oregs <- newArray (0, 0x3f) 0
     --iregs <- newArray (0, 0x0d) 0
     iregs <- newArray (0, 0x300) 0 -- XXX no need for that many really
-    let state = initState ram UnBanked rom oregs iregs initialPC helloWorld screenSurface window
+    let state = initState ram UnBanked rom oregs iregs
+                initialPC helloWorld screenSurface window
 
     let loopUntil n = do
             stellaClock' <-  use stellaClock
