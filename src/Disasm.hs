@@ -15,7 +15,7 @@ import Control.Monad.State
 import Control.Lens
 import Data.Bits
 import Data.Bits.Lens
-import Data.ByteString as B hiding (putStr, putStrLn, getLine, length)
+import Data.ByteString as B hiding (putStr, putStrLn, getLine, length, take)
 import System.IO
 import Data.Binary.Get
 import Data.Binary
@@ -110,6 +110,9 @@ absoluteX mne (blo : bhi : bs) = (3, mne ++ " " ++ inHex16 (make16 blo bhi) ++ "
 immediate :: String -> [Word8] -> (Int, String, [Word8])
 immediate mne (b : bs) = (2, mne ++ " #" ++ inHex8 b, bs)
 
+accumulator :: String -> [Word8] -> (Int, String, [Word8])
+accumulator mne bs = (1, mne ++ " a", bs)
+
 branch :: Word16 -> String -> [Word8] -> (Int, String, [Word8])
 branch pc mne (b : bs) = 
     let offset = fromIntegral (fromIntegral b :: Int8)
@@ -132,7 +135,7 @@ withData02 :: Word8 -> Bool -> String -> [Word8] -> (Int, String, [Word8])
 withData02 bbb useY mne bs = case bbb of
     0b000 -> immediate mne bs
     0b001 -> zeroPage mne bs
-    0b010 -> (1, "BYTE", bs)
+    0b010 -> accumulator mne bs
     0b011 -> absolute mne bs
     0b101 -> if useY
                 then zeroPageY mne bs
@@ -236,38 +239,7 @@ dis 0 _ _ = return ()
 dis m pc bs = do
     let (n, mne, bs') = disasm pc bs
     printf "%04x " pc
-    forM_ [0..n-1] $ \i ->
-        printf "%02x " (bs!!i)
-    forM_ [n..3] $ \i ->
-        putStr "   "
+    mapM_ (printf "%02x ") (take n bs)
+    replicateM_ (3*(3-n)) $ putChar ' '
     putStrLn mne
     dis (m-1) (pc+fromIntegral n) bs'
-
-{-
-main = do
-    let ins = [
-            0x4C, 0xEF, 0xF2,
-            0x78, 
-            0xD8, 
-            0x4C, 0x06, 0xF3,
-            0x85, 0x2B, 
-            0xA5, 0x86, 
-            0xA2, 0x00, 
-            0x20, 0xD2, 0xF0,
-            0xA5, 0x88, 
-            0xA2, 0x01, 
-            0x20, 0xD2, 0xF0,
-            0xA5, 0x8B, 
-            0xA2, 0x04, 
-            0x20, 0xD2, 0xF0,
-            0x85, 0x02, 
-            0x85, 0x2A, 
-            0x85, 0x2C, 
-            0xA5, 0x8C, 
-            0x38, 
-            0xE9, 0x04, 
-            0x85, 0x8D, 
-            0xAD, 0x84, 0x02,
-            0xD0, 0xFB]
-    dis 0xf000 ins
--}
