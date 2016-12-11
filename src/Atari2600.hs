@@ -17,6 +17,7 @@ import Data.Array.IO
 import Data.Array.Unboxed
 import Data.Bits hiding (bit)
 import Data.Bits.Lens
+import Memory
 import Data.Int
 import Data.Word
 import DebugState
@@ -24,7 +25,6 @@ import Disasm
 import Foreign.C.Types
 import Foreign.Ptr
 import Foreign.Storable
-import MemoryMap
 import Numeric
 import Prelude hiding (last)
 import SDL.Video.Renderer
@@ -45,16 +45,6 @@ data Registers = R {
     _s :: !Word8
 }
 
--- http://www.classic-games.com/atari2600/bankswitch.html
-data BankMode = UnBanked | F6 | F8 deriving (Show, Data, Typeable)
-
-data Memory = Memory {
-    _ram :: IOUArray Int Word8,
-    _rom :: IOUArray Int Word8,
-    _bankMode :: BankMode,
-    _bankOffset :: Word16
-}
-
 data Hardware = Hardware {
     _stellaDebug :: DebugState,
     _position :: (CInt, CInt),
@@ -68,7 +58,6 @@ data Hardware = Hardware {
     _stellaSDL :: SDLState
 }
 
-$(makeLenses ''Memory)
 $(makeLenses ''Hardware)
 
 data Atari2600 = Atari2600 {
@@ -648,17 +637,6 @@ stellaTickUntil :: Int64 -> StateT Hardware IO ()
 stellaTickUntil n = do
     c <- use stellaClock
     stellaTick (fromIntegral (n-c))
-
-{-
-{-# INLINE readRom #-}
-readRom :: Word16 -> StateT Memory IO Word8
-readRom addr = do
-    m <- use rom
-    offset <- use bankOffset
-    byte <- liftIO $ readArray m ((iz addr .&. 0xfff)+fromIntegral offset)
-    bankSwitch addr
-    return byte
--}
 
 {-# INLINE pureReadRom #-}
 pureReadRom :: Word16 -> StateT Memory IO Word8

@@ -6,6 +6,7 @@ TODO
 8. Why does Donkey Kong fail with illegal instruction?
 9. More ROM bank switching styles
 11. Separate memory read and side-effecting (bank switching) memory read.
+12. Rework TV display to show all needed scan lines.
 
 Done
 ----

@@ -23,7 +23,7 @@ import Text.Printf
 import Data.Int
 import Numeric
 import qualified Data.ByteString.Internal as BS (c2w, w2c)
-import MemoryMap
+import Memory
 
 inHex8 :: Word8 -> String
 inHex8 x = "0x" ++ showHex x ""

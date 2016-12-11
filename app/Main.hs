@@ -55,7 +55,7 @@ import Stella.TIARegisters
 import Stella.SDLState
 
 import DebugCmd
-import MemoryMap
+import Memory
 import Stella.Graphics
 import Stella.Sprites
 import DebugState
