@@ -686,19 +686,31 @@ bankSwitch addr = do
 
 {-# INLINE pureReadMemory #-}
 pureReadMemory :: Word16 -> MonadAtari Word8
-pureReadMemory addr' =
-    let addr = addr' .&. 0x1fff in -- 6507
-        if addr >= 0x1000
-            then M $ zoom memory $ pureReadRom addr
-            else if isRAM addr
-                then do
-                    m <- use (memory . ram)
-                    liftIO $ readArray m (iz addr .&. 0x7f)
-                else if isTIA addr
-                        then readStella (addr .&. 0x3f)
-                        else if isRIOT addr
-                            then readStella (0x280+(addr .&. 0x1f))
-                            else error $ "Mystery read from " ++ showHex addr ""
+pureReadMemory addr =
+    if addr >= 0x1000
+        then M $ zoom memory $ pureReadRom addr
+        else if isRAM addr
+            then do
+                m <- use (memory . ram)
+                liftIO $ readArray m (iz addr .&. 0x7f)
+            else if isTIA addr
+                    then readStella (addr .&. 0x3f)
+                    else if isRIOT addr
+                        then readStella (0x280+(addr .&. 0x1f))
+                        else error $ "The cases were exhaustive :-("
+
+{-# INLINE pureWriteMemory #-}
+pureWriteMemory :: Word16 -> Word8 -> MonadAtari ()
+pureWriteMemory addr v = do
+    if isRAM addr
+        then do
+            m <- use (memory . ram)
+            liftIO $ writeArray m (iz addr .&. 0x7f) v
+        else if isTIA addr
+            then writeStella (addr .&. 0x3f) v
+            else if isRIOT addr
+                    then writeStella (0x280+(addr .&. 0x1f)) v
+                    else return () -- ROM
 
 instance Emu6502 MonadAtari where
     {-# INLINE readMemory #-}
@@ -709,19 +721,10 @@ instance Emu6502 MonadAtari where
         return byte
 
     {-# INLINE writeMemory #-}
-    writeMemory addr' v =
-        let addr = addr' .&. 0x1fff in -- 6507
-        if addr >= 0x1000
-            then M $ zoom memory $ bankSwitch addr
-            else if isRAM addr
-                then do
-                    m <- use (memory . ram)
-                    liftIO $ writeArray m (iz addr .&. 0x7f) v
-                else if isTIA addr
-                    then writeStella (addr .&. 0x3f) v
-                    else if isRIOT addr
-                            then writeStella (0x280+(addr .&. 0x1f)) v
-                            else error $ "Mystery write to " ++ showHex addr ""
+    writeMemory addr' v = do
+        let addr = addr' .&. 0x1fff -- 6507
+        pureWriteMemory addr v
+        M $ zoom memory $ bankSwitch addr
 
     {-# INLINE getPC #-}
     getPC = use (regs . pc)
