@@ -649,6 +649,8 @@ stellaTickUntil n = do
     c <- use stellaClock
     stellaTick (fromIntegral (n-c))
 
+{-
+{-# INLINE readRom #-}
 readRom :: Word16 -> StateT Memory IO Word8
 readRom addr = do
     m <- use rom
@@ -656,7 +658,17 @@ readRom addr = do
     byte <- liftIO $ readArray m ((iz addr .&. 0xfff)+fromIntegral offset)
     bankSwitch addr
     return byte
+-}
 
+{-# INLINE pureReadRom #-}
+pureReadRom :: Word16 -> StateT Memory IO Word8
+pureReadRom addr = do
+    m <- use rom
+    offset <- use bankOffset
+    byte <- liftIO $ readArray m ((iz addr .&. 0xfff)+fromIntegral offset)
+    return byte
+
+{-# INLINE bankSwitch #-}
 bankSwitch :: Word16 -> StateT Memory IO ()
 bankSwitch addr = do
     when (addr >= 0x1ff6) $ do
@@ -672,12 +684,12 @@ bankSwitch addr = do
                 when (addr == 0x1ff8) $ bankOffset .= 0x2000
                 when (addr == 0x1ff9) $ bankOffset .= 0x3000
 
-instance Emu6502 MonadAtari where
-    {-# INLINE readMemory #-}
-    readMemory addr' =
-        let addr = addr' .&. 0x1fff in -- 6507
-            if addr >= 0x1000
-            then M $ zoom memory $ readRom addr
+{-# INLINE pureReadMemory #-}
+pureReadMemory :: Word16 -> MonadAtari Word8
+pureReadMemory addr' =
+    let addr = addr' .&. 0x1fff in -- 6507
+        if addr >= 0x1000
+            then M $ zoom memory $ pureReadRom addr
             else if isRAM addr
                 then do
                     m <- use (memory . ram)
@@ -688,6 +700,13 @@ instance Emu6502 MonadAtari where
                             then readStella (0x280+(addr .&. 0x1f))
                             else error $ "Mystery read from " ++ showHex addr ""
 
+instance Emu6502 MonadAtari where
+    {-# INLINE readMemory #-}
+    readMemory addr' = do
+        let addr = addr' .&. 0x1fff -- 6507
+        byte <- pureReadMemory addr
+        M $ zoom memory $ bankSwitch addr
+        return byte
 
     {-# INLINE writeMemory #-}
     writeMemory addr' v =
