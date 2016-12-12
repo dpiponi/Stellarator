@@ -12,7 +12,7 @@ module Atari2600 where
 import Control.Lens
 import Control.Monad.State.Strict
 import Core
-import Data.Data
+--import Data.Data
 import Data.Array.IO
 import Data.Array.Unboxed
 import Metrics
@@ -47,6 +47,8 @@ data Registers = R {
     _s :: !Word8
 }
 
+$(makeLenses ''Registers)
+
 data Hardware = Hardware {
     _stellaDebug :: DebugState,
     _position :: (CInt, CInt),
@@ -62,16 +64,21 @@ data Hardware = Hardware {
 
 $(makeLenses ''Hardware)
 
-data Atari2600 = Atari2600 {
+data CPU = CPU {
     _memory :: Memory,
+    _regs :: !Registers
+}
+
+$(makeLenses ''CPU)
+
+data Atari2600 = Atari2600 {
+    _cpu :: CPU,
     _hardware :: Hardware,
-    _regs :: !Registers,
     _clock :: !Int64
     --_debug :: !Int
 }
 
 $(makeLenses ''Atari2600)
-$(makeLenses ''Registers)
 
 newtype MonadAtari a = M { unM :: StateT Atari2600 IO a }
     deriving (Functor, Applicative, Monad, MonadState Atari2600, MonadIO)
@@ -102,15 +109,16 @@ initState ram' mode rom' oregs iregs initialPC
                   _stellaDebug = DebugState.start,
                   _trigger1 = False
               },
-              _memory = Memory {
-                  _rom = rom',
-                  _ram = ram',
-                  _bankMode = mode,
-                  _bankOffset = 0
+              _cpu = CPU {
+                  _memory = Memory {
+                      _rom = rom',
+                      _ram = ram',
+                      _bankMode = mode,
+                      _bankOffset = 0
+                  },
+                  _regs = R initialPC 0 0 0 0 0xff
               },
-              _clock = 0,
-              _regs = R initialPC 0 0 0 0 0xff
-              -- _debug = 8
+              _clock = 0
           }
 
 {-# INLINE flagC #-}
@@ -640,7 +648,8 @@ stellaTick n = do
     
     -- Display
     when (vpos' >= picy && vpos' < picy+screenScanLines && hpos' >= picx) $ do
-        !surface <- use (stellaSDL . sdlBackSurface)
+        hardware' <- get
+        let !surface = hardware' ^. stellaSDL . sdlBackSurface
         !ptr <- liftIO $ surfacePixels surface
         let !ptr' = castPtr ptr :: Ptr Word32
         let !pixelx = hpos'-picx
@@ -649,15 +658,22 @@ stellaTick n = do
         -- Get address of pixel in back buffer
         let !i = screenWidth*pixely+pixelx
 
-        r <- use oregisters
-        (hpos', _) <- use position
+        let !r = hardware' ^. oregisters
+        let (!hpos', _) = hardware' ^. position
         resmp0' <- liftIO $ fastGetORegister r resmp0
         resmp1' <- liftIO $ fastGetORegister r resmp1
+        {-
         zoom sprites $ do
-            ppos0' <- use s_ppos0
-            ppos1' <- use s_ppos1
-            when (testBit resmp0' 1) $ s_mpos0 .= ppos0'
-            when (testBit resmp1' 1) $ s_mpos1 .= ppos1'
+            Sprites ppos0' ppos1' mpos0' mpos1' bpos' <- get
+            let !mpos0'' = if testBit resmp0' 1 then ppos0' else mpos0'
+            let !mpos1'' = if testBit resmp1' 1 then ppos1' else mpos1'
+            put $ Sprites ppos0' ppos1' mpos0'' mpos1'' bpos'
+            -}
+        sprites %=
+            \(Sprites ppos0' ppos1' mpos0' mpos1' bpos') ->
+                let !mpos0'' = if testBit resmp0' 1 then ppos0' else mpos0'
+                    !mpos1'' = if testBit resmp1' 1 then ppos1' else mpos1'
+                in Sprites ppos0' ppos1' mpos0'' mpos1'' bpos'
 
         hardware' <- get
         liftIO $ do
@@ -718,10 +734,10 @@ bankSwitch addr = do
 pureReadMemory :: Word16 -> MonadAtari Word8
 pureReadMemory addr =
     if addr >= 0x1000
-        then M $ zoom memory $ pureReadRom addr
+        then M $ zoom (cpu . memory) $ pureReadRom addr
         else if isRAM addr
             then do
-                m <- use (memory . ram)
+                m <- use (cpu . memory . ram)
                 liftIO $ readArray m (iz addr .&. 0x7f)
             else if isTIA addr
                     then readStella (addr .&. 0x3f)
@@ -734,7 +750,7 @@ pureWriteMemory :: Word16 -> Word8 -> MonadAtari ()
 pureWriteMemory addr v = do
     if isRAM addr
         then do
-            m <- use (memory . ram)
+            m <- use (cpu . memory . ram)
             liftIO $ writeArray m (iz addr .&. 0x7f) v
         else if isTIA addr
             then writeStella (addr .&. 0x3f) v
@@ -747,74 +763,74 @@ instance Emu6502 MonadAtari where
     readMemory addr' = do
         let addr = addr' .&. 0x1fff -- 6507
         byte <- pureReadMemory addr
-        M $ zoom memory $ bankSwitch addr
+        M $ zoom (cpu . memory) $ bankSwitch addr
         return byte
 
     {-# INLINE writeMemory #-}
     writeMemory addr' v = do
         let addr = addr' .&. 0x1fff -- 6507
         pureWriteMemory addr v
-        M $ zoom memory $ bankSwitch addr
+        M $ zoom (cpu . memory) $ bankSwitch addr
 
     {-# INLINE getPC #-}
-    getPC = use (regs . pc)
+    getPC = use (cpu . regs . pc)
     {-# INLINE tick #-}
     tick n = do
         clock += fromIntegral n
         c <- use clock
         M $ zoom hardware $ stellaTickUntil (3*c)
     {-# INLINE putC #-}
-    putC b = regs . flagC .= b
+    putC b = cpu . regs . flagC .= b
     {-# INLINE getC #-}
-    getC = use (regs . flagC)
+    getC = use (cpu . regs . flagC)
     {-# INLINE putZ #-}
-    putZ b = regs . flagZ .= b
+    putZ b = cpu . regs . flagZ .= b
     {-# INLINE getZ #-}
-    getZ = use (regs . flagZ)
+    getZ = use (cpu . regs . flagZ)
     {-# INLINE putI #-}
-    putI b = regs . flagI .= b
+    putI b = cpu . regs . flagI .= b
     {-# INLINE getI #-}
-    getI = use (regs . flagI)
+    getI = use (cpu . regs . flagI)
     {-# INLINE putD #-}
-    putD b = regs . flagD .= b
+    putD b = cpu . regs . flagD .= b
     {-# INLINE getD #-}
-    getD = use (regs . flagD)
+    getD = use (cpu . regs . flagD)
     {-# INLINE putB #-}
-    putB b = regs . flagB .= b
+    putB b = cpu . regs . flagB .= b
     {-# INLINE getB #-}
-    getB = use (regs . flagB)
+    getB = use (cpu . regs . flagB)
     {-# INLINE putV #-}
-    putV b = regs . flagV .= b
+    putV b = cpu . regs . flagV .= b
     {-# INLINE getV #-}
-    getV = use (regs . flagV)
+    getV = use (cpu . regs . flagV)
     {-# INLINE putN #-}
-    putN b = regs . flagN .= b
+    putN b = cpu . regs . flagN .= b
     {-# INLINE getN #-}
-    getN = use (regs . flagN)
+    getN = use (cpu . regs . flagN)
     {-# INLINE getA #-}
-    getA = use (regs . a)
+    getA = use (cpu . regs . a)
     {-# INLINE putA #-}
-    putA r = regs . a .= r
+    putA r = cpu . regs . a .= r
     {-# INLINE getS #-}
-    getS = use (regs . s)
+    getS = use (cpu . regs . s)
     {-# INLINE putS #-}
-    putS r = regs . s .= r
+    putS r = cpu . regs . s .= r
     {-# INLINE getX #-}
-    getX = use (regs . x)
+    getX = use (cpu . regs . x)
     {-# INLINE putX #-}
-    putX r = regs . x .= r
+    putX r = cpu . regs . x .= r
     {-# INLINE getP #-}
-    getP = use (regs . p)
+    getP = use (cpu . regs . p)
     {-# INLINE putP #-}
-    putP r = regs . p .= r
+    putP r = cpu . regs . p .= r
     {-# INLINE getY #-}
-    getY = use (regs . y)
+    getY = use (cpu . regs . y)
     {-# INLINE putY #-}
-    putY r = regs . y .= r
+    putY r = cpu . regs . y .= r
     {-# INLINE putPC #-}
-    putPC r = regs . pc .= r
+    putPC r = cpu . regs . pc .= r
     {-# INLINE addPC #-}
-    addPC n = regs . pc += fromIntegral n
+    addPC n = cpu . regs . pc += fromIntegral n
 
     debugStr _ _ = return ()
     debugStrLn _ _ = return ()
