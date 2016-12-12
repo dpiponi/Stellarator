@@ -24,4 +24,5 @@ renderDisplay (SDLState back front window) = do
                 (Just (Rectangle (P (V2 0 0))
                                  (V2 (screenWidth*xscale) (screenHeight*yscale))))
     lockSurface back
+    --surfaceFillRect back Nothing (V4 0 0 0 0)
     updateWindowSurface window

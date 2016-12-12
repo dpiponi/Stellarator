@@ -662,7 +662,7 @@ stellaTick n = do
         liftIO $ do
             !final <- compositeAndCollide hardware' pixelx hpos' r
             let !rgb = lut!(final `shift` (-1))
-            let !grayedOut = ((rgb .&. 0xfefefe) `shift` (-1))+0x808080
+            let !grayedOut = ((rgb .&. 0xfefefe) `shift` (-1))+0x202020
             !blank <- fastGetORegister r vblank
             pokeElemOff ptr' (fromIntegral i) (if testBit blank 1 then grayedOut else rgb)
 
