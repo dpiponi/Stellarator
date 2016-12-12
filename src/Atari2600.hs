@@ -198,6 +198,9 @@ stellaCxclr = do
         fastPutIRegister r cxblpf 0
         fastPutIRegister r cxppmm 0
 
+-- Some screen-related metrics
+screenScanLines :: CInt
+screenScanLines = 192
 picy :: CInt
 picy = 40
 picx :: CInt
@@ -307,7 +310,6 @@ StartOfFrame
         ;--------------------------------------------------
         ; Start of vertical blank processing
         ;--------------------------------------------------
-
                 lda #0
                 sta VBLANK
 
@@ -350,7 +352,6 @@ Overscan        sta WSYNC
                 bne Overscan
 
                 jmp StartOfFrame
-
 -}
 
 {- INLINE stellaVblank -}
@@ -394,9 +395,9 @@ updatePos (hpos0, vpos0) =
     in if hpos' < picx+160
         then (hpos', vpos0)
         else let vpos' = vpos0+1
-             in if vpos' < picy+192
-                then (0, vpos')
-                else (0, 0)
+             in (0, vpos') -- if vpos' < picy+screenScanLines
+                -- then (0, vpos')
+                -- else (0, 0)
 
 {- INLINE compositeAndCollide -}
 compositeAndCollide :: Hardware -> CInt -> CInt -> IOUArray OReg Word8 -> IO Word8
@@ -644,7 +645,7 @@ stellaTick n = do
     intervalTimer %= timerTick
     
     -- Display
-    when (vpos' >= picy && vpos' < picy+192 && hpos' >= picx) $ do
+    when (vpos' >= picy && vpos' < picy+screenScanLines && hpos' >= picx) $ do
         !surface <- use (stellaSDL . sdlBackSurface)
         !ptr <- liftIO $ surfacePixels surface
         let !ptr' = castPtr ptr :: Ptr Word32
