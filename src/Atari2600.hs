@@ -66,8 +66,8 @@ data Atari2600 = Atari2600 {
     _memory :: Memory,
     _hardware :: Hardware,
     _regs :: !Registers,
-    _clock :: !Int64,
-    _debug :: !Int
+    _clock :: !Int64
+    --_debug :: !Int
 }
 
 $(makeLenses ''Atari2600)
@@ -109,8 +109,8 @@ initState ram' mode rom' oregs iregs initialPC
                   _bankOffset = 0
               },
               _clock = 0,
-              _regs = R initialPC 0 0 0 0 0xff,
-              _debug = 8
+              _regs = R initialPC 0 0 0 0 0xff
+              -- _debug = 8
           }
 
 {-# INLINE flagC #-}
@@ -816,6 +816,9 @@ instance Emu6502 MonadAtari where
     {-# INLINE addPC #-}
     addPC n = regs . pc += fromIntegral n
 
+    debugStr _ _ = return ()
+    debugStrLn _ _ = return ()
+{-
     {- INLINE debugStr 9 -}
     debugStr n str = do
         d <- use debug
@@ -829,6 +832,7 @@ instance Emu6502 MonadAtari where
         if n <= d
             then liftIO $ putStrLn str
             else return ()
+-}
 
     {- INLINE illegal -}
     illegal i = error $ "Illegal opcode 0x" ++ showHex i ""
