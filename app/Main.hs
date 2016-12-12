@@ -53,6 +53,7 @@ import System.Console.Haskeline
 import Control.Concurrent
 import Stella.IntervalTimer
 import Stella.TIARegisters
+import Data.Time.Clock
 import Stella.SDLState
 
 import DebugCmd
@@ -165,15 +166,22 @@ main = do
     --SDL.setHintWithPriority SDL.NormalPriority SDL.HintRenderVSync SDL.EnableVSync
     -- https://hackage.haskell.org/package/sdl2-2.1.3
 
+    startTime <- getCurrentTime
     let loop = do
             events <- liftIO $ SDL.pollEvents
 
             let quit = elem SDL.QuitEvent $ map SDL.eventPayload events
             forM_ events handleEvent
             stellaClock' <-  use (hardware . stellaClock)
-            loopUntil (stellaClock' + 250)
-
-            loop
+            now <- liftIO $ getCurrentTime
+            let !elapsedTime = realToFrac (diffUTCTime now startTime) :: Double
+            let !stellaTime = realToFrac stellaClock'/3.58e6
+            liftIO $ print (elapsedTime, stellaTime)
+            if stellaTime > elapsedTime
+                then loop
+                else do
+                    loopUntil (stellaClock' + 100000)
+                    loop
 
     flip runStateT state $ unM $ do
         -- Joystick buttons not pressed

@@ -5,7 +5,6 @@ module Stella.SDLState where
 --import Control.Lens
 import SDL.Vect
 import SDL.Video
-import Foreign.C.Types
 import Control.Lens
 import Metrics
 

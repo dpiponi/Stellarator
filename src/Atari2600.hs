@@ -16,6 +16,7 @@ import Data.Data
 import Data.Array.IO
 import Data.Array.Unboxed
 import Metrics
+import Data.Time.Clock
 import Data.Bits hiding (bit)
 import Data.Bits.Lens
 import Memory

@@ -24,6 +24,7 @@ library
                      , vector
                      , OpenGL
                      , array
+                     , time
                      , mtl
                      , lens
                      , binary
@@ -44,6 +45,7 @@ executable stellarator-exe
                      , array
                      , mtl
                      , lens
+                     , time
                      , binary
                      , cmdargs
                      , monad-loops
