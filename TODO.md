@@ -7,6 +7,9 @@ TODO
 9. More ROM bank switching styles
 11. Separate memory read and side-effecting (bank switching) memory read.
 12. Rework TV display to show all needed scan lines.
+13. Load 2K roms
+14. Guess ROM type
+15. E0 bank switching segments
 
 Done
 ----

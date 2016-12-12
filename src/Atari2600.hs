@@ -301,6 +301,58 @@ iz = fromIntegral
 bit :: Int -> Bool -> Word8
 bit n t = if t then 1 `shift` n else 0
 
+{-
+Here's a standard kernel:
+StartOfFrame
+        ;--------------------------------------------------
+        ; Start of vertical blank processing
+        ;--------------------------------------------------
+
+                lda #0
+                sta VBLANK
+
+                lda #2
+                sta VSYNC
+
+                sta WSYNC
+                sta WSYNC
+                sta WSYNC                ; 3 scanlines of VSYNC signal
+
+                lda #0
+                sta VSYNC
+        ;--------------------------------------------------
+        ; 37 scanlines of vertical blank...
+        ;--------------------------------------------------
+                ldx #0
+VerticalBlank   sta WSYNC
+                inx
+                cpx #37
+                bne VerticalBlank
+        ;--------------------------------------------------
+        ; Do 192 scanlines of colour-changing (our picture)
+        ;--------------------------------------------------
+                ldx #0                  ; this counts our scanline number
+                ...
+Lines           sta WSYNC
+                inx
+                cpx #192
+                bne Lines
+        ;--------------------------------------------------
+        ; 30 scanlines of overscan...
+        ;--------------------------------------------------
+                lda #%01000010
+                sta VBLANK           ; end of screen - enter blanking
+
+                ldx #0
+Overscan        sta WSYNC
+                inx
+                cpx #30
+                bne Overscan
+
+                jmp StartOfFrame
+
+-}
+
 {- INLINE stellaVblank -}
 stellaVblank :: Word8 -> StateT Hardware IO ()
 stellaVblank v = do
