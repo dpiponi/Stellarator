@@ -17,6 +17,7 @@ import Control.Lens hiding (_last)
 import Control.Monad
 import Text.Parsec
 import Control.Monad.State.Strict
+import Metrics
 import Data.Array.IO
 import DebugState
 import Data.Array.Unboxed
@@ -139,7 +140,7 @@ main = do
     SDL.showWindow window
     screenSurface <- SDL.getWindowSurface window
 
-    helloWorld <- createRGBSurface (V2 screenWidth screenHeight) RGB888
+    backSurface <- createRGBSurface (V2 screenWidth screenHeight) RGB888
 
     rom <- newArray (0, 0x3fff) 0 :: IO (IOUArray Int Word8)
     ram <- newArray (0, 0x7f) 0 :: IO (IOUArray Int Word8)
@@ -153,7 +154,7 @@ main = do
     iregs <- newArray (0, 0x300) 0 -- XXX no need for that many really
     let style = bank args
     let state = initState ram style rom oregs iregs
-                          initialPC helloWorld screenSurface window
+                          initialPC backSurface screenSurface window
 
     let loopUntil n = do
             stellaClock' <- use (hardware . stellaClock)
@@ -183,5 +184,5 @@ main = do
         loop
 
     SDL.destroyWindow window
-    SDL.freeSurface helloWorld
+    SDL.freeSurface backSurface
     SDL.quit

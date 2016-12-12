@@ -7,6 +7,7 @@ import SDL.Vect
 import SDL.Video
 import Foreign.C.Types
 import Control.Lens
+import Metrics
 
 data SDLState = SDLState {
     _sdlBackSurface :: !Surface,
@@ -15,13 +16,6 @@ data SDLState = SDLState {
 }
 
 $(makeLenses '' SDLState)
-
-screenWidth, screenHeight :: CInt
-(screenWidth, screenHeight) = (160, 192)
-
-xscale, yscale :: CInt
-xscale = 5
-yscale = 3
 
 renderDisplay :: SDLState -> IO ()
 renderDisplay (SDLState back front window) = do

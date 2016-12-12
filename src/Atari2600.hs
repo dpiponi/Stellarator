@@ -15,6 +15,7 @@ import Core
 import Data.Data
 import Data.Array.IO
 import Data.Array.Unboxed
+import Metrics
 import Data.Bits hiding (bit)
 import Data.Bits.Lens
 import Memory
@@ -197,14 +198,6 @@ stellaCxclr = do
         fastPutIRegister r cxp1fb 0
         fastPutIRegister r cxblpf 0
         fastPutIRegister r cxppmm 0
-
--- Some screen-related metrics
-screenScanLines :: CInt
-screenScanLines = 192
-picy :: CInt
-picy = 40
-picx :: CInt
-picx = 68
 
 {- INLINE stellaHmove -}
 stellaHmove :: StateT Hardware IO ()
@@ -651,6 +644,8 @@ stellaTick n = do
         let !ptr' = castPtr ptr :: Ptr Word32
         let !pixelx = hpos'-picx
         let !pixely = vpos'-picy
+
+        -- Get address of pixel in back buffer
         let !i = screenWidth*pixely+pixelx
 
         r <- use oregisters
