@@ -75,7 +75,7 @@ eval Col = do
     return (EInt (fromIntegral n))
 
 eval (Var s) = do
-    v <- use (hardware . stellaDebug . variables)
+    v <- use (hardware . rendering . stellaDebug . variables)
     case Map.lookup s v of
         Nothing -> return EFail
         Just x -> return x
@@ -164,8 +164,8 @@ execCommand cmd =
     case cmd of
         Let var e -> do
             e' <- eval e
-            hardware . stellaDebug . variables %= Map.insert var e'
-            v <- use (hardware . stellaDebug . variables)
+            hardware . rendering . stellaDebug . variables %= Map.insert var e'
+            v <- use (hardware . rendering . stellaDebug . variables)
             --liftIO $ print v
             return False
         Block cmds -> do
@@ -184,7 +184,7 @@ execCommand cmd =
         Cont -> do
             liftIO $ putStrLn "Continuing..."
             return True
-        DumpGraphics -> dumpStella >> return False
+        DumpGraphics -> (M $ zoom hardware $ dumpStella) >> return False
         Step -> step >> return False
         Print es -> do
             forM_ es $ \e -> do

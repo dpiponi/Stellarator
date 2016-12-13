@@ -1,4 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE BangPatterns #-}
 
 module Stella.TIARegisters where
 --module Stella.TIARegisters(OReg, IReg, fastGetORegister, fastModifyIRegister, fastOrIRegister) where
@@ -54,24 +55,24 @@ swchb = 0x282
 
 {-# INLINE fastGetORegister #-}
 fastGetORegister :: IOUArray OReg Word8 -> OReg -> IO Word8
-fastGetORegister = readArray
+fastGetORegister !reg = readArray reg
 
 {-# INLINE fastGetIRegister #-}
 fastGetIRegister :: IOUArray IReg Word8 -> IReg -> IO Word8
-fastGetIRegister = readArray
+fastGetIRegister !reg = readArray reg
 
 {-# INLINE fastPutORegister #-}
 fastPutORegister :: IOUArray OReg Word8 -> OReg -> Word8 -> IO ()
-fastPutORegister = writeArray
+fastPutORegister !reg !v = writeArray reg v
 
 {-# INLINE fastPutIRegister #-}
 fastPutIRegister :: IOUArray IReg Word8 -> IReg -> Word8 -> IO ()
-fastPutIRegister = writeArray
+fastPutIRegister !reg v = writeArray reg v
 
 {-# INLINE fastModifyIRegister #-}
 fastModifyIRegister :: IOUArray IReg Word8 -> IReg -> (Word8 -> Word8) -> IO ()
-fastModifyIRegister r i f = readArray r i >>= writeArray r i . f
+fastModifyIRegister !r !i f = readArray r i >>= writeArray r i . f
 
 {-# INLINE fastOrIRegister #-}
 fastOrIRegister :: IOUArray IReg Word8 -> IReg -> Word8 -> IO ()
-fastOrIRegister r i v = fastModifyIRegister r i (v .|.)
+fastOrIRegister !r !i !v = fastModifyIRegister r i (v .|.)

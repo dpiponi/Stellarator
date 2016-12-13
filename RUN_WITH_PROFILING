@@ -1,1 +1,1 @@
-stack exec Stellarator-exe -- -f roms/adventure.rom +RTS -p
+stack exec Stellarator-exe -- -b f8 -f Centiped.bin +RTS -p

@@ -158,7 +158,7 @@ main = do
                           initialPC backSurface screenSurface window
 
     let loopUntil n = do
-            stellaClock' <- use (hardware . stellaClock)
+            !stellaClock' <- use (hardware . stellaClock)
             when (stellaClock' < n) $ do
                 step
                 loopUntil n
