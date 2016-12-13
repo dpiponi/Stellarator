@@ -420,27 +420,56 @@ doCollisions ir !lplayfield !lball !lmissile0 !lmissile1 !lplayer0 !lplayer1 = d
     when lplayer1 $ fastOrIRegister ir cxp1fb playball
     when lball $ fastOrIRegister ir cxblpf $ bit 7 lplayfield
 
+
+{-
+    let !playfieldColour = if testBit ctrlpf' 1
+            then if pixelx < 80
+                then colup0
+                else colup1
+            else colupf -- does ball get this too? XXX
+                -}
+
+chooseColour :: Bool -> CInt -> Word8 -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> OReg
+chooseColour playFieldPriority !pixelx !ctrlpf' !lplayfield !lball !lmissile0 !lmissile1 !lplayer0 !lplayer1 = 
+    if playFieldPriority
+        then if lball
+            then colupf
+            else if lplayfield
+                then if testBit ctrlpf' 1
+                    then if pixelx < 80
+                        then colup0
+                        else colup1
+                    else colupf
+                else if lmissile0 || lplayer0
+                    then colup0
+                    else if lmissile1 || lplayer1
+                        then colup1
+                        else colubk
+        else if lmissile0 || lplayer0
+            then  colup0
+            else if lmissile1 || lplayer1
+                then colup1
+                else if lplayfield
+                    then if testBit ctrlpf' 1
+                        then if pixelx < 80
+                            then colup0
+                            else colup1
+                        else colupf
+                    else if lball
+                        then colupf
+                        else colubk
+
 {- INLINE compositeAndCollide -}
 compositeAndCollide :: Hardware -> CInt -> CInt -> IOUArray OReg Word8 -> IO Word8
 compositeAndCollide hardware' pixelx hpos' r = do
     resmp0' <- fastGetORegister r resmp0
     resmp1' <- fastGetORegister r resmp1
+    !ctrlpf' <- fastGetORegister r ctrlpf
 
     let ir = hardware' ^. iregisters
-    !ctrlpf' <- fastGetORegister r ctrlpf
-    !colupf' <- fastGetORegister r colupf
-    !colup0' <- fastGetORegister r colup0
-    !colup1' <- fastGetORegister r colup1
-    !colubk' <- fastGetORegister r colubk
-    let !playfieldColour = if testBit ctrlpf' 1
-            then if pixelx < 80
-                then colup0'
-                else colup1'
-            else colupf' -- does ball get this too?
 
     let graphics' = hardware' ^. graphics
     let sprites' = hardware' ^. sprites
-    -- XXX Side effects in missile0/1
     !enam0' <- fastGetORegister r enam0
     !enam1' <- fastGetORegister r enam1
     !nusiz0' <- fastGetORegister r nusiz0
@@ -450,32 +479,13 @@ compositeAndCollide hardware' pixelx hpos' r = do
     !lplayer0 <- player0 r graphics' nusiz0' hpos' (sprites' ^. s_ppos0)
     !lplayer1 <- player1 r graphics' nusiz1' hpos' (sprites' ^. s_ppos1)
     !lball <- ball graphics' ctrlpf' hpos' (sprites' ^. s_bpos)
-    -- !lplayfield <- playfield r ctrlpf' (fromIntegral $ pixelx `div` 4)
     let !playfieldx = fromIntegral (pixelx `shift` (-2))
     let !pf' = hardware' ^. pf
     let !lplayfield = playfieldx >= 0 && playfieldx < 40 && testBit pf' playfieldx
 
     doCollisions ir lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1
 
-    return $ if testBit ctrlpf' 2
-                then if lball
-                    then colupf'
-                    else if lplayfield
-                        then playfieldColour
-                        else if lmissile0 || lplayer0
-                            then colup0'
-                            else if lmissile1 || lplayer1
-                                then colup1'
-                                else colubk'
-                else if lmissile0 || lplayer0
-                    then colup0'
-                    else if lmissile1 || lplayer1
-                        then colup1'
-                        else if lplayfield
-                            then playfieldColour
-                            else if lball
-                                then colupf'
-                                else colubk'
+    fastGetORegister r $ chooseColour (testBit ctrlpf' 2) pixelx ctrlpf' lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1
 
 -- Atari2600 programmer's guide p.22
 {- INLINE missile0 -}
