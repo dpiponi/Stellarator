@@ -9,7 +9,7 @@ import DebugCmd
 
 data DebugState = DebugState {
     _debugLevel :: !Int,
-    _posbreak :: (CInt, CInt),
+    _posbreak :: (Int, Int),
     _variables :: Map.Map String Value
 }
 

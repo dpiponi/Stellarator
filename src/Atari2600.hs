@@ -26,7 +26,7 @@ import Data.Int
 import Data.Word
 import DebugState
 import Disasm
-import Foreign.C.Types
+--import Foreign.C.Types
 import Foreign.Ptr
 import Foreign.Storable
 import Numeric
@@ -54,7 +54,7 @@ $(makeLenses ''Registers)
 data Rendering = Rendering {
     _graphics :: Graphics,
     _sprites :: Sprites,
-    _position :: (CInt, CInt),
+    _position :: (Int, Int),
     _stellaSDL :: SDLState,
     _stellaDebug :: DebugState
 }
@@ -98,38 +98,40 @@ initState :: IOUArray Int Word8 ->
              IOUArray IReg Word8 ->
              Word16 ->
              SDL.Surface -> SDL.Surface ->
-             SDL.Window -> Atari2600
+             SDL.Window -> IO Atari2600
 initState ram' mode rom' oregs iregs initialPC
-          helloWorld screenSurface window = Atari2600 {
-              _hardware = Hardware {
-                  _rendering = Rendering {
-                      _position = (0, 0),
-                      _stellaSDL = SDLState {
-                          _sdlBackSurface = helloWorld,
-                          _sdlFrontSurface = screenSurface,
-                          _sdlFrontWindow = window
+          helloWorld screenSurface window = do
+              sprites' <- Stella.Sprites.start
+              return Atari2600 {
+                  _hardware = Hardware {
+                      _rendering = Rendering {
+                          _position = (0, 0),
+                          _stellaSDL = SDLState {
+                              _sdlBackSurface = helloWorld,
+                              _sdlFrontSurface = screenSurface,
+                              _sdlFrontWindow = window
+                          },
+                          _graphics = Stella.Graphics.start,
+                          _sprites = sprites',
+                          _stellaDebug = DebugState.start
                       },
-                      _graphics = Stella.Graphics.start,
-                      _sprites = Stella.Sprites.start,
-                      _stellaDebug = DebugState.start
+                      _oregisters = oregs,
+                      _iregisters = iregs,
+                      _intervalTimer = Stella.IntervalTimer.start,
+                      _stellaClock = 0,
+                      _trigger1 = False
                   },
-                  _oregisters = oregs,
-                  _iregisters = iregs,
-                  _intervalTimer = Stella.IntervalTimer.start,
-                  _stellaClock = 0,
-                  _trigger1 = False
-              },
-              _cpu = CPU {
-                  _memory = Memory {
-                      _rom = rom',
-                      _ram = ram',
-                      _bankMode = mode,
-                      _bankOffset = 0
+                  _cpu = CPU {
+                      _memory = Memory {
+                          _rom = rom',
+                          _ram = ram',
+                          _bankMode = mode,
+                          _bankOffset = 0
+                      },
+                      _regs = R initialPC 0 0 0 0 0xff
                   },
-                  _regs = R initialPC 0 0 0 0 0xff
-              },
-              _clock = 0
-          }
+                  _clock = 0
+              }
 
 {-# INLINE flagC #-}
 flagC :: Lens' Registers Bool
@@ -221,39 +223,51 @@ stellaCxclr = do
 {- INLINE stellaHmove -}
 stellaHmove :: StateT Hardware IO ()
 stellaHmove = do
-    Sprites !ppos0' !ppos1' !mpos0' !mpos1' !bpos' <- use (rendering . sprites)
+    !sprites' <- use (rendering . sprites)
+    !ppos0' <- liftIO $ readArray sprites' pos_p0
+    !ppos1' <- liftIO $ readArray sprites' pos_p1
+    !mpos0' <- liftIO $ readArray sprites' pos_m0
+    !mpos1' <- liftIO $ readArray sprites' pos_m1
+    !bpos' <- liftIO $ readArray sprites' pos_b
 
     !r <- use oregisters
     !poffset0 <- liftIO $ fastGetORegister r hmp0
-    let !ppos0'' = wrap160 (ppos0'-clockMove poffset0)
+    let !ppos0'' = wrap160 (fromIntegral ppos0'-clockMove poffset0)
 
     !poffset1 <- liftIO $ fastGetORegister r hmp1
-    let !ppos1'' = wrap160 (ppos1'-clockMove poffset1)
+    let !ppos1'' = wrap160 (fromIntegral ppos1'-clockMove poffset1)
 
     !moffset0 <- liftIO $ fastGetORegister r hmm0
-    let !mpos0'' = wrap160 (mpos0'-clockMove moffset0) -- XXX do rest
+    let !mpos0'' = wrap160 (fromIntegral mpos0'-clockMove moffset0) -- XXX do rest
 
     !moffset1 <- liftIO $ fastGetORegister r hmm1
-    let !mpos1'' = wrap160 (mpos1'-clockMove moffset1) -- XXX do rest
+    let !mpos1'' = wrap160 (fromIntegral mpos1'-clockMove moffset1) -- XXX do rest
 
     !boffset <- liftIO $ fastGetORegister r hmbl
-    let !bpos'' = wrap160 (bpos'-clockMove boffset)
-
-    rendering . sprites .= Sprites {
-        _s_ppos0 = ppos0'',
-        _s_ppos1 = ppos1'',
-        _s_mpos0 = mpos0'',
-        _s_mpos1 = mpos1'',
-        _s_bpos = bpos''
-    }
+    let !bpos'' = wrap160 (fromIntegral bpos'-clockMove boffset)
+    
+    liftIO $ do
+        writeArray sprites' pos_p0 (fromIntegral ppos0'')
+        writeArray sprites' pos_p1 (fromIntegral ppos1'')
+        writeArray sprites' pos_m0 (fromIntegral mpos0'')
+        writeArray sprites' pos_m1 (fromIntegral mpos1'')
+        writeArray sprites' pos_b (fromIntegral bpos'')
 
 {- INLINE stellaResmp0 -}
-stellaResmp0 ::  MonadAtari ()
-stellaResmp0 = use (hardware . rendering . sprites . s_ppos0) >>= (hardware . rendering . sprites . s_mpos0 .=) -- XXX
+stellaResmp0 :: MonadAtari ()
+stellaResmp0 = do
+    sprites' <- use (hardware . rendering . sprites)
+    liftIO $ do
+        ppos0' <- readArray sprites' pos_p0
+        writeArray sprites' pos_m0 ppos0'
 
 {- INLINE stellaResmp1 -}
 stellaResmp1 :: MonadAtari ()
-stellaResmp1 = use (hardware . rendering . sprites . s_ppos1) >>= (hardware . rendering . sprites . s_mpos1 .=) -- XXX
+stellaResmp1 = do
+    sprites' <- use (hardware . rendering . sprites)
+    liftIO $ do
+        ppos1' <- readArray sprites' pos_p1
+        writeArray sprites' pos_m1 ppos1'
 
 inBinary :: (Bits a) => Int -> a -> String
 inBinary 0 _ = ""
@@ -291,13 +305,13 @@ stellaDebugStrLn n str = do
         else return ()
 
 {-# INLINE wrap160 #-}
-wrap160 :: CInt -> CInt
+wrap160 :: Int -> Int
 wrap160 i | i < picx = wrap160 (i+160)
           | i >= picx+160 = wrap160 (i-160)
 wrap160 i = i
 
 {-# INLINE clockMove #-}
-clockMove :: Word8 -> CInt
+clockMove :: Word8 -> Int
 clockMove i = fromIntegral ((fromIntegral i :: Int8) `shift` (-4))
 
 {-# INLINE i8 #-}
@@ -384,7 +398,7 @@ stellaVblank v = do
 
 {-# INLINE hpos #-}
 {-# INLINE vpos #-}
-hpos, vpos :: Lens' Atari2600 CInt
+hpos, vpos :: Lens' Atari2600 Int
 hpos = hardware . rendering . position . _1
 vpos = hardware . rendering . position . _2
 
@@ -394,7 +408,7 @@ vpos = hardware . rendering . position . _2
 {-# INLINE mpos0 #-}
 {-# INLINE mpos1 #-}
 {-# INLINE bpos #-}
-ppos0, ppos1, mpos0, mpos1, bpos :: Lens' Atari2600 CInt
+ppos0, ppos1, mpos0, mpos1, bpos :: Lens' Atari2600 Int
 ppos0 = hardware . rendering . sprites . s_ppos0
 ppos1 = hardware . rendering . sprites . s_ppos1
 mpos0 = hardware . rendering . sprites . s_mpos0
@@ -403,7 +417,7 @@ bpos = hardware . rendering . sprites . s_bpos
 -}
 
 {-# INLINABLE updatePos #-}
-updatePos :: (CInt, CInt) -> (CInt, CInt)
+updatePos :: (Int, Int) -> (Int, Int)
 updatePos (!hpos0, !vpos0) =
     let !hpos' = hpos0+1
     in if hpos' < picx+160
@@ -440,17 +454,17 @@ doCollisions !ir !lplayfield !lmissile0 !lmissile1 !lplayer0 !lplayer1 !lball = 
     when lball $ fastOrIRegister ir cxblpf $ bit 7 lplayfield
 
 {- INLINE compositeAndCollide -}
-compositeAndCollide :: Hardware -> CInt -> CInt -> IOUArray OReg Word8 -> IO Word8
+compositeAndCollide :: Hardware -> Int -> Int -> IOUArray OReg Word8 -> IO Word8
 compositeAndCollide Hardware { _iregisters = !ir,
                                _rendering = Rendering { _graphics = !graphics'@(Graphics { _pf = pf' }),
-                                                        _sprites = Sprites {
-                                                                            _s_ppos0 = !ppos0',
-                                                                            _s_ppos1 = !ppos1',
-                                                                            _s_mpos0 = !mpos0',
-                                                                            _s_mpos1 = !mpos1',
-                                                                            _s_bpos = !bpos'
-                                                                           } } }
+                                                        _sprites = sprites' } }
                     !pixelx !hpos' !r = do
+    ppos0' <- readArray sprites' pos_p0
+    ppos1' <- readArray sprites' pos_p1
+    mpos0' <- readArray sprites' pos_m0
+    mpos1' <- readArray sprites' pos_m1
+    bpos' <- readArray sprites' pos_b
+
     !resmp0' <- fastGetORegister r resmp0
     !resmp1' <- fastGetORegister r resmp1
     !ctrlpf' <- fastGetORegister r ctrlpf
@@ -500,7 +514,7 @@ compositeAndCollide Hardware { _iregisters = !ir,
 {- INLINE missile0 -}
 -- XXX Note that this updates mpos0 so need to take into account XXX
 -- XXX Missiles need to be replicated like players
-missile :: Word8 -> Word8 -> CInt -> Word8 -> Bool
+missile :: Word8 -> Word8 -> Int -> Word8 -> Bool
 missile !nusiz0' !enam0' !o !resmp0' =
     if o >= 0 && o < missileSize nusiz0'
         then if testBit resmp0' 1
@@ -511,7 +525,7 @@ missile !nusiz0' !enam0' !o !resmp0' =
 -- Atari2600 programmer's guide p.40
 {- INLINE player0 -}
 player0 :: IOUArray OReg Word8 -> Graphics ->
-           Word8 -> CInt -> IO Bool
+           Word8 -> Int -> IO Bool
 player0 r Graphics { _delayP0 = !delayP0', _oldGrp0 = !oldGrp0', _newGrp0 = !newGrp0' } !nusiz0' !o =
     if o < 0 || o >= 72
         then return False
@@ -523,7 +537,7 @@ player0 r Graphics { _delayP0 = !delayP0', _oldGrp0 = !oldGrp0', _newGrp0 = !new
 
 {- INLINE player1 -}
 player1 :: IOUArray OReg Word8 -> Graphics ->
-           Word8 -> CInt -> IO Bool
+           Word8 -> Int -> IO Bool
 player1 r Graphics { _delayP1 = !delayP1', _oldGrp1 = !oldGrp1', _newGrp1 = !newGrp1' } !nusiz1' !o = 
     if o < 0 || o >= 72
         then return False
@@ -534,7 +548,7 @@ player1 r Graphics { _delayP1 = !delayP1', _oldGrp1 = !oldGrp1', _newGrp1 = !new
             return $ stretchPlayer (testBit refp1' 3) sizeCopies o grp1'
 
 {- INLINE ball -}
-ball :: Graphics -> Word8 -> CInt -> IO Bool
+ball :: Graphics -> Word8 -> Int -> IO Bool
 ball Graphics { _oldBall = oldBall', _newBall = newBall', _delayBall = delayBall' } !ctrlpf' !o = do
     if o < 0 || o >= 8 then
         return False
@@ -556,11 +570,11 @@ playfield !r !ctrlpf' !i | i >= 20 && i < 40 = playfield r ctrlpf' $ if testBit 
 playfield _ _ _ = return False -- ???
 -}
 
-missileSize :: Word8 -> CInt
+missileSize :: Word8 -> Int
 missileSize !nusiz = 1 `shift` (fromIntegral ((nusiz `shift` (-4)) .&. 0b11))
 
 {- INLINE stretchPlayer -}
-stretchPlayer :: Bool -> Word8 -> CInt -> Word8 -> Bool
+stretchPlayer :: Bool -> Word8 -> Int -> Word8 -> Bool
 stretchPlayer !reflect !sizeCopies !o !bitmap =
     if o < 0 || o >= 72
         then False
@@ -659,7 +673,7 @@ stellaVsync v = do
     sdlState <- use (rendering . stellaSDL)
     liftIO $ renderDisplay sdlState
 
-renderPixel :: IOUArray OReg Word8 -> Hardware -> CInt -> CInt -> IO ()
+renderPixel :: IOUArray OReg Word8 -> Hardware -> Int -> Int -> IO ()
 renderPixel r hardware'@(Hardware { _rendering = Rendering {
                                         _stellaSDL = SDLState { _sdlBackSurface = !surface }
                                     }
@@ -679,18 +693,22 @@ renderPixel r hardware'@(Hardware { _rendering = Rendering {
         !blank <- fastGetORegister r vblank
         pokeElemOff ptr' (fromIntegral i) (if testBit blank 1 then grayedOut else rgb)
 
-lockMissilesToPlayers :: Word8 -> Word8 -> Sprites -> Sprites
-lockMissilesToPlayers resmp0' resmp1' (Sprites !ppos0' !ppos1' !mpos0' !mpos1' !bpos') =
-    let !mpos0'' = if testBit resmp0' 1 then ppos0' else mpos0'
-        !mpos1'' = if testBit resmp1' 1 then ppos1' else mpos1'
-    in Sprites ppos0' ppos1' mpos0'' mpos1'' bpos'
+lockMissilesToPlayers :: Word8 -> Word8 -> Sprites -> IO ()
+lockMissilesToPlayers resmp0' resmp1' sprites' = do
+    when (testBit resmp0' 1) $ do
+        ppos0' <- readArray sprites' pos_p0
+        writeArray sprites' pos_m0 ppos0'
+    when (testBit resmp1' 1) $ do
+        ppos1' <- readArray sprites' pos_p1
+        writeArray sprites' pos_m1 ppos1'
 
-doRendering :: CInt -> CInt -> StateT Hardware IO ()
+doRendering :: Int -> Int -> StateT Hardware IO ()
 doRendering hpos' vpos' = do
-    hardware'@(Hardware { _oregisters = !r}) <- get
+    hardware'@(Hardware { _oregisters = !r, _rendering = Rendering { _sprites = !sprites' }}) <- get
     !resmp0' <- liftIO $ fastGetORegister r resmp0
     !resmp1' <- liftIO $ fastGetORegister r resmp1
-    rendering . sprites %= lockMissilesToPlayers resmp0' resmp1'
+    liftIO $ lockMissilesToPlayers resmp0' resmp1' sprites'
+    --rendering . sprites %= lockMissilesToPlayers resmp0' resmp1'
     liftIO $ renderPixel r hardware' hpos' vpos'
 
 stellaTick :: Int -> StateT Hardware IO ()
@@ -902,8 +920,9 @@ dumpStella = do
     liftIO $ putStr $ "ENAM0 = " ++ show (testBit enam0' 1)
     liftIO $ putStr $ " ENAM1 = " ++ show (testBit enam1' 1)
     liftIO $ putStrLn $ " ENABL = " ++ show (enablOld, enablNew)
-    mpos0' <- use (rendering . sprites . s_mpos0)
-    mpos1' <- use (rendering . sprites . s_mpos1)
+    sprites' <- use (rendering . sprites)
+    mpos0' <- liftIO $ readArray sprites' pos_m0
+    mpos1' <- liftIO $ readArray sprites' pos_m1
     hmm0' <- liftIO $ fastGetORegister r hmm0
     hmm1' <- liftIO $ fastGetORegister r hmm1
     liftIO $ putStr $ "missile0 @ " ++ show mpos0' ++ "(" ++ show (clockMove hmm0') ++ ")"
@@ -962,13 +981,19 @@ dumpState = do
     dumpRegisters
 
 {- INLINE setBreak -}
-setBreak :: CInt -> CInt -> MonadAtari ()
+setBreak :: Int -> Int -> MonadAtari ()
 setBreak breakX breakY = hardware . rendering . stellaDebug . posbreak .= (breakX+picx, breakY+picy)
 
 graphicsDelay :: Int64 -> MonadAtari ()
 graphicsDelay n = do
     c <- use clock
     M $ zoom hardware $ stellaTickUntil (3*c+n)
+
+setSpritePos :: SpriteCounter -> MonadAtari ()
+setSpritePos sprite = do
+    hpos' <- use hpos
+    sprites' <- use (hardware . rendering . sprites)
+    liftIO $ writeArray sprites' sprite hpos'
 
 {- INLINABLE writeStella -}
 writeStella :: Word16 -> Word8 -> MonadAtari ()
@@ -989,11 +1014,11 @@ writeStella addr v =
        0x0d -> graphicsDelay 4 >> putORegister pf0 v >> makePlayfield                  -- PF0
        0x0e -> graphicsDelay 4 >> putORegister pf1 v >> makePlayfield                  -- PF1
        0x0f -> graphicsDelay 4 >> putORegister pf2 v >> makePlayfield                  -- PF2
-       0x10 -> graphicsDelay 5 >> use hpos >>= (hardware . rendering . sprites . s_ppos0 .=)   -- RESP0
-       0x11 -> graphicsDelay 5 >> use hpos >>= (hardware . rendering . sprites . s_ppos1 .=)   -- RESP1
-       0x12 -> graphicsDelay 4 >> use hpos >>= (hardware . rendering . sprites . s_mpos0 .=)   -- RESM0
-       0x13 -> graphicsDelay 4 >> use hpos >>= (hardware . rendering . sprites . s_mpos1 .=)   -- RESM1
-       0x14 -> graphicsDelay 4 >> use hpos >>= (hardware . rendering . sprites . s_bpos .=)     -- RESBL
+       0x10 -> graphicsDelay 5 >> setSpritePos pos_p0   -- RESP0
+       0x11 -> graphicsDelay 5 >> setSpritePos pos_p1   -- RESP1
+       0x12 -> graphicsDelay 4 >> setSpritePos pos_m0   -- RESM0
+       0x13 -> graphicsDelay 4 >> setSpritePos pos_m1   -- RESM1
+       0x14 -> graphicsDelay 4 >> setSpritePos pos_b    -- RESB
        0x1b -> do -- GRP0
                 hardware . rendering . graphics . newGrp0 .= v
                 use (hardware . rendering . graphics . newGrp1) >>= (hardware . rendering . graphics . oldGrp1 .=)

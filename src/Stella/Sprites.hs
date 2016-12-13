@@ -1,10 +1,14 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Stella.Sprites(Sprites(..), start, s_ppos0, s_ppos1, s_mpos0, s_mpos1, s_bpos) where
+module Stella.Sprites where
 
 import Foreign.C.Types
 import Control.Lens
+import Data.Array.IO
+import Data.Array.Unboxed
 
+{-
 data Sprites = Sprites {
     _s_ppos0 :: !CInt,
     _s_ppos1 :: !CInt,
@@ -14,12 +18,19 @@ data Sprites = Sprites {
 }
 
 $(makeLenses ''Sprites)
+-}
 
-start :: Sprites
-start = Sprites {
-          _s_ppos0 = 9999,
-          _s_ppos1 = 9999,
-          _s_mpos0 = 0,
-          _s_mpos1 = 0,
-          _s_bpos = 0
-      }
+type Sprites = IOUArray SpriteCounter Int
+
+newtype SpriteCounter = SpriteCounter Int deriving (Ord, Ix, Eq, Num)
+pos_p0, pos_p1, pos_m0, pos_m1, pos_b :: SpriteCounter
+pos_p0 = 0
+pos_p1 = 1
+pos_m0 = 2
+pos_m1 = 3
+pos_b = 4
+
+start :: IO Sprites
+start = do
+    arr <- newListArray (pos_p0, pos_b) [0, 0, 9999, 9999, 0] :: IO (IOUArray SpriteCounter Int)
+    return arr
