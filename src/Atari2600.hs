@@ -20,6 +20,7 @@ import Data.Array.Unboxed
 import Metrics
 --import Data.Time.Clock
 import Data.Bits hiding (bit)
+import Data.IORef
 import Data.Bits.Lens
 import Memory
 import Data.Int
@@ -65,8 +66,8 @@ data Hardware = Hardware {
     _rendering :: Rendering,
     _oregisters :: IOUArray OReg Word8,
     _iregisters :: IOUArray IReg Word8,
-    _stellaClock :: !Int64,
-    _intervalTimer :: IntervalTimer,
+    _stellaClock :: IORef Int64,
+    _intervalTimer :: IORef IntervalTimer,
     _trigger1 :: !Bool
 }
 
@@ -102,6 +103,8 @@ initState :: IOUArray Int Word8 ->
 initState ram' mode rom' oregs iregs initialPC
           helloWorld screenSurface window = do
               sprites' <- Stella.Sprites.start
+              intervalTimer' <- newIORef Stella.IntervalTimer.start
+              stellaClock' <- newIORef 0
               return Atari2600 {
                   _hardware = Hardware {
                       _rendering = Rendering {
@@ -117,8 +120,8 @@ initState ram' mode rom' oregs iregs initialPC
                       },
                       _oregisters = oregs,
                       _iregisters = iregs,
-                      _intervalTimer = Stella.IntervalTimer.start,
-                      _stellaClock = 0,
+                      _intervalTimer = intervalTimer',
+                      _stellaClock = stellaClock',
                       _trigger1 = False
                   },
                   _cpu = CPU {
@@ -658,7 +661,10 @@ readStella addr =
         0x3d -> getIRegister inpt5
         0x280 -> getIRegister swcha
         0x282 -> getIRegister swchb
-        0x284 -> use (hardware . intervalTimer . intim)
+        0x284 -> do
+                    pIntervalTimer <- use (hardware . intervalTimer)
+                    intervalTimer' <- liftIO $ readIORef pIntervalTimer
+                    return (intervalTimer' ^. intim)
         _ -> return 0 -- (liftIO $ putStrLn $ "reading TIA 0x" ++ showHex addr "") >> return 0
 
 -- http://atariage.com/forums/topic/107527-atari-2600-vsyncvblank/
@@ -721,8 +727,10 @@ stellaTick n = do
         doRendering hpos' vpos'
 
     rendering . position %= updatePos
-    stellaClock += 1
-    intervalTimer %= timerTick
+    pStellaClock <- use stellaClock
+    liftIO $ modifyIORef pStellaClock (+1)
+    pIntervalTimer <- use intervalTimer
+    liftIO $ modifyIORef pIntervalTimer timerTick
 
     (!xbreak', !ybreak') <- use (rendering . stellaDebug . posbreak)
     when ((hpos', vpos') == (xbreak', ybreak')) $ do
@@ -743,7 +751,8 @@ stellaWsync = do
 
 stellaTickUntil :: Int64 -> StateT Hardware IO ()
 stellaTickUntil !n = do
-    !c <- use stellaClock
+    pStellaClock <- use stellaClock
+    !c <- liftIO $ readIORef pStellaClock
     stellaTick (fromIntegral (n-c))
 
 {-# INLINE pureReadRom #-}
@@ -1042,8 +1051,13 @@ writeStella addr v =
        0x2a -> M $ zoom hardware $ stellaHmove               -- HMOVE
        0x2b -> M $ zoom hardware $ stellaHmclr               -- HMCLR
        0x2c -> M $ zoom hardware $ stellaCxclr               -- CXCLR
-       0x294 -> hardware . intervalTimer .= start1 v -- TIM1T
-       0x295 -> hardware . intervalTimer .= start8 v -- TIM8T
-       0x296 -> hardware . intervalTimer .= start64 v -- TIM64T
-       0x297 -> hardware . intervalTimer .= start1024 v -- TIM1024T
+       0x294 -> M $ zoom hardware $ startIntervalTimer (start1 v) -- TIM1T
+       0x295 -> M $ zoom hardware $ startIntervalTimer (start8 v) -- TIM8T
+       0x296 -> M $ zoom hardware $ startIntervalTimer (start64 v) -- TIM64T
+       0x297 -> M $ zoom hardware $ startIntervalTimer (start1024 v) -- TIM1024T
        _ -> return () -- liftIO $ putStrLn $ "writing TIA 0x" ++ showHex addr ""
+
+startIntervalTimer :: IntervalTimer -> StateT Hardware IO ()
+startIntervalTimer start = do
+    pIntervalTimer <- use intervalTimer
+    liftIO $ writeIORef pIntervalTimer start

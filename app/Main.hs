@@ -13,6 +13,7 @@ import Binary
 import qualified Data.Map.Strict as Map
 import Control.Applicative
 import Control.Concurrent (threadDelay)
+import Data.IORef
 import Control.Lens hiding (_last)
 import Control.Monad
 import Text.Parsec
@@ -158,7 +159,8 @@ main = do
                           initialPC backSurface screenSurface window
 
     let loopUntil n = do
-            !stellaClock' <- use (hardware . stellaClock)
+            !pStellaClock <- use (hardware . stellaClock)
+            !stellaClock' <- liftIO $ readIORef pStellaClock
             when (stellaClock' < n) $ do
                 step
                 loopUntil n
@@ -172,7 +174,8 @@ main = do
 
             let quit = elem SDL.QuitEvent $ map SDL.eventPayload events
             forM_ events handleEvent
-            stellaClock' <-  use (hardware . stellaClock)
+            pStellaClock <- use (hardware . stellaClock)
+            stellaClock' <- liftIO $ readIORef pStellaClock
             now <- liftIO $ getCurrentTime
             let !elapsedTime = realToFrac (diffUTCTime now startTime) :: Double
             let !stellaTime = realToFrac stellaClock'/3.58e6
