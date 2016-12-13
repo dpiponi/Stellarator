@@ -404,6 +404,22 @@ makePlayfield = do
     let !pf' = assemblePlayfield (testBit ctrlpf' 0) pf0' pf1' pf2'
     hardware . pf .= pf'
 
+doCollisions :: IOUArray IReg Word8 -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> IO ()
+doCollisions ir !lplayfield !lball !lmissile0 !lmissile1 !lplayer0 !lplayer1 = do
+    let !playball = bit 7 lplayfield .|. bit 6 lball
+    when lmissile0 $ do
+        fastOrIRegister ir cxm0p $ bit 7 lplayer1 .|. bit 6 lplayer0
+        fastOrIRegister ir cxm0fb playball
+        fastOrIRegister ir cxppmm $ bit 6 lmissile1
+    when lmissile1 $ do
+        fastOrIRegister ir cxm1p $ bit 7 lplayer0 .|. bit 6 lplayer1
+        fastOrIRegister ir cxm1fb playball
+    when lplayer0 $ do
+        fastOrIRegister ir cxp0fb playball
+        fastOrIRegister ir cxppmm $ bit 7 lplayer1
+    when lplayer1 $ fastOrIRegister ir cxp1fb playball
+    when lball $ fastOrIRegister ir cxblpf $ bit 7 lplayfield
+
 {- INLINE compositeAndCollide -}
 compositeAndCollide :: Hardware -> CInt -> CInt -> IOUArray OReg Word8 -> IO Word8
 compositeAndCollide hardware' pixelx hpos' r = do
@@ -429,8 +445,8 @@ compositeAndCollide hardware' pixelx hpos' r = do
     !enam1' <- fastGetORegister r enam1
     !nusiz0' <- fastGetORegister r nusiz0
     !nusiz1' <- fastGetORegister r nusiz1
-    let !lmissile0 = missile nusiz0' enam0' hpos' (sprites' ^. s_mpos0) resmp0'
-    let !lmissile1 = missile nusiz1' enam1' hpos' (sprites' ^. s_mpos1) resmp1'
+    let !lmissile0 = missile nusiz0' enam0' (hpos'-(sprites' ^. s_mpos0)) resmp0'
+    let !lmissile1 = missile nusiz1' enam1' (hpos'-(sprites' ^. s_mpos1)) resmp1'
     !lplayer0 <- player0 r graphics' nusiz0' hpos' (sprites' ^. s_ppos0)
     !lplayer1 <- player1 r graphics' nusiz1' hpos' (sprites' ^. s_ppos1)
     !lball <- ball graphics' ctrlpf' hpos' (sprites' ^. s_bpos)
@@ -439,20 +455,7 @@ compositeAndCollide hardware' pixelx hpos' r = do
     let !pf' = hardware' ^. pf
     let !lplayfield = playfieldx >= 0 && playfieldx < 40 && testBit pf' playfieldx
 
-    let !playball = bit 7 lplayfield .|. bit 6 lball
-
-    when lmissile0 $ do
-        fastOrIRegister ir cxm0p $ bit 7 lplayer1 .|. bit 6 lplayer0
-        fastOrIRegister ir cxm0fb playball
-        fastOrIRegister ir cxppmm $ bit 6 lmissile1
-    when lmissile1 $ do
-        fastOrIRegister ir cxm1p $ bit 7 lplayer0 .|. bit 6 lplayer1
-        fastOrIRegister ir cxm1fb playball
-    when lplayer0 $ do
-        fastOrIRegister ir cxp0fb playball
-        fastOrIRegister ir cxppmm $ bit 7 lplayer1
-    when lplayer1 $ fastOrIRegister ir cxp1fb playball
-    when lball $ fastOrIRegister ir cxblpf $ bit 7 lplayfield
+    doCollisions ir lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1
 
     return $ if testBit ctrlpf' 2
                 then if lball
@@ -477,14 +480,12 @@ compositeAndCollide hardware' pixelx hpos' r = do
 -- Atari2600 programmer's guide p.22
 {- INLINE missile0 -}
 -- XXX Note that this updates mpos0 so need to take into account XXX
-missile :: Word8 -> Word8 -> CInt -> CInt -> Word8 -> Bool
-missile nusiz0' enam0' hpos' mpos0' resmp0' =
+missile :: Word8 -> Word8 -> CInt -> Word8 -> Bool
+missile nusiz0' enam0' o resmp0' =
     if testBit resmp0' 1
         then False
         else if testBit enam0' 1
-            then 
-                let o = hpos'-mpos0'
-                in o >= 0 && o < missileSize nusiz0'
+            then o >= 0 && o < missileSize nusiz0'
             else False
 
 -- Atari2600 programmer's guide p.40
