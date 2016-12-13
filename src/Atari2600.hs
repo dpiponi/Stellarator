@@ -675,11 +675,13 @@ stellaTick n = do
 
         hardware' <- get
         liftIO $ do
-            !final <- compositeAndCollide hardware' pixelx hpos' r
-            let !rgb = lut!(final `shift` (-1))
-            let !grayedOut = ((rgb .&. 0xfefefe) `shift` (-1))+0x202020
             !blank <- fastGetORegister r vblank
-            pokeElemOff ptr' (fromIntegral i) (if testBit blank 1 then grayedOut else rgb)
+            if testBit blank 1
+                then pokeElemOff ptr' (fromIntegral i) 0x404040
+                else do
+                    !final <- compositeAndCollide hardware' pixelx hpos' r
+                    let !rgb = lut!(final `shift` (-1))
+                    pokeElemOff ptr' (fromIntegral i) rgb
 
     position %= updatePos
 

@@ -4,9 +4,9 @@ import Foreign.C.Types
 
 -- Some screen-related metrics
 screenScanLines :: CInt
-screenScanLines = 192+40+20
+screenScanLines = 192+10+10
 picy :: CInt
-picy = 40-40
+picy = 40-10
 picx :: CInt
 picx = 68
 
