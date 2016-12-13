@@ -35,6 +35,7 @@ import Stella.SDLState
 import Stella.Sprites
 import Stella.TIARegisters
 import TIAColors
+import BitManips
 import qualified SDL
 
 data Registers = R {
@@ -56,7 +57,8 @@ data Hardware = Hardware {
     _trigger1 :: !Bool,
     _oregisters :: IOUArray OReg Word8,
     _iregisters :: IOUArray IReg Word8,
-    _stellaSDL :: SDLState
+    _stellaSDL :: SDLState,
+    _pf :: Word64
 }
 
 $(makeLenses ''Hardware)
@@ -99,7 +101,8 @@ initState ram' mode rom' oregs iregs initialPC
                   _graphics = Stella.Graphics.start,
                   _stellaClock = 0,
                   _stellaDebug = DebugState.start,
-                  _trigger1 = False
+                  _trigger1 = False,
+                  _pf = 0
               },
               _memory = Memory {
                   _rom = rom',
@@ -391,6 +394,15 @@ updatePos (hpos0, vpos0) =
              in (0, vpos') -- if vpos' < picy+screenScanLines
                 -- then (0, vpos')
                 -- else (0, 0)
+makePlayfield :: MonadAtari ()
+makePlayfield = do
+    r <- use (hardware . oregisters)
+    !pf0' <- liftIO $ fastGetORegister r pf0
+    !pf1' <- liftIO $ fastGetORegister r pf1
+    !pf2' <- liftIO $ fastGetORegister r pf2
+    !ctrlpf' <- liftIO $ fastGetORegister r ctrlpf
+    let !pf' = assemblePlayfield (testBit ctrlpf' 0) pf0' pf1' pf2'
+    hardware . pf .= pf'
 
 {- INLINE compositeAndCollide -}
 compositeAndCollide :: Hardware -> CInt -> CInt -> IOUArray OReg Word8 -> IO Word8
@@ -422,7 +434,10 @@ compositeAndCollide hardware' pixelx hpos' r = do
     !lplayer0 <- player0 r graphics' nusiz0' hpos' (sprites' ^. s_ppos0)
     !lplayer1 <- player1 r graphics' nusiz1' hpos' (sprites' ^. s_ppos1)
     !lball <- ball graphics' ctrlpf' hpos' (sprites' ^. s_bpos)
-    !lplayfield <- playfield r ctrlpf' (fromIntegral $ pixelx `div` 4)
+    -- !lplayfield <- playfield r ctrlpf' (fromIntegral $ pixelx `div` 4)
+    let !playfieldx = fromIntegral (pixelx `shift` (-2))
+    let !pf' = hardware' ^. pf
+    let !lplayfield = playfieldx >= 0 && playfieldx < 40 && testBit pf' playfieldx
 
     let !playball = bit 7 lplayfield .|. bit 6 lball
 
@@ -940,12 +955,12 @@ writeStella addr v =
        0x07 -> putORegister colup1 v               -- COLUP1
        0x08 -> putORegister colupf v               -- COLUPF
        0x09 -> putORegister colubk v               -- COLUBK
-       0x0a -> putORegister ctrlpf v               -- COLUPF
+       0x0a -> putORegister ctrlpf v >> makePlayfield               -- COLUPF
        0x0b -> putORegister refp0 v               -- REFP0
        0x0c -> putORegister refp1 v               -- REFP1
-       0x0d -> graphicsDelay 4 >> putORegister pf0 v                  -- PF0
-       0x0e -> graphicsDelay 4 >> putORegister pf1 v                  -- PF1
-       0x0f -> graphicsDelay 4 >> putORegister pf2 v                  -- PF2
+       0x0d -> graphicsDelay 4 >> putORegister pf0 v >> makePlayfield                  -- PF0
+       0x0e -> graphicsDelay 4 >> putORegister pf1 v >> makePlayfield                  -- PF1
+       0x0f -> graphicsDelay 4 >> putORegister pf2 v >> makePlayfield                  -- PF2
        0x10 -> graphicsDelay 5 >> use hpos >>= (ppos0 .=)   -- RESP0
        0x11 -> graphicsDelay 5 >> use hpos >>= (ppos1 .=)   -- RESP1
        0x12 -> graphicsDelay 4 >> use hpos >>= (mpos0 .=)   -- RESM0
