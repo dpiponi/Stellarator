@@ -15,19 +15,19 @@ import Control.Lens
 import System.Console.Haskeline
 
 comparison :: (Int -> Int -> Bool) -> Expr -> Expr -> MonadAtari Value
-comparison op x y = do
+comparison operator x y = do
         x' <- eval x
         y' <- eval y
         case (x', y') of
-            (EInt x, EInt y) -> return $ EBool (x `op` y)
+            (EInt x, EInt y) -> return $ EBool (x `operator` y)
             _ -> return EFail
 
 arith :: (Int -> Int -> Int) -> Expr -> Expr -> MonadAtari Value
-arith op x y = do
+arith operator x y = do
         x' <- eval x
         y' <- eval y
         case (x', y') of
-            (EInt x, EInt y) -> return $ EInt (x `op` y)
+            (EInt x, EInt y) -> return $ EInt (x `operator` y)
             _ -> return EFail
 
 eval :: Expr -> MonadAtari Value
@@ -88,10 +88,10 @@ eval (Or x y) = do
             (EBool x, EBool y) -> return $ EBool (x || y)
             _ -> return EFail
 
-eval (And x y) = do
-        x' <- eval x
-        y' <- eval y
-        case (x', y') of
+eval (And expr0 expr1) = do
+        value0 <- eval expr0
+        value1 <- eval expr1
+        case (value0, value1) of
             (EInt x, EInt y) -> return $ EInt (x .&. y)
             (EBool x, EBool y) -> return $ EBool (x && y)
             _ -> return EFail
@@ -109,17 +109,17 @@ eval (Minus x y) = arith (-) x y
 eval (LeftShift x y) = arith (shift) x y
 eval (RightShift x y) = arith (shift . negate) x y
 
-eval (PeekByte x) = do
-        x' <- eval x
-        case x' of
+eval (PeekByte expr) = do
+        value <- eval expr
+        case value of
             EInt x -> do
                 y <- readMemory (fromIntegral x)
                 return (EInt $ fromIntegral y)
             _ -> return EFail
 
-eval (PeekWord x) = do
-        x' <- eval x
-        case x' of
+eval (PeekWord expr) = do
+        value <- eval expr
+        case value of
             EInt x -> do
                 lo <- readMemory (fromIntegral x)
                 hi <- readMemory (fromIntegral x+1)
