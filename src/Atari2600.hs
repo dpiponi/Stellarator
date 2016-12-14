@@ -67,7 +67,7 @@ data Registers = R {
 
 data Hardware = Hardware {
     _stellaDebug :: DebugState,
-    _position :: (CInt, CInt),
+    _position :: (Int, Int),
     _stellaClock :: !Int64,
     _graphics :: Graphics,
     _sprites :: Sprites,
@@ -285,13 +285,13 @@ stellaDebugStrLn n str = do
         else return ()
 
 {-# INLINE wrap160 #-}
-wrap160 :: CInt -> CInt
+wrap160 :: Int -> Int
 wrap160 i | i < picx = wrap160 (i+160)
           | i >= picx+160 = wrap160 (i-160)
 wrap160 i = i
 
 {-# INLINE clockMove #-}
-clockMove :: Word8 -> CInt
+clockMove :: Word8 -> Int
 clockMove i = fromIntegral ((fromIntegral i :: Int8) `shift` (-4))
 
 {-# INLINE i8 #-}
@@ -378,7 +378,7 @@ stellaVblank v = do
 
 {-# INLINE hpos #-}
 {-# INLINE vpos #-}
-hpos, vpos :: Lens' Atari2600 CInt
+hpos, vpos :: Lens' Atari2600 Int
 hpos = hardware . position . _1
 vpos = hardware . position . _2
 
@@ -387,7 +387,7 @@ vpos = hardware . position . _2
 {-# INLINE mpos0 #-}
 {-# INLINE mpos1 #-}
 {-# INLINE bpos #-}
-ppos0, ppos1, mpos0, mpos1, bpos :: Lens' Atari2600 CInt
+ppos0, ppos1, mpos0, mpos1, bpos :: Lens' Atari2600 Int
 ppos0 = hardware . sprites . s_ppos0
 ppos1 = hardware . sprites . s_ppos1
 mpos0 = hardware . sprites . s_mpos0
@@ -395,7 +395,7 @@ mpos1 = hardware . sprites . s_mpos1
 bpos = hardware . sprites . s_bpos
 
 {-# INLINABLE updatePos #-}
-updatePos :: (CInt, CInt) -> (CInt, CInt)
+updatePos :: (Int, Int) -> (Int, Int)
 updatePos (hpos0, vpos0) =
     let hpos' = hpos0+1
     in if hpos' < picx+160
@@ -439,7 +439,7 @@ doCollisions ir !lplayfield !lball !lmissile0 !lmissile1 !lplayer0 !lplayer1 = d
             else colupf -- does ball get this too? XXX
                 -}
 
-chooseColour :: Bool -> CInt -> Word8 -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> OReg
+chooseColour :: Bool -> Int -> Word8 -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> OReg
 chooseColour playFieldPriority !pixelx !ctrlpf' !lplayfield !lball !lmissile0 !lmissile1 !lplayer0 !lplayer1 = 
     if playFieldPriority
         then if lball
@@ -470,7 +470,7 @@ chooseColour playFieldPriority !pixelx !ctrlpf' !lplayfield !lball !lmissile0 !l
                         else colubk
 
 {- INLINE compositeAndCollide -}
-compositeAndCollide :: Hardware -> CInt -> CInt -> IOUArray OReg Word8 -> IO Word8
+compositeAndCollide :: Hardware -> Int -> Int -> IOUArray OReg Word8 -> IO Word8
 compositeAndCollide hardware' pixelx hpos' r = do
     resmp0' <- fastGetORegister r resmp0
     resmp1' <- fastGetORegister r resmp1
@@ -500,7 +500,7 @@ compositeAndCollide hardware' pixelx hpos' r = do
 -- Atari2600 programmer's guide p.22
 {- INLINE missile0 -}
 -- XXX Note that this updates mpos0 so need to take into account XXX
-missile :: Word8 -> Word8 -> CInt -> Word8 -> Bool
+missile :: Word8 -> Word8 -> Int -> Word8 -> Bool
 missile _       _      o _       | o < 0                  = False
 missile _       _      _ resmp0' | testBit resmp0' 1      = False
 missile _       enam0' _ _       | not (testBit enam0' 1) = False
@@ -508,7 +508,7 @@ missile nusiz0' enam0' o resmp0'                          = o < missileSize nusi
 
 -- Atari2600 programmer's guide p.40
 {- INLINE player0 -}
-player0 :: IOUArray OReg Word8 -> Graphics -> Word8 -> CInt -> CInt -> IO Bool
+player0 :: IOUArray OReg Word8 -> Graphics -> Word8 -> Int -> Int -> IO Bool
 player0 r graphics' nusiz0' hpos' ppos0' = do
     let o = hpos'-ppos0'
     sizeCopies <- (0b111 .&.) <$> fastGetORegister r nusiz0
@@ -520,7 +520,7 @@ player0 r graphics' nusiz0' hpos' ppos0' = do
     return $! stretchPlayer (testBit refp0' 3) sizeCopies o grp0'
 
 {- INLINE player1 -}
-player1 :: IOUArray OReg Word8 -> Graphics -> Word8 -> CInt -> CInt -> IO Bool
+player1 :: IOUArray OReg Word8 -> Graphics -> Word8 -> Int -> Int -> IO Bool
 player1 r graphics' nusiz1' hpos' ppos1' = do
     let o = hpos'-ppos1'
     sizeCopies <- (0b111 .&.) <$> fastGetORegister r nusiz1
@@ -532,7 +532,7 @@ player1 r graphics' nusiz1' hpos' ppos1' = do
     return $! stretchPlayer (testBit refp1' 3) sizeCopies o grp1'
 
 {- INLINE ball -}
-ball :: Graphics -> Word8 -> CInt -> CInt -> IO Bool
+ball :: Graphics -> Word8 -> Int -> Int -> IO Bool
 ball graphics' ctrlpf' hpos' bpos' = do
     let delayBall' = graphics' ^. delayBall
     let enabl' = if delayBall'
@@ -553,11 +553,11 @@ playfield r ctrlpf' i | i >= 0 && i < 4 = flip testBit (i+4) <$> fastGetORegiste
 playfield r ctrlpf' i | i >= 20 && i < 40 = playfield r ctrlpf' $ if testBit ctrlpf' 0 then 39-i else i-20
 playfield _ _ _ = return $! False -- ???
 
-missileSize :: Word8 -> CInt
+missileSize :: Word8 -> Int
 missileSize nusiz = 1 `shift` (fromIntegral ((nusiz `shift` (-4)) .&. 0b11))
 
 {- INLINE stretchPlayer -}
-stretchPlayer :: Bool -> Word8 -> CInt -> Word8 -> Bool
+stretchPlayer :: Bool -> Word8 -> Int -> Word8 -> Bool
 stretchPlayer reflect sizeCopies o bitmap =
     if o < 0 || o >= 72
         then False
@@ -955,7 +955,7 @@ dumpState = do
     dumpRegisters
 
 {- INLINE setBreak -}
-setBreak :: CInt -> CInt -> MonadAtari ()
+setBreak :: Int -> Int -> MonadAtari ()
 setBreak breakX breakY = hardware . stellaDebug . posbreak .= (breakX+picx, breakY+picy)
 
 graphicsDelay :: Int64 -> MonadAtari ()

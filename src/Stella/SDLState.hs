@@ -22,7 +22,7 @@ renderDisplay (SDLState back front window) = do
     unlockSurface back
     surfaceBlitScaled back Nothing front
                 (Just (Rectangle (P (V2 0 0))
-                                 (V2 (screenWidth*xscale) (screenHeight*yscale))))
+                                 (V2 (fromIntegral $ screenWidth*xscale) (fromIntegral $ screenHeight*yscale))))
     lockSurface back
     --surfaceFillRect back Nothing (V4 0 0 0 0)
     updateWindowSurface window

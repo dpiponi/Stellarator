@@ -1,18 +1,16 @@
 module Metrics where
 
-import Foreign.C.Types
-
 -- Some screen-related metrics
-screenScanLines :: CInt
+screenScanLines :: Int
 screenScanLines = 192+10+10
-picy :: CInt
+picy :: Int
 picy = 40-10
-picx :: CInt
+picx :: Int
 picx = 68
 
-screenWidth, screenHeight :: CInt
+screenWidth, screenHeight :: Int
 (screenWidth, screenHeight) = (160, screenScanLines)
 
-xscale, yscale :: CInt
+xscale, yscale :: Int
 xscale = 5
 yscale = 3

@@ -136,11 +136,15 @@ main :: IO ()
 main = do
     args <- cmdArgs clargs
     SDL.initialize [SDL.InitVideo]
-    window <- SDL.createWindow "Stellarator" SDL.defaultWindow { SDL.windowInitialSize = V2 (xscale*screenWidth) (yscale*screenHeight) }
+    window <- SDL.createWindow "Stellarator"
+                               SDL.defaultWindow {
+                                    SDL.windowInitialSize = V2 (fromIntegral $ xscale*screenWidth)
+                                                               (fromIntegral $ yscale*screenHeight) }
     SDL.showWindow window
     screenSurface <- SDL.getWindowSurface window
 
-    backSurface <- createRGBSurface (V2 screenWidth screenHeight) RGB888
+    backSurface <- createRGBSurface (V2 (fromIntegral screenWidth)
+                                        (fromIntegral screenHeight)) RGB888
 
     rom <- newArray (0, 0x3fff) 0 :: IO (IOUArray Int Word8)
     ram <- newArray (0, 0x7f) 0 :: IO (IOUArray Int Word8)

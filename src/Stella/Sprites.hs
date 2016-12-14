@@ -6,11 +6,11 @@ import Foreign.C.Types
 import Control.Lens
 
 data Sprites = Sprites {
-    _s_ppos0 :: !CInt,
-    _s_ppos1 :: !CInt,
-    _s_mpos0 :: !CInt,
-    _s_mpos1 :: !CInt,
-    _s_bpos :: !CInt
+    _s_ppos0 :: !Int,
+    _s_ppos1 :: !Int,
+    _s_mpos0 :: !Int,
+    _s_mpos1 :: !Int,
+    _s_bpos :: !Int
 }
 
 $(makeLenses ''Sprites)
