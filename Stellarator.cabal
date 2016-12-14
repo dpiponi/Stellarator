@@ -13,9 +13,11 @@ build-type:          Simple
 -- extra-source-files:
 cabal-version:       >=1.10
 
+--  -fllvm -pgmlc /opt/local/bin/llc-mp-3.7 -pgmlo /opt/local/bin/opt-mp-3.7
+
 library
   hs-source-dirs:      src
-  ghc-options:         -O5 -Wall -funbox-strict-fields
+  ghc-options:         -O5 -Wall -fwarn-missing-signatures -funbox-strict-fields
   exposed-modules:     TIAColors, Binary, Core, Disasm, Stella.Graphics, Stella.Sprites,
                        DebugCmd, Memory, Stella.IntervalTimer, Stella.SDLState, Stella.TIARegisters, DebugState, Atari2600, Debugger, Metrics, BitManips
   build-depends:       base >= 4.7 && < 5
