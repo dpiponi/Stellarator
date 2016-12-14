@@ -223,23 +223,25 @@ stellaCxclr = do
 {- INLINE stellaHmove -}
 stellaHmove :: StateT Hardware IO ()
 stellaHmove = do
-    Sprites ppos0' ppos1' mpos0' mpos1' bpos' <- use sprites
+    Sprites !ppos0' !ppos1' !mpos0' !mpos1' !bpos' <- use sprites
 
-    r <- use oregisters
-    poffset0 <- liftIO $ fastGetORegister r hmp0
-    let ppos0'' = wrap160 (ppos0'-clockMove poffset0)
+    !r <- use oregisters
+    let getOReg !reg = liftIO $ fastGetORegister r reg
 
-    poffset1 <- liftIO $ fastGetORegister r hmp1
-    let ppos1'' = wrap160 (ppos1'-clockMove poffset1)
+    !poffset0 <- getOReg hmp0
+    let !ppos0'' = wrap160 (ppos0'-clockMove poffset0)
 
-    moffset0 <- liftIO $ fastGetORegister r hmm0
-    let mpos0'' = wrap160 (mpos0'-clockMove moffset0) -- XXX do rest
+    !poffset1 <- getOReg hmp1
+    let !ppos1'' = wrap160 (ppos1'-clockMove poffset1)
 
-    moffset1 <- liftIO $ fastGetORegister r hmm1
-    let mpos1'' = wrap160 (mpos1'-clockMove moffset1) -- XXX do rest
+    !moffset0 <- getOReg hmm0
+    let !mpos0'' = wrap160 (mpos0'-clockMove moffset0) -- XXX do rest
 
-    boffset <- liftIO $ fastGetORegister r hmbl
-    let bpos'' = wrap160 (bpos'-clockMove boffset)
+    !moffset1 <- getOReg hmm1
+    let !mpos1'' = wrap160 (mpos1'-clockMove moffset1) -- XXX do rest
+
+    !boffset <- getOReg hmbl
+    let !bpos'' = wrap160 (bpos'-clockMove boffset)
 
     sprites .= Sprites {
         _s_ppos0 = ppos0'',
