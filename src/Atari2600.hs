@@ -199,26 +199,16 @@ orIRegister i v = modifyIRegister i (v .|.)
 stellaHmclr :: StateT Hardware IO ()
 stellaHmclr = do
     r <- use oregisters
-    liftIO $ do
-        fastPutORegister r hmp0 0
-        fastPutORegister r hmp1 0
-        fastPutORegister r hmm0 0
-        fastPutORegister r hmm1 0
-        fastPutORegister r hmbl 0
+    liftIO $ mapM_ (flip (fastPutORegister r) 0) [hmp0, hmp1,
+                                                  hmm0, hmm1, hmbl]
 
 {- INLINE stellaCxclr -}
 stellaCxclr :: StateT Hardware IO ()
 stellaCxclr = do
     r <- use iregisters
-    liftIO $ do
-        fastPutIRegister r cxm0p 0
-        fastPutIRegister r cxm1p 0
-        fastPutIRegister r cxm0fb 0
-        fastPutIRegister r cxm1fb 0
-        fastPutIRegister r cxp0fb 0
-        fastPutIRegister r cxp1fb 0
-        fastPutIRegister r cxblpf 0
-        fastPutIRegister r cxppmm 0
+    liftIO $ mapM_ (flip (fastPutIRegister r) 0) [cxm0p, cxm1p, cxm0fb,
+                                                  cxm1fb, cxp0fb, cxp1fb,
+                                                  cxblpf, cxppmm]
 
 {- INLINE stellaHmove -}
 stellaHmove :: StateT Hardware IO ()
@@ -511,12 +501,10 @@ compositeAndCollide hardware' pixelx hpos' r = do
 {- INLINE missile0 -}
 -- XXX Note that this updates mpos0 so need to take into account XXX
 missile :: Word8 -> Word8 -> CInt -> Word8 -> Bool
-missile nusiz0' enam0' o resmp0' =
-    if testBit resmp0' 1
-        then False
-        else if testBit enam0' 1
-            then o >= 0 && o < missileSize nusiz0'
-            else False
+missile _       _      o _       | o < 0                  = False
+missile _       _      _ resmp0' | testBit resmp0' 1      = False
+missile _       enam0' _ _       | not (testBit enam0' 1) = False
+missile nusiz0' enam0' o resmp0'                          = o < missileSize nusiz0'
 
 -- Atari2600 programmer's guide p.40
 {- INLINE player0 -}
