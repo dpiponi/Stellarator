@@ -5,7 +5,25 @@
 {-# LANGUAGE BinaryLiterals #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 
-module Atari2600 where
+module Atari2600(MonadAtari,
+                 stellaDebug,
+                 hardware,
+                 dumpStella,
+                 hpos,
+                 vpos,
+                 dumpRegisters,
+                 dumpState,
+                 setBreak,
+                 clock,
+                 stellaClock,
+                 initState,
+                 bit,
+                 getIRegister,
+                 putIRegister,
+                 trigger1,
+                 modifyIRegister,
+                 getORegister,
+                 unM) where
 
 --import Data.Monoid
 --import Debug.Trace
@@ -509,7 +527,7 @@ player0 r graphics' nusiz0' hpos' ppos0' = do
         then graphics' ^.oldGrp0
         else graphics' ^. newGrp0
     refp0' <- fastGetORegister r refp0
-    return $ stretchPlayer (testBit refp0' 3) sizeCopies o grp0'
+    return $! stretchPlayer (testBit refp0' 3) sizeCopies o grp0'
 
 {- INLINE player1 -}
 player1 :: IOUArray OReg Word8 -> Graphics -> Word8 -> CInt -> CInt -> IO Bool
@@ -521,7 +539,7 @@ player1 r graphics' nusiz1' hpos' ppos1' = do
         then graphics' ^. oldGrp1
         else graphics' ^. newGrp1
     refp1' <- fastGetORegister r refp1
-    return $ stretchPlayer (testBit refp1' 3) sizeCopies o grp1'
+    return $! stretchPlayer (testBit refp1' 3) sizeCopies o grp1'
 
 {- INLINE ball -}
 ball :: Graphics -> Word8 -> CInt -> CInt -> IO Bool
@@ -534,8 +552,8 @@ ball graphics' ctrlpf' hpos' bpos' = do
         then do
             let o = hpos'-bpos'
             let ballSize = 1 `shift` (fromIntegral ((ctrlpf' `shift` (fromIntegral $ -4)) .&. 0b11))
-            return $ o >= 0 && o < ballSize
-        else return False
+            return $! o >= 0 && o < ballSize
+        else return $! False
 
 {- INLINE playfield -}
 playfield :: IOUArray OReg Word8 -> Word8 -> Int -> IO Bool
@@ -543,7 +561,7 @@ playfield r ctrlpf' i | i >= 0 && i < 4 = flip testBit (i+4) <$> fastGetORegiste
                       | i >=4 && i < 12 = flip testBit (11-i) <$> fastGetORegister r pf1
                       | i >= 12 && i < 20 = flip testBit (i-12) <$> fastGetORegister r pf2
 playfield r ctrlpf' i | i >= 20 && i < 40 = playfield r ctrlpf' $ if testBit ctrlpf' 0 then 39-i else i-20
-playfield _ _ _ = return False -- ???
+playfield _ _ _ = return $! False -- ???
 
 missileSize :: Word8 -> CInt
 missileSize nusiz = 1 `shift` (fromIntegral ((nusiz `shift` (-4)) .&. 0b11))

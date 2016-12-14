@@ -126,12 +126,12 @@ eval (PeekWord x) = do
                 return (EInt $ fromIntegral $ Core.make16 lo hi)
             _ -> return EFail
 
-eval (Not x) = do
-        x' <- eval x
-        case x' of
-            EBool x -> return $ EBool (not x)
-            EInt x -> return $ EInt (-1-x)
-            _ -> return EFail
+eval (Not expr) = do
+    value <- eval expr
+    case value of
+        EBool x -> return $ EBool (not x)
+        EInt x -> return $ EInt (-1-x)
+        _ -> return EFail
 
 eval (EConst x) = return (EInt x)
 eval (EConstString s) = return (EString s)
@@ -165,8 +165,7 @@ execCommand cmd =
         Let var e -> do
             e' <- eval e
             hardware . stellaDebug . variables %= Map.insert var e'
-            v <- use (hardware . stellaDebug . variables)
-            --liftIO $ print v
+            _ <- use (hardware . stellaDebug . variables)
             return False
         Block cmds -> do
             forM_ cmds execCommand
@@ -174,11 +173,11 @@ execCommand cmd =
         DebugCmd.List addr n -> do
             disassemble addr n
             return False
-        Repeat n cmd -> do
+        Repeat n repeatedCmd -> do
             n' <- eval n
             case n' of
                 EInt n'' -> do
-                    replicateM_ n'' (execCommand cmd)
+                    replicateM_ n'' (execCommand repeatedCmd)
                 _ -> return ()
             return False
         Cont -> do
@@ -192,13 +191,13 @@ execCommand cmd =
                 liftIO $ putStr (show val)
             liftIO $ putStrLn ""
             return False
-        Until cond cmd -> do
+        Until cond repeatedCmd -> do
             let loop = (do
                             c <- eval cond
                             case c of
                                 EBool True -> return ()
                                 EBool False -> do
-                                    void $ execCommand cmd
+                                    void $ execCommand repeatedCmd
                                     loop
                                 _ -> do
                                     liftIO $ putStrLn "Non-boolean condition"
