@@ -445,8 +445,8 @@ compositeAndCollide hardware' pixelx hpos' r = do
     !nusiz1' <- fastGetORegister r nusiz1
     let !lmissile0 = missile nusiz0' enam0' (hpos'-(sprites' ^. s_mpos0)) resmp0'
     let !lmissile1 = missile nusiz1' enam1' (hpos'-(sprites' ^. s_mpos1)) resmp1'
-    !lplayer0 <- player0 r graphics' nusiz0' hpos' (sprites' ^. s_ppos0)
-    !lplayer1 <- player1 r graphics' nusiz1' hpos' (sprites' ^. s_ppos1)
+    !lplayer0 <- player0 r graphics' nusiz0' (hpos'-(sprites' ^. s_ppos0))
+    !lplayer1 <- player1 r graphics' nusiz1' (hpos'-(sprites' ^. s_ppos1))
     !lball <- ball graphics' ctrlpf' hpos' (sprites' ^. s_bpos)
     let !playfieldx = fromIntegral (pixelx `shift` (-2))
     let !pf' = hardware' ^. pf
@@ -467,9 +467,8 @@ missile nusiz0' enam0' o resmp0'                          = o < missileSize nusi
 
 -- Atari2600 programmer's guide p.40
 {- INLINE player0 -}
-player0 :: IOUArray OReg Word8 -> Graphics -> Word8 -> Int -> Int -> IO Bool
-player0 r graphics' nusiz0' hpos' ppos0' = do
-    let o = hpos'-ppos0'
+player0 :: IOUArray OReg Word8 -> Graphics -> Word8 -> Int -> IO Bool
+player0 r graphics' nusiz0' o = do
     sizeCopies <- (0b111 .&.) <$> fastGetORegister r nusiz0
     let !delayP0' = graphics' ^. delayP0
     let !grp0' = if delayP0'
@@ -479,9 +478,8 @@ player0 r graphics' nusiz0' hpos' ppos0' = do
     return $! stretchPlayer (testBit refp0' 3) sizeCopies o grp0'
 
 {- INLINE player1 -}
-player1 :: IOUArray OReg Word8 -> Graphics -> Word8 -> Int -> Int -> IO Bool
-player1 r graphics' nusiz1' hpos' ppos1' = do
-    let o = hpos'-ppos1'
+player1 :: IOUArray OReg Word8 -> Graphics -> Word8 -> Int -> IO Bool
+player1 r graphics' nusiz1' o = do
     sizeCopies <- (0b111 .&.) <$> fastGetORegister r nusiz1
     let !delayP1' = graphics' ^. delayP1
     let !grp1' = if delayP1'
