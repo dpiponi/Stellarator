@@ -13,6 +13,7 @@ import Binary
 import qualified Data.Map.Strict as Map
 import Control.Applicative
 import Control.Concurrent (threadDelay)
+import Emulation
 import Control.Lens hiding (_last)
 import Control.Monad
 import Text.Parsec

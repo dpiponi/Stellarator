@@ -4,6 +4,7 @@ import qualified Data.Map.Strict as Map
 
 import Core
 import Atari2600
+import Emulation
 import Disasm
 import DebugCmd
 import Data.Bits
