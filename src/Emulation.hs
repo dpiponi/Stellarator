@@ -430,31 +430,35 @@ chooseColour playFieldPriority !pixelx !ctrlpf' !lplayfield !lball !lmissile0 !l
 
 {- INLINE compositeAndCollide -}
 compositeAndCollide :: Hardware -> Int -> Int -> IOUArray OReg Word8 -> IO Word8
-compositeAndCollide hardware' pixelx hpos' r = do
-    resmp0' <- fastGetORegister r resmp0
-    resmp1' <- fastGetORegister r resmp1
-    !ctrlpf' <- fastGetORegister r ctrlpf
+compositeAndCollide hardware'@(Hardware {_graphics = graphics',
+                                         _sprites = Sprites { _s_mpos0 = mpos0',
+                                                              _s_mpos1 = mpos1',
+                                                              _s_ppos0 = ppos0',
+                                                              _s_ppos1 = ppos1',
+                                                              _s_bpos  = bpos'
+                                                            },
+                                         _iregisters = ir}) pixelx hpos' r = do
+    let getOReg = fastGetORegister r
+    !resmp0' <- getOReg resmp0
+    !resmp1' <- getOReg resmp1
+    !ctrlpf' <- getOReg ctrlpf
+    !enam0' <- getOReg enam0
+    !enam1' <- getOReg enam1
+    !nusiz0' <- getOReg nusiz0
+    !nusiz1' <- getOReg nusiz1
 
-    let ir = hardware' ^. iregisters
-
-    let graphics' = hardware' ^. graphics
-    let sprites' = hardware' ^. sprites
-    !enam0' <- fastGetORegister r enam0
-    !enam1' <- fastGetORegister r enam1
-    !nusiz0' <- fastGetORegister r nusiz0
-    !nusiz1' <- fastGetORegister r nusiz1
-    let !lmissile0 = missile nusiz0' enam0' (hpos'-(sprites' ^. s_mpos0)) resmp0'
-    let !lmissile1 = missile nusiz1' enam1' (hpos'-(sprites' ^. s_mpos1)) resmp1'
-    !lplayer0 <- player0 r graphics' nusiz0' (hpos'-(sprites' ^. s_ppos0))
-    !lplayer1 <- player1 r graphics' nusiz1' (hpos'-(sprites' ^. s_ppos1))
-    !lball <- ball graphics' ctrlpf' (hpos'-(sprites' ^. s_bpos))
+    let !lmissile0 = missile nusiz0' enam0' (hpos'-mpos0') resmp0'
+    let !lmissile1 = missile nusiz1' enam1' (hpos'-mpos1') resmp1'
+    !lplayer0 <- player0 r graphics' nusiz0' (hpos'-ppos0')
+    !lplayer1 <- player1 r graphics' nusiz1' (hpos'-ppos1')
+    let !lball = ball graphics' ctrlpf' (hpos'-bpos')
     let !playfieldx = fromIntegral (pixelx `shift` (-2))
     let !pf' = hardware' ^. pf
     let !lplayfield = playfieldx >= 0 && playfieldx < 40 && testBit pf' playfieldx
 
     doCollisions ir lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1
 
-    fastGetORegister r $ chooseColour (testBit ctrlpf' 2) pixelx ctrlpf' lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1
+    getOReg $ chooseColour (testBit ctrlpf' 2) pixelx ctrlpf' lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1
 
 -- Atari2600 programmer's guide p.22
 {- INLINE missile0 -}
@@ -491,8 +495,8 @@ player1 r graphics' nusiz1' o = do
     return $! stretchPlayer (testBit refp1' 3) sizeCopies o grp1'
 
 {- INLINE ball -}
-ball :: Graphics -> Word8 -> Int -> IO Bool
-ball _ _ o | o < 0 = return False
+ball :: Graphics -> Word8 -> Int -> Bool
+ball _ _ o | o < 0 = False
 ball graphics' ctrlpf' o = do
     let delayBall' = graphics' ^. delayBall
     let enabl' = if delayBall'
@@ -501,8 +505,8 @@ ball graphics' ctrlpf' o = do
     if enabl'
         then do
             let ballSize = 1 `shift` (fromIntegral ((ctrlpf' `shift` (fromIntegral $ -4)) .&. 0b11))
-            return $! o >= 0 && o < ballSize
-        else return $! False
+            o >= 0 && o < ballSize
+        else False
 
 {- INLINE playfield -}
 playfield :: IOUArray OReg Word8 -> Word8 -> Int -> IO Bool
@@ -521,17 +525,17 @@ stretchPlayer' !reflect 0b000 !o !bitmap =
                 o < 8 && testBit bitmap (flipIf reflect $ fromIntegral o)
 stretchPlayer' !reflect 0b001 !o !bitmap =
                 (o < 8 || o >= 16 && o < 24) && testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
-stretchPlayer' !reflect 0b010 !!o !bitmap =
+stretchPlayer' !reflect 0b010 !o !bitmap =
                 (o < 8 || o >= 32 && o < 40) && testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
-stretchPlayer' !reflect 0b011 !!o !bitmap =
+stretchPlayer' !reflect 0b011 !o !bitmap =
                 (o < 8 || o >= 16 && o < 24 || o >= 32 && o < 40) && testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
-stretchPlayer' !reflect 0b100 !!o !bitmap =
+stretchPlayer' !reflect 0b100 !o !bitmap =
                 (o < 8 || o >= 64) && testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
-stretchPlayer' !reflect 0b101 !!o !bitmap =
+stretchPlayer' !reflect 0b101 !o !bitmap =
                 o < 16 && testBit bitmap (flipIf reflect $ fromIntegral ((o `shift` (-1)) .&. 7))
-stretchPlayer' !reflect 0b110 !!o !bitmap =
+stretchPlayer' !reflect 0b110 !o !bitmap =
                 (o < 8 || o >= 32 && o < 40 || o >= 64) && testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
-stretchPlayer' !reflect 0b111 !!o !bitmap =
+stretchPlayer' !reflect 0b111 !o !bitmap =
                 o < 32 && testBit bitmap (flipIf reflect $ (fromIntegral ((o `shift` (-2)) .&. 7)))
 
 {- INLINE stretchPlayer -}
