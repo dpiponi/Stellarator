@@ -1,4 +1,4 @@
-module Debugger where
+module Debugger(runDebugger) where
 
 import qualified Data.Map.Strict as Map
 
@@ -150,15 +150,15 @@ disassemble addr n = do
                 EInt n'' -> return n''
                 _ -> return 1
         _ -> return 1
-    pc <- case addr of
-        Just x -> do
-            x' <- eval x
+    startPC <- case addr of
+        Just exprPC -> do
+            x' <- eval exprPC
             case x' of
                 EInt z -> return (fromIntegral z)
                 _ -> return 0 -- error
         Nothing -> getPC
-    bytes <- forM [pc..pc+3*fromIntegral n'] $ \p -> readMemory p
-    liftIO $ dis n' pc bytes
+    bytes <- forM [startPC..startPC+3*fromIntegral n'] readMemory
+    liftIO $ dis n' startPC bytes
 
 execCommand :: Command -> MonadAtari Bool
 execCommand cmd = 

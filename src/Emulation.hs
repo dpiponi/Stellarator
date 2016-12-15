@@ -447,7 +447,7 @@ compositeAndCollide hardware' pixelx hpos' r = do
     let !lmissile1 = missile nusiz1' enam1' (hpos'-(sprites' ^. s_mpos1)) resmp1'
     !lplayer0 <- player0 r graphics' nusiz0' (hpos'-(sprites' ^. s_ppos0))
     !lplayer1 <- player1 r graphics' nusiz1' (hpos'-(sprites' ^. s_ppos1))
-    !lball <- ball graphics' ctrlpf' hpos' (sprites' ^. s_bpos)
+    !lball <- ball graphics' ctrlpf' (hpos'-(sprites' ^. s_bpos))
     let !playfieldx = fromIntegral (pixelx `shift` (-2))
     let !pf' = hardware' ^. pf
     let !lplayfield = playfieldx >= 0 && playfieldx < 40 && testBit pf' playfieldx
@@ -468,9 +468,10 @@ missile nusiz0' enam0' o resmp0'                          = o < missileSize nusi
 -- Atari2600 programmer's guide p.40
 {- INLINE player0 -}
 player0 :: IOUArray OReg Word8 -> Graphics -> Word8 -> Int -> IO Bool
+player0 _ _ _ o | o < 0 = return False
 player0 r graphics' nusiz0' o = do
-    sizeCopies <- (0b111 .&.) <$> fastGetORegister r nusiz0
     let !delayP0' = graphics' ^. delayP0
+    let !sizeCopies = 0b111 .&. nusiz0'
     let !grp0' = if delayP0'
         then graphics' ^.oldGrp0
         else graphics' ^. newGrp0
@@ -479,9 +480,10 @@ player0 r graphics' nusiz0' o = do
 
 {- INLINE player1 -}
 player1 :: IOUArray OReg Word8 -> Graphics -> Word8 -> Int -> IO Bool
+player1 _ _ _ o | o < 0 = return False
 player1 r graphics' nusiz1' o = do
-    sizeCopies <- (0b111 .&.) <$> fastGetORegister r nusiz1
     let !delayP1' = graphics' ^. delayP1
+    let !sizeCopies = 0b111 .&. nusiz1'
     let !grp1' = if delayP1'
         then graphics' ^. oldGrp1
         else graphics' ^. newGrp1
@@ -489,15 +491,15 @@ player1 r graphics' nusiz1' o = do
     return $! stretchPlayer (testBit refp1' 3) sizeCopies o grp1'
 
 {- INLINE ball -}
-ball :: Graphics -> Word8 -> Int -> Int -> IO Bool
-ball graphics' ctrlpf' hpos' bpos' = do
+ball :: Graphics -> Word8 -> Int -> IO Bool
+ball _ _ o | o < 0 = return False
+ball graphics' ctrlpf' o = do
     let delayBall' = graphics' ^. delayBall
     let enabl' = if delayBall'
         then graphics' ^. oldBall
         else graphics' ^. newBall
     if enabl'
         then do
-            let o = hpos'-bpos'
             let ballSize = 1 `shift` (fromIntegral ((ctrlpf' `shift` (fromIntegral $ -4)) .&. 0b11))
             return $! o >= 0 && o < ballSize
         else return $! False
@@ -513,44 +515,31 @@ playfield _ _ _ = return $! False -- ???
 missileSize :: Word8 -> Int
 missileSize nusiz = 1 `shift` (fromIntegral ((nusiz `shift` (-4)) .&. 0b11))
 
+{- INLINE stretchPlayer' -}
+stretchPlayer' :: Bool -> Word8 -> Int -> Word8 -> Bool
+stretchPlayer' !reflect 0b000 !o !bitmap =
+                o < 8 && testBit bitmap (flipIf reflect $ fromIntegral o)
+stretchPlayer' !reflect 0b001 !o !bitmap =
+                (o < 8 || o >= 16 && o < 24) && testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
+stretchPlayer' !reflect 0b010 !!o !bitmap =
+                (o < 8 || o >= 32 && o < 40) && testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
+stretchPlayer' !reflect 0b011 !!o !bitmap =
+                (o < 8 || o >= 16 && o < 24 || o >= 32 && o < 40) && testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
+stretchPlayer' !reflect 0b100 !!o !bitmap =
+                (o < 8 || o >= 64) && testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
+stretchPlayer' !reflect 0b101 !!o !bitmap =
+                o < 16 && testBit bitmap (flipIf reflect $ fromIntegral ((o `shift` (-1)) .&. 7))
+stretchPlayer' !reflect 0b110 !!o !bitmap =
+                (o < 8 || o >= 32 && o < 40 || o >= 64) && testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
+stretchPlayer' !reflect 0b111 !!o !bitmap =
+                o < 32 && testBit bitmap (flipIf reflect $ (fromIntegral ((o `shift` (-2)) .&. 7)))
+
 {- INLINE stretchPlayer -}
 stretchPlayer :: Bool -> Word8 -> Int -> Word8 -> Bool
 stretchPlayer reflect sizeCopies o bitmap =
     if o < 0 || o >= 72
         then False
-        else case sizeCopies of
-            0b000 -> -- one copy
-                if o < 8
-                    then testBit bitmap (flipIf reflect $ fromIntegral o)
-                    else False
-            0b001 -> -- two copies close
-                if o < 8 || o >= 16 && o < 24
-                    then testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
-                    else False
-            0b010 -> -- two copies - med
-                if o < 8 || o >= 32 && o < 40
-                    then testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
-                    else False
-            0b011 -> -- three copies close
-                if o < 8 || o >= 16 && o < 24 || o >= 32 && o < 40
-                    then testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
-                    else False
-            0b100 -> -- two copies wide
-                if o < 8 || o >= 64
-                    then testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
-                    else False
-            0b101 -> -- double size player
-                if o < 16
-                    then testBit bitmap (flipIf reflect $ fromIntegral ((o `shift` (-1)) .&. 7))
-                    else False
-            0b110 -> -- three copies medium
-                if o < 8 || o >= 32 && o < 40 || o >= 64
-                    then testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
-                    else False
-            0b111 -> -- quad sized player
-                if o < 32
-                    then testBit bitmap (flipIf reflect $ (fromIntegral ((o `shift` (-2)) .&. 7)))
-                    else False
+        else stretchPlayer' reflect sizeCopies o bitmap
 
 {-# INLINE flipIf #-}
 flipIf :: Bool -> Int -> Int
