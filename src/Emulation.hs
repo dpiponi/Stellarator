@@ -350,17 +350,6 @@ mpos0 = hardware . sprites . s_mpos0
 mpos1 = hardware . sprites . s_mpos1
 bpos = hardware . sprites . s_bpos
 
-{-# INLINABLE updatePos #-}
-updatePos :: (Int, Int) -> (Int, Int)
-updatePos (hpos0, vpos0) =
-    let hpos' = hpos0+1
-    in if hpos' < picx+160
-        then (hpos', vpos0)
-        else let vpos' = vpos0+1
-             in (0, vpos') -- if vpos' < picy+screenScanLines
-                -- then (0, vpos')
-                -- else (0, 0)
-                --
 makePlayfield :: MonadAtari ()
 makePlayfield = do
     r <- use (hardware . oregisters)
@@ -430,47 +419,6 @@ stellaVsync v = do
     sdlState <- use stellaSDL
     liftIO $ renderDisplay sdlState
 
--- Not exported
--- Writes stellaClock, intervalTimer, Position, mpos_0, mpos_1
-stellaTick :: Int -> StateT Hardware IO ()
-stellaTick n | n <= 0 = return ()
-stellaTick n = do
-    (xbreak', ybreak') <- use (stellaDebug . posbreak)
-    (hpos', vpos') <- use position
-    when ((hpos', vpos') == (xbreak', ybreak')) $
-                    stellaDebug . posbreak .= (-1, -1) -- Maybe maybe
-
-    -- stellaClock += 1
-    -- intervalTimer %= timerTick
-    
-    -- Display
-    when (vpos' >= picy && vpos' < picy+screenScanLines && hpos' >= picx) $ do
-        !surface <- use (stellaSDL . sdlBackSurface)
-        !ptr <- liftIO $ surfacePixels surface
-        let !ptr' = castPtr ptr :: Ptr Word32
-        let !pixelx = hpos'-picx
-        let !pixely = vpos'-picy
-
-        -- Get address of pixel in back buffer
-        let !addr = fromIntegral (screenWidth*pixely+pixelx)
-
-        r <- use oregisters
-        (hpos', _) <- use position
-
-        hardware' <- get
-        liftIO $ do
-            !blank <- fastGetORegister r vblank
-            if testBit blank 1
-                then pokeElemOff ptr' addr 0x404040
-                else do
-                    !final <- compositeAndCollide hardware' pixelx hpos' r
-                    let !rgb = lut!(final `shift` (-1))
-                    pokeElemOff ptr' addr rgb
-
-    position %= updatePos
-
-    stellaTick (n-1)
-
 {- INLINE stellaWsync -}
 stellaWsync :: MonadAtari ()
 stellaWsync = do
@@ -503,7 +451,9 @@ stellaTickUntil n = do
         resmp1' <- liftIO $ fastGetORegister r resmp1
         sprites %= clampMissiles resmp0' resmp1'
 
-        stellaTick (fromIntegral diff)
+        hardware' <- get
+        hardware'' <- liftIO $ stellaTick (fromIntegral diff) hardware'
+        put hardware''
 
 {-# INLINE pureReadRom #-}
 pureReadRom :: Word16 -> StateT Memory IO Word8

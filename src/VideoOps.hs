@@ -4,6 +4,7 @@
 
 module VideoOps(compositeAndCollide,
                 clampMissiles,
+                stellaTick,
                 bit) where
 
 import Data.Word
@@ -11,9 +12,30 @@ import Data.Bits hiding (bit) -- XXX check this
 import Atari2600
 import Stella.Sprites
 import Control.Monad
+import Control.Monad.Trans
+import Data.Array.Unboxed
 import Data.Array.IO
 import Stella.TIARegisters
 import Stella.Graphics
+import DebugState
+import Foreign.Ptr
+import Foreign.Storable
+import SDL.Video.Renderer
+import TIAColors
+import Stella.SDLState
+import Metrics
+
+{-# INLINABLE updatePos #-}
+updatePos :: (Int, Int) -> (Int, Int)
+updatePos (hpos0, vpos0) =
+    let hpos' = hpos0+1
+    in if hpos' < picx+160
+        then (hpos', vpos0)
+        else let vpos' = vpos0+1
+             in (0, vpos') -- if vpos' < picy+screenScanLines
+                -- then (0, vpos')
+                -- else (0, 0)
+                --
 
 {-# INLINE flipIf #-}
 flipIf :: Bool -> Int -> Int
@@ -176,3 +198,45 @@ compositeAndCollide hardware'@(Hardware {_graphics = graphics',
                            lplayfield lball
                            lmissile0 lmissile1
                            lplayer0 lplayer1 pixelx
+
+stellaTick :: Int -> Hardware -> IO Hardware
+stellaTick n hardware' | n <= 0 = return hardware'
+stellaTick n hardware'@(Hardware { _stellaDebug = stellaDebug'@(DebugState { _posbreak = posbreak'@(!xbreak', !ybreak')}),
+                                   _oregisters = r,
+                                   _position = position'@(!hpos', !vpos'),
+                                   _stellaSDL = SDLState { _sdlBackSurface = !surface } }) = do
+    -- (xbreak', ybreak') <- use (stellaDebug . posbreak)
+    -- (hpos', vpos') <- use position
+    let posbreak'' = if (hpos', vpos') == (xbreak', ybreak') then (-1, -1) else posbreak'
+
+    -- stellaClock += 1
+    -- intervalTimer %= timerTick
+    
+    -- Display
+    when (vpos' >= picy && vpos' < picy+screenScanLines && hpos' >= picx) $ do
+        -- !surface <- use (stellaSDL . sdlBackSurface)
+        !ptr <- liftIO $ surfacePixels surface
+        let !ptr' = castPtr ptr :: Ptr Word32
+        let !pixelx = hpos'-picx
+        let !pixely = vpos'-picy
+
+        -- Get address of pixel in back buffer
+        let !addr = fromIntegral (screenWidth*pixely+pixelx)
+
+        -- r <- use oregisters
+        -- (hpos', _) <- use position
+
+        -- hardware' <- get
+        liftIO $ do
+            !blank <- fastGetORegister r vblank
+            if testBit blank 1
+                then pokeElemOff ptr' addr 0x404040
+                else do
+                    !final <- compositeAndCollide hardware' pixelx hpos' r
+                    let !rgb = lut!(final `shift` (-1))
+                    pokeElemOff ptr' addr rgb
+
+    -- position %= updatePos
+
+    stellaTick (n-1) $ hardware' { _position = updatePos position',
+                                   _stellaDebug = stellaDebug' { _posbreak = posbreak'' } }
