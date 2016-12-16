@@ -162,11 +162,11 @@ main = do
     let state = initState ram style rom oregs iregs
                           initialPC backSurface screenSurface window
 
-    let loopUntil n = do
-            stellaClock' <- use (hardware . stellaClock)
-            when (stellaClock' < n) $ do
-                step
-                loopUntil n
+    let loopUntil !n = do
+        !stellaClock' <- use (hardware . stellaClock)
+        when (stellaClock' < n) $ do
+            step
+            loopUntil n
 
     --SDL.setHintWithPriority SDL.NormalPriority SDL.HintRenderVSync SDL.EnableVSync
     -- https://hackage.haskell.org/package/sdl2-2.1.3
