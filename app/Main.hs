@@ -29,6 +29,7 @@ import Data.Bits hiding (bit)
 import Data.Bits.Lens
 import Data.ByteString as B hiding (last, putStr, putStrLn, getLine, length, elem, map, reverse)
 import Data.Char
+import VideoOps
 import Data.Int
 import Data.Monoid
 import Data.Word
