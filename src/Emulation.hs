@@ -36,6 +36,7 @@ import Data.Bits hiding (bit)
 import Data.Bits.Lens
 import Memory
 import Data.Int
+import VideoOps
 import Atari2600
 import Data.Word
 import DebugState
@@ -511,37 +512,6 @@ playfield _ _ _ = return $! False -- ???
 missileSize :: Word8 -> Int
 missileSize nusiz = 1 `shift` (fromIntegral ((nusiz `shift` (-4)) .&. 0b11))
 
-{- INLINE stretchPlayer' -}
-stretchPlayer' :: Bool -> Word8 -> Int -> Word8 -> Bool
-stretchPlayer' !reflect 0b000 !o !bitmap =
-                o < 8 && testBit bitmap (flipIf reflect $ fromIntegral o)
-stretchPlayer' !reflect 0b001 !o !bitmap =
-                (o < 8 || o >= 16 && o < 24) && testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
-stretchPlayer' !reflect 0b010 !o !bitmap =
-                (o < 8 || o >= 32 && o < 40) && testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
-stretchPlayer' !reflect 0b011 !o !bitmap =
-                (o < 8 || o >= 16 && o < 24 || o >= 32 && o < 40) && testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
-stretchPlayer' !reflect 0b100 !o !bitmap =
-                (o < 8 || o >= 64) && testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
-stretchPlayer' !reflect 0b101 !o !bitmap =
-                o < 16 && testBit bitmap (flipIf reflect $ fromIntegral ((o `shift` (-1)) .&. 7))
-stretchPlayer' !reflect 0b110 !o !bitmap =
-                (o < 8 || o >= 32 && o < 40 || o >= 64) && testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
-stretchPlayer' !reflect 0b111 !o !bitmap =
-                o < 32 && testBit bitmap (flipIf reflect $ (fromIntegral ((o `shift` (-2)) .&. 7)))
-
-{- INLINE stretchPlayer -}
-stretchPlayer :: Bool -> Word8 -> Int -> Word8 -> Bool
-stretchPlayer reflect sizeCopies o bitmap =
-    if o < 0 || o >= 72
-        then False
-        else stretchPlayer' reflect sizeCopies o bitmap
-
-{-# INLINE flipIf #-}
-flipIf :: Bool -> Int -> Int
-flipIf True x = x
-flipIf False x = 7-x
-
 {- INLINABLE readStella -}
 readStella :: Word16 -> MonadAtari Word8
 readStella addr = 
@@ -602,13 +572,13 @@ stellaVsync v = do
     liftIO $ renderDisplay sdlState
 
 clampMissiles :: Word8 -> Word8 -> Sprites -> Sprites
-clampMissiles !resmp0' !resmp1' (sprites@Sprites { _s_ppos0 = !ppos0',
-                                                   _s_ppos1 = !ppos1',
-                                                   _s_mpos0 = !mpos0',
-                                                   _s_mpos1 = !mpos1' }) =
+clampMissiles !resmp0' !resmp1' (sprites'@Sprites { _s_ppos0 = !ppos0',
+                                                    _s_ppos1 = !ppos1',
+                                                    _s_mpos0 = !mpos0',
+                                                    _s_mpos1 = !mpos1' }) =
     let mpos0'' =  if testBit resmp0' 1 then ppos0' else mpos0'
         mpos1'' =  if testBit resmp1' 1 then ppos1' else mpos1'
-    in sprites { _s_mpos0 = mpos0'', _s_mpos1 = mpos1'' }
+    in sprites' { _s_mpos0 = mpos0'', _s_mpos1 = mpos1'' }
 
 -- Not exported
 -- Writes stellaClock, intervalTimer, Position, mpos_0, mpos_1
@@ -832,7 +802,8 @@ instance Emu6502 MonadAtari where
         d <- use debug
         if n <= d
             then liftIO $ putStrLn str
- -}           else return ()
+            else return ()
+-}
 
     {- INLINE illegal -}
     illegal i = error $ "Illegal opcode 0x" ++ showHex i ""
