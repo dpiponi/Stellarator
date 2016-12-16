@@ -16,64 +16,64 @@ import Control.Lens
 import System.Console.Haskeline
 
 comparison :: (Int -> Int -> Bool) -> Expr -> Expr -> MonadAtari Value
-comparison operator x y = do
-        x' <- eval x
-        y' <- eval y
-        case (x', y') of
+comparison operator expr0 expr1 = do
+        value0 <- eval expr0
+        value1 <- eval expr1
+        case (value0, value1) of
             (EInt x, EInt y) -> return $ EBool (x `operator` y)
             _ -> return EFail
 
 arith :: (Int -> Int -> Int) -> Expr -> Expr -> MonadAtari Value
-arith operator x y = do
-        x' <- eval x
-        y' <- eval y
+arith operator expr0 expr1 = do
+        x' <- eval expr0
+        y' <- eval expr1
         case (x', y') of
             (EInt x, EInt y) -> return $ EInt (x `operator` y)
             _ -> return EFail
 
 eval :: Expr -> MonadAtari Value
 eval A = do
-    a <- getA
-    return (EInt (fromIntegral a))
+    value <- getA
+    return (EInt (fromIntegral value))
 eval X = do
-    x <- getX
-    return (EInt (fromIntegral x))
+    value <- getX
+    return (EInt (fromIntegral value))
 eval Y = do
-    y <- getY
-    return (EInt (fromIntegral y))
+    value <- getY
+    return (EInt (fromIntegral value))
 eval PC = do
-    pc <- getPC
-    return (EInt (fromIntegral pc))
+    value <- getPC
+    return (EInt (fromIntegral value))
 eval DebugCmd.S = do
-    s <- getS
-    return (EInt (fromIntegral s))
+    value <- getS
+    return (EInt (fromIntegral value))
 eval DebugCmd.EQ = do
-    z <- getZ
-    return (EBool z)
+    value <- getZ
+    return (EBool value)
 eval NE = do
-    z <- getZ
-    return (EBool (not z))
+    value <- getZ
+    return (EBool (not value))
 eval CC = do
-    c <- getC
-    return (EBool c)
+    value <- getC
+    return (EBool value)
 eval CS = do
-    c <- getC
-    return (EBool (not c))
+    value <- getC
+    return (EBool (not value))
 eval PL = do
-    n <- getN
-    return (EBool (not n))
+    value <- getN
+    return (EBool (not value))
 eval MI = do
-    n <- getN
-    return (EBool n)
+    value <- getN
+    return (EBool value)
 eval DebugCmd.Clock = do
-    n <- use clock
-    return (EInt (fromIntegral n))
+    value <- use clock
+    return (EInt (fromIntegral value))
 eval Row = do
-    n <- use vpos
-    return (EInt (fromIntegral n))
+    value <- use vpos
+    return (EInt (fromIntegral value))
 eval Col = do
-    n <- use hpos
-    return (EInt (fromIntegral n))
+    value <- use hpos
+    return (EInt (fromIntegral value))
 
 eval (Var s) = do
     v <- use (hardware . stellaDebug . variables)

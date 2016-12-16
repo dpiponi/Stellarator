@@ -174,14 +174,13 @@ compositeAndCollide hardware'@(Hardware {_graphics = graphics',
                                                             },
                                          _pf = pf',
                                          _iregisters = ir}) pixelx hpos' r = do
-    let getOReg = fastGetORegister r
-    resmp0' <- getOReg resmp0
-    resmp1' <- getOReg resmp1
-    ctrlpf' <- getOReg ctrlpf
-    enam0' <- getOReg enam0
-    enam1' <- getOReg enam1
-    nusiz0' <- getOReg nusiz0
-    nusiz1' <- getOReg nusiz1
+    resmp0' <- fastGetORegister r resmp0
+    resmp1' <- fastGetORegister r resmp1
+    ctrlpf' <- fastGetORegister r ctrlpf
+    enam0' <- fastGetORegister r enam0
+    enam1' <- fastGetORegister r enam1
+    nusiz0' <- fastGetORegister r nusiz0
+    nusiz1' <- fastGetORegister r nusiz1
 
     let lmissile0 = missile nusiz0' enam0' (hpos'-mpos0') resmp0'
     let lmissile1 = missile nusiz1' enam1' (hpos'-mpos1') resmp1'
