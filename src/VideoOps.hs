@@ -192,11 +192,11 @@ compositeAndCollide hardware'@(Hardware {_graphics = graphics',
 
     doCollisions ir lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1
 
-    getOReg $ chooseColour (testBit ctrlpf' 2)
-                           (testBit ctrlpf' 1)
-                           lplayfield lball
-                           lmissile0 lmissile1
-                           lplayer0 lplayer1 pixelx
+    fastGetORegister r $ chooseColour (testBit ctrlpf' 2)
+                                      (testBit ctrlpf' 1)
+                                      lplayfield lball
+                                      lmissile0 lmissile1
+                                      lplayer0 lplayer1 pixelx
 
 stellaTick :: Int -> Hardware -> IO Hardware
 stellaTick n hardware' | n <= 0 = return hardware'
