@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE BinaryLiterals #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE ApplicativeDo #-}
 
 module Emulation(stellaDebug,
                  dumpStella,
@@ -363,6 +364,7 @@ updatePos (hpos0, vpos0) =
              in (0, vpos') -- if vpos' < picy+screenScanLines
                 -- then (0, vpos')
                 -- else (0, 0)
+                --
 makePlayfield :: MonadAtari ()
 makePlayfield = do
     r <- use (hardware . oregisters)
@@ -398,46 +400,35 @@ doCollisions ir !lplayfield !lball !lmissile0 !lmissile1 !lplayer0 !lplayer1 = d
             else colupf -- does ball get this too? XXX
                 -}
 
-chooseColour :: Bool -> Int -> Word8 -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> OReg
-chooseColour playFieldPriority !pixelx !ctrlpf' !lplayfield !lball !lmissile0 !lmissile1 !lplayer0 !lplayer1 = 
-    if playFieldPriority
-        then if lball
-            then colupf
-            else if lplayfield
-                then if testBit ctrlpf' 1
-                    then if pixelx < 80
-                        then colup0
-                        else colup1
-                    else colupf
-                else if lmissile0 || lplayer0
-                    then colup0
-                    else if lmissile1 || lplayer1
-                        then colup1
-                        else colubk
-        else if lmissile0 || lplayer0
-            then  colup0
-            else if lmissile1 || lplayer1
-                then colup1
-                else if lplayfield
-                    then if testBit ctrlpf' 1
-                        then if pixelx < 80
-                            then colup0
-                            else colup1
-                        else colupf
-                    else if lball
-                        then colupf
-                        else colubk
+chooseColour :: Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Int -> OReg
+chooseColour True   _    _     True  _     _     _     _     _       = colupf
+chooseColour True  True  True  False _     _     _     _     !pixelx = if pixelx < 80 then colup0 else colup1
+chooseColour True  False True  False _     _     _     _     _       = colupf
+chooseColour True  _     False False True  _     _     _     _       = colup0
+chooseColour True  _     False False _     _     True  _     _       = colup0
+chooseColour True  _     False False False True  False _     _       = colup1
+chooseColour True  _     False False False _     False True  _       = colup1
+chooseColour True  _     False False False False False False _       = colubk
+chooseColour False _     _     _     True  _     _     _     _       = colup0
+chooseColour False _     _     _     _     _     True  _     _       = colup0
+chooseColour False _     _     _     False True  False _     _       = colup1
+chooseColour False _     _     _     False _     False True  _       = colup1
+chooseColour False True  True  _     False False False False !pixelx = if pixelx < 80 then colup0 else colup1
+chooseColour False False True  _     False False False False _       = colupf
+chooseColour False _     False True  False False False False _       = colupf
+chooseColour False _     False False False False False False _       = colubk
 
 {- INLINE compositeAndCollide -}
 compositeAndCollide :: Hardware -> Int -> Int -> IOUArray OReg Word8 -> IO Word8
 compositeAndCollide hardware'@(Hardware {_graphics = graphics',
-                                         _sprites = Sprites { _s_mpos0 = mpos0',
-                                                              _s_mpos1 = mpos1',
-                                                              _s_ppos0 = ppos0',
-                                                              _s_ppos1 = ppos1',
-                                                              _s_bpos  = bpos'
+                                         _sprites = Sprites { _s_mpos0 = !mpos0',
+                                                              _s_mpos1 = !mpos1',
+                                                              _s_ppos0 = !ppos0',
+                                                              _s_ppos1 = !ppos1',
+                                                              _s_bpos  = !bpos'
                                                             },
-                                         _iregisters = ir}) pixelx hpos' r = do
+                                         _pf = !pf',
+                                         _iregisters = ir}) !pixelx !hpos' !r = do
     let getOReg = fastGetORegister r
     !resmp0' <- getOReg resmp0
     !resmp1' <- getOReg resmp1
@@ -453,12 +444,15 @@ compositeAndCollide hardware'@(Hardware {_graphics = graphics',
     !lplayer1 <- player1 r graphics' nusiz1' (hpos'-ppos1')
     let !lball = ball graphics' ctrlpf' (hpos'-bpos')
     let !playfieldx = fromIntegral (pixelx `shift` (-2))
-    let !pf' = hardware' ^. pf
     let !lplayfield = playfieldx >= 0 && playfieldx < 40 && testBit pf' playfieldx
 
     doCollisions ir lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1
 
-    getOReg $ chooseColour (testBit ctrlpf' 2) pixelx ctrlpf' lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1
+    getOReg $ chooseColour (testBit ctrlpf' 2)
+                           (testBit ctrlpf' 1)
+                           lplayfield lball
+                           lmissile0 lmissile1
+                           lplayer0 lplayer1 pixelx
 
 -- Atari2600 programmer's guide p.22
 {- INLINE missile0 -}
@@ -473,24 +467,22 @@ missile nusiz0' enam0' o resmp0'                          = o < missileSize nusi
 {- INLINE player0 -}
 player0 :: IOUArray OReg Word8 -> Graphics -> Word8 -> Int -> IO Bool
 player0 _ _ _ o | o < 0 = return False
-player0 r graphics' nusiz0' o = do
-    let !delayP0' = graphics' ^. delayP0
+player0 r graphics'@(Graphics {_delayP0 = !delayP0',
+                               _oldGrp0 = !oldGrp0',
+                               _newGrp0 = !newGrp0'}) nusiz0' o = do
     let !sizeCopies = 0b111 .&. nusiz0'
-    let !grp0' = if delayP0'
-        then graphics' ^.oldGrp0
-        else graphics' ^. newGrp0
+    let !grp0' = if delayP0' then oldGrp0' else newGrp0'
     refp0' <- fastGetORegister r refp0
     return $! stretchPlayer (testBit refp0' 3) sizeCopies o grp0'
 
 {- INLINE player1 -}
 player1 :: IOUArray OReg Word8 -> Graphics -> Word8 -> Int -> IO Bool
 player1 _ _ _ o | o < 0 = return False
-player1 r graphics' nusiz1' o = do
-    let !delayP1' = graphics' ^. delayP1
+player1 r graphics'@(Graphics {_delayP1 = !delayP1',
+                               _oldGrp1 = !oldGrp1',
+                               _newGrp1 = !newGrp1'}) nusiz1' o = do
     let !sizeCopies = 0b111 .&. nusiz1'
-    let !grp1' = if delayP1'
-        then graphics' ^. oldGrp1
-        else graphics' ^. newGrp1
+    let !grp1' = if delayP1' then oldGrp1' else newGrp1'
     refp1' <- fastGetORegister r refp1
     return $! stretchPlayer (testBit refp1' 3) sizeCopies o grp1'
 
@@ -609,17 +601,27 @@ stellaVsync v = do
     sdlState <- use stellaSDL
     liftIO $ renderDisplay sdlState
 
+clampMissiles :: Word8 -> Word8 -> Sprites -> Sprites
+clampMissiles !resmp0' !resmp1' (sprites@Sprites { _s_ppos0 = !ppos0',
+                                                   _s_ppos1 = !ppos1',
+                                                   _s_mpos0 = !mpos0',
+                                                   _s_mpos1 = !mpos1' }) =
+    let mpos0'' =  if testBit resmp0' 1 then ppos0' else mpos0'
+        mpos1'' =  if testBit resmp1' 1 then ppos1' else mpos1'
+    in sprites { _s_mpos0 = mpos0'', _s_mpos1 = mpos1'' }
+
+-- Not exported
+-- Writes stellaClock, intervalTimer, Position, mpos_0, mpos_1
 stellaTick :: Int -> StateT Hardware IO ()
 stellaTick n | n <= 0 = return ()
 stellaTick n = do
     (xbreak', ybreak') <- use (stellaDebug . posbreak)
     (hpos', vpos') <- use position
-    when ((hpos', vpos') == (xbreak', ybreak')) $ do
-        --dumpStella
-        stellaDebug . posbreak .= (-1, -1) -- Maybe maybe
+    when ((hpos', vpos') == (xbreak', ybreak')) $
+                    stellaDebug . posbreak .= (-1, -1) -- Maybe maybe
 
-    stellaClock += 1
-    intervalTimer %= timerTick
+    -- stellaClock += 1
+    -- intervalTimer %= timerTick
     
     -- Display
     when (vpos' >= picy && vpos' < picy+screenScanLines && hpos' >= picx) $ do
@@ -630,27 +632,23 @@ stellaTick n = do
         let !pixely = vpos'-picy
 
         -- Get address of pixel in back buffer
-        let !i = screenWidth*pixely+pixelx
+        let !addr = fromIntegral (screenWidth*pixely+pixelx)
 
         r <- use oregisters
         (hpos', _) <- use position
-        resmp0' <- liftIO $ fastGetORegister r resmp0
-        resmp1' <- liftIO $ fastGetORegister r resmp1
-        zoom sprites $ do
-            ppos0' <- use s_ppos0
-            ppos1' <- use s_ppos1
-            when (testBit resmp0' 1) $ s_mpos0 .= ppos0'
-            when (testBit resmp1' 1) $ s_mpos1 .= ppos1'
+        --resmp0' <- liftIO $ fastGetORegister r resmp0
+        --resmp1' <- liftIO $ fastGetORegister r resmp1
+        --zoom sprites $ clampMissiles resmp0' resmp1'
 
         hardware' <- get
         liftIO $ do
             !blank <- fastGetORegister r vblank
             if testBit blank 1
-                then pokeElemOff ptr' (fromIntegral i) 0x404040
+                then pokeElemOff ptr' addr 0x404040
                 else do
                     !final <- compositeAndCollide hardware' pixelx hpos' r
                     let !rgb = lut!(final `shift` (-1))
-                    pokeElemOff ptr' (fromIntegral i) rgb
+                    pokeElemOff ptr' addr rgb
 
     position %= updatePos
 
@@ -668,12 +666,27 @@ stellaWsync = do
 
 -- http://atariage.com/forums/topic/107527-atari-2600-vsyncvblank/
 
-
+{-# INLINE church #-}
+church 0 f x = x
+church n f x = church (n-1) f (f x)
 
 stellaTickUntil :: Int64 -> StateT Hardware IO ()
 stellaTickUntil n = do
-    c <- use stellaClock
-    stellaTick (fromIntegral (n-c))
+    !c <- use stellaClock
+    let !diff = n-c
+    when (diff >= 0) $ do
+        -- Batch together items that don't need to be
+        -- carried out on individual ticks
+        stellaClock += diff
+        !it <- use intervalTimer
+        -- intervalTimer %= timerTick
+        intervalTimer .= church diff timerTick it
+        r <- use oregisters
+        resmp0' <- liftIO $ fastGetORegister r resmp0
+        resmp1' <- liftIO $ fastGetORegister r resmp1
+        sprites %= clampMissiles resmp0' resmp1'
+
+        stellaTick (fromIntegral diff)
 
 {-# INLINE pureReadRom #-}
 pureReadRom :: Word16 -> StateT Memory IO Word8
@@ -801,6 +814,12 @@ instance Emu6502 MonadAtari where
     {-# INLINE addPC #-}
     addPC n = regs . pc += fromIntegral n
 
+    {-# INLINE debugStr #-}
+    debugStr _ _ = return ()
+    {-# INLINE debugStrLn #-}
+    debugStrLn _ _ = return ()
+
+{-
     {- INLINE debugStr 9 -}
     debugStr n str = do
         d <- use debug
@@ -813,7 +832,7 @@ instance Emu6502 MonadAtari where
         d <- use debug
         if n <= d
             then liftIO $ putStrLn str
-            else return ()
+ -}           else return ()
 
     {- INLINE illegal -}
     illegal i = error $ "Illegal opcode 0x" ++ showHex i ""
