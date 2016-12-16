@@ -134,6 +134,13 @@ handleKey motion sym = do
             liftIO $ killThread t
         otherwise -> return ()
 
+loopUntil :: Int64 -> MonadAtari ()
+loopUntil !n = do
+    !stellaClock' <- use (hardware . stellaClock)
+    when (stellaClock' < n) $ do
+        step
+        loopUntil n
+
 main :: IO ()
 main = do
     args <- cmdArgs clargs
@@ -156,20 +163,10 @@ main = do
     let initialPC = fromIntegral pclo+(fromIntegral pchi `shift` 8)
 
     oregs <- newArray (0, 0x3f) 0
-    --iregs <- newArray (0, 0x0d) 0
     iregs <- newArray (0, 0x300) 0 -- XXX no need for that many really
     let style = bank args
     let state = initState ram style rom oregs iregs
                           initialPC backSurface screenSurface window
-
-    let loopUntil !n = do
-        !stellaClock' <- use (hardware . stellaClock)
-        when (stellaClock' < n) $ do
-            step
-            loopUntil n
-
-    --SDL.setHintWithPriority SDL.NormalPriority SDL.HintRenderVSync SDL.EnableVSync
-    -- https://hackage.haskell.org/package/sdl2-2.1.3
 
     let loop = do
             events <- liftIO $ SDL.pollEvents
@@ -177,7 +174,7 @@ main = do
             let quit = elem SDL.QuitEvent $ map SDL.eventPayload events
             forM_ events handleEvent
             stellaClock' <-  use (hardware . stellaClock)
-            loopUntil (stellaClock' + 250)
+            loopUntil (stellaClock' + 1000)
 
             loop
 

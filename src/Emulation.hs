@@ -464,35 +464,26 @@ pureReadRom addr = do
     return byte
 
 {-# INLINE bankSwitch #-}
-bankSwitch :: Word16 -> StateT Memory IO ()
-bankSwitch addr = do
-    when (addr >= 0x1ff6) $ do
-        bankType <- use bankMode
-        case bankType of
-            UnBanked -> return ()
-            F8 -> do
-                when (addr == 0x1ff8) $ bankOffset .= 0
-                when (addr == 0x1ff9) $ bankOffset .= 0x1000
-            F6 -> do
-                when (addr == 0x1ff6) $ bankOffset .= 0
-                when (addr == 0x1ff7) $ bankOffset .= 0x1000
-                when (addr == 0x1ff8) $ bankOffset .= 0x2000
-                when (addr == 0x1ff9) $ bankOffset .= 0x3000
+bankSwitch :: BankMode -> Word16 -> Word16 -> Word16
+bankSwitch _        !addr  !old | addr < 0x1ff6 = old
+bankSwitch UnBanked _      _    = 0
+bankSwitch F8       0x1ff8 _    = 0
+bankSwitch F8       0x1ff9 _    = 0x1000
+bankSwitch F6       0x1ff6 _    = 0
+bankSwitch F6       0x1ff7 _    = 0x1000
+bankSwitch F6       0x1ff8 _    = 0x2000
+bankSwitch F6       0x1ff9 _    = 0x3000
+bankSwitch _        _      !old = old
 
 {-# INLINE pureReadMemory #-}
 pureReadMemory :: Word16 -> MonadAtari Word8
-pureReadMemory addr =
-    if addr >= 0x1000
-        then M $ zoom memory $ pureReadRom addr
-        else if isRAM addr
-            then do
-                m <- use (memory . ram)
-                liftIO $ readArray m (iz addr .&. 0x7f)
-            else if isTIA addr
-                    then readStella (addr .&. 0x3f)
-                    else if isRIOT addr
-                        then readStella (0x280+(addr .&. 0x1f))
-                        else error $ "The cases were exhaustive :-("
+pureReadMemory addr | addr >= 0x1000 = M $ zoom memory $ pureReadRom addr
+pureReadMemory addr | isRAM addr = do
+    m <- use (memory . ram)
+    liftIO $ readArray m (iz addr .&. 0x7f)
+pureReadMemory addr | isTIA addr     = readStella (addr .&. 0x3f)
+pureReadMemory addr | isRIOT addr    = readStella (0x280+(addr .&. 0x1f))
+pureReadMemory _                     = error $ "The cases were exhaustive :-("
 
 {-# INLINE pureWriteMemory #-}
 pureWriteMemory :: Word16 -> Word8 -> MonadAtari ()
@@ -512,14 +503,16 @@ instance Emu6502 MonadAtari where
     readMemory addr' = do
         let addr = addr' .&. 0x1fff -- 6507
         byte <- pureReadMemory addr
-        M $ zoom memory $ bankSwitch addr
+        bankType <- use (memory . bankMode)
+        memory . bankOffset %= bankSwitch bankType addr
         return byte
 
     {-# INLINE writeMemory #-}
     writeMemory addr' v = do
         let addr = addr' .&. 0x1fff -- 6507
         pureWriteMemory addr v
-        M $ zoom memory $ bankSwitch addr
+        bankType <- use (memory . bankMode)
+        memory . bankOffset %= bankSwitch bankType addr
 
     {-# INLINE getPC #-}
     getPC = use (regs . pc)
