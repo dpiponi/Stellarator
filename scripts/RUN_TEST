@@ -1,0 +1,4 @@
+ca65 -o test.o test.s
+ld65 -t none -vm -o test.bin test.o -m test.map
+stack build
+stack exec emu6502-exe -- -f test.bin
