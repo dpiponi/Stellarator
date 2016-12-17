@@ -12,10 +12,20 @@ module Atari2600(MonadAtari(..),
                  graphics,
                  useHardware,
                  putHardware,
+                 modifyHardware,
                  zoomHardware,
                  useMemory,
                  putMemory,
+                 modifyMemory,
                  zoomMemory,
+                 useRegisters,
+                 putRegisters,
+                 modifyRegisters,
+                 zoomRegisters,
+                 useClock,
+                 putClock,
+                 modifyClock,
+                 zoomClock,
                  stellaDebug,
                  debug,
                  clock,
@@ -152,6 +162,11 @@ putHardware lens value = do
     atari <- ask
     liftIO $ modifyIORef' (atari ^. hardware) (set lens value)
 
+{-# INLINE modifyHardware #-}
+modifyHardware lens modifier = do
+    atari <- ask
+    liftIO $ modifyIORef' (atari ^. hardware) (over lens modifier)
+
 {-# INLINE zoomHardware #-}
 zoomHardware :: MyState Hardware a -> MonadAtari a
 zoomHardware (S m) = do
@@ -174,6 +189,11 @@ putMemory lens value = do
     atari <- ask
     liftIO $ modifyIORef' (atari ^. memory) (set lens value)
 
+{-# INLINE modifyMemory #-}
+modifyMemory lens modifier = do
+    atari <- ask
+    liftIO $ modifyIORef' (atari ^. memory) (over lens modifier)
+
 {-# INLINE zoomMemory #-}
 zoomMemory :: MyState Memory a -> MonadAtari a
 zoomMemory (S m) = do
@@ -181,4 +201,58 @@ zoomMemory (S m) = do
     memory' <- liftIO $ readIORef (atari ^. memory)
     SP memory'' a <- liftIO $ m memory'
     liftIO $ writeIORef (atari ^. memory) memory''
+    return a
+
+{-# INLINE useRegisters #-}
+useRegisters :: Getting b Registers b -> MonadAtari b
+useRegisters lens = do
+    atari <- ask
+    registers' <- liftIO $ readIORef (atari ^. regs)
+    return $! registers' ^. lens
+
+{-# INLINE putRegisters #-}
+putRegisters :: ASetter Registers Registers a a -> a -> MonadAtari ()
+putRegisters lens value = do
+    atari <- ask
+    liftIO $ modifyIORef' (atari ^. regs) (set lens value)
+
+{-# INLINE modifyRegisters #-}
+modifyRegisters lens modifier = do
+    atari <- ask
+    liftIO $ modifyIORef' (atari ^. regs) (over lens modifier)
+
+{-# INLINE zoomRegisters #-}
+zoomRegisters :: MyState Registers a -> MonadAtari a
+zoomRegisters (S m) = do
+    atari <- ask
+    registers' <- liftIO $ readIORef (atari ^. regs)
+    SP registers'' a <- liftIO $ m registers'
+    liftIO $ writeIORef (atari ^. regs) registers''
+    return a
+
+{-# INLINE useClock #-}
+useClock :: Getting b Int64 b -> MonadAtari b
+useClock lens = do
+    atari <- ask
+    clock' <- liftIO $ readIORef (atari ^. clock)
+    return $! clock' ^. lens
+
+{-# INLINE putClock #-}
+putClock :: ASetter Int64 Int64 a a -> a -> MonadAtari ()
+putClock lens value = do
+    atari <- ask
+    liftIO $ modifyIORef' (atari ^. clock) (set lens value)
+
+{-# INLINE modifyClock #-}
+modifyClock lens modifier = do
+    atari <- ask
+    liftIO $ modifyIORef' (atari ^. clock) (over lens modifier)
+
+{-# INLINE zoomClock #-}
+zoomClock :: MyState Int64 a -> MonadAtari a
+zoomClock (S m) = do
+    atari <- ask
+    clock' <- liftIO $ readIORef (atari ^. clock)
+    SP clock'' a <- liftIO $ m clock'
+    liftIO $ writeIORef (atari ^. clock) clock''
     return a

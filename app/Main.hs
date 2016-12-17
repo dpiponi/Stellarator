@@ -16,6 +16,7 @@ import Control.Concurrent (threadDelay)
 import Emulation
 import Control.Lens hiding (_last)
 import Control.Monad
+import Control.Monad.Reader
 import Text.Parsec
 import Control.Monad.State.Strict
 import Metrics
@@ -116,7 +117,7 @@ handleKey motion sym = do
         SDL.ScancodeV ->  modifyIRegister swchb (setBitTo 0 (not pressed))
         SDL.ScancodeSpace ->  do
             vblank' <- getORegister vblank
-            hardware . trigger1 .= pressed
+            putHardware trigger1 pressed
             let latch = testBit vblank' 6
             case (latch, pressed) of
                 (False, _) -> do
@@ -136,7 +137,7 @@ handleKey motion sym = do
 
 loopUntil :: Int64 -> MonadAtari ()
 loopUntil !n = do
-    !stellaClock' <- use (hardware . stellaClock)
+    !stellaClock' <- useHardware stellaClock
     when (stellaClock' < n) $ do
         step
         loopUntil n
@@ -165,7 +166,7 @@ main = do
     oregs <- newArray (0, 0x3f) 0
     iregs <- newArray (0, 0x300) 0 -- XXX no need for that many really
     let style = bank args
-    let state = initState ram style rom oregs iregs
+    state <- initState ram style rom oregs iregs
                           initialPC backSurface screenSurface window
 
     let loop = do
@@ -173,12 +174,12 @@ main = do
 
             let quit = elem SDL.QuitEvent $ map SDL.eventPayload events
             forM_ events handleEvent
-            stellaClock' <-  use (hardware . stellaClock)
+            stellaClock' <- useHardware stellaClock
             loopUntil (stellaClock' + 1000)
 
             loop
 
-    flip runS state $ unM $ do
+    flip runReaderT state $ unM $ do
         -- Joystick buttons not pressed
         putIRegister inpt4 0x80
         putIRegister inpt5 0x80
