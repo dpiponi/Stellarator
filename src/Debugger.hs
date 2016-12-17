@@ -66,17 +66,17 @@ eval MI = do
     value <- getN
     return (EBool value)
 eval DebugCmd.Clock = do
-    value <- use clock
+    value <- useClock id
     return (EInt (fromIntegral value))
 eval Row = do
-    value <- use vpos
+    value <- useHardware (position . _2)
     return (EInt (fromIntegral value))
 eval Col = do
-    value <- use hpos
+    value <- useHardware (position . _1)
     return (EInt (fromIntegral value))
 
 eval (Var s) = do
-    v <- use (hardware . stellaDebug . variables)
+    v <- useHardware (stellaDebug . variables)
     case Map.lookup s v of
         Nothing -> return EFail
         Just x -> return x
@@ -165,8 +165,8 @@ execCommand cmd =
     case cmd of
         Let var e -> do
             e' <- eval e
-            hardware . stellaDebug . variables %= Map.insert var e'
-            _ <- use (hardware . stellaDebug . variables)
+            modifyHardware (stellaDebug . variables) $ Map.insert var e'
+            _ <- useHardware (stellaDebug . variables)
             return False
         Block cmds -> do
             forM_ cmds execCommand

@@ -9,8 +9,8 @@
 
 module Emulation(stellaDebug,
                  dumpStella,
-                 hpos,
-                 vpos,
+                 --hpos,
+                 --vpos,
                  dumpRegisters,
                  dumpState,
                  setBreak,
@@ -438,11 +438,9 @@ stellaWsync :: MonadAtari ()
 stellaWsync = do
     hpos' <- useHardware (position . _1)
     when (hpos' > 2) $ do
-        clockRef <- use clock
-        clock' <- liftIO $ readIORef clockRef
-        let clock'' = clock'+1
-        liftIO $ writeIORef clockRef clock''
-        zoomHardware $ stellaTickUntil (3*clock'')
+        modifyClock id (+ 1)
+        clock' <- useClock id
+        zoomHardware $ stellaTickUntil (3*clock')
         stellaWsync
 
 -- http://atariage.com/forums/topic/107527-atari-2600-vsyncvblank/
@@ -522,7 +520,7 @@ instance Emu6502 MonadAtari where
         let addr = addr' .&. 0x1fff -- 6507
         byte <- pureReadMemory addr
         bankType <- useMemory bankMode
-        memory . bankOffset %= bankSwitch bankType addr
+        modifyMemory bankOffset $ bankSwitch bankType addr
         return byte
 
     {-# INLINE writeMemory #-}
@@ -530,67 +528,67 @@ instance Emu6502 MonadAtari where
         let addr = addr' .&. 0x1fff -- 6507
         pureWriteMemory addr v
         bankType <- useMemory bankMode
-        memory . bankOffset %= bankSwitch bankType addr
+        modifyMemory bankOffset $ bankSwitch bankType addr
 
     {-# INLINE getPC #-}
-    getPC = use (regs . pc)
+    getPC = useRegisters (pc)
     {-# INLINE tick #-}
     tick n = do
-        clock += fromIntegral n
-        c <- use clock
+        modifyClock id (+ fromIntegral n)
+        c <- useClock id
         zoomHardware $ stellaTickUntil (3*c)
     {-# INLINE putC #-}
-    putC b = regs . flagC .= b
+    putC b = putRegisters flagC b
     {-# INLINE getC #-}
-    getC = use (regs . flagC)
+    getC = useRegisters (flagC)
     {-# INLINE putZ #-}
-    putZ b = regs . flagZ .= b
+    putZ b = putRegisters flagZ b
     {-# INLINE getZ #-}
-    getZ = use (regs . flagZ)
+    getZ = useRegisters (flagZ)
     {-# INLINE putI #-}
-    putI b = regs . flagI .= b
+    putI b = putRegisters flagI b
     {-# INLINE getI #-}
-    getI = use (regs . flagI)
+    getI = useRegisters (flagI)
     {-# INLINE putD #-}
-    putD b = regs . flagD .= b
+    putD b = putRegisters flagD b
     {-# INLINE getD #-}
-    getD = use (regs . flagD)
+    getD = useRegisters (flagD)
     {-# INLINE putB #-}
-    putB b = regs . flagB .= b
+    putB b = putRegisters flagB b
     {-# INLINE getB #-}
-    getB = use (regs . flagB)
+    getB = useRegisters (flagB)
     {-# INLINE putV #-}
-    putV b = regs . flagV .= b
+    putV b = putRegisters flagV b
     {-# INLINE getV #-}
-    getV = use (regs . flagV)
+    getV = useRegisters (flagV)
     {-# INLINE putN #-}
-    putN b = regs . flagN .= b
+    putN b = putRegisters flagN b
     {-# INLINE getN #-}
-    getN = use (regs . flagN)
+    getN = useRegisters (flagN)
     {-# INLINE getA #-}
-    getA = use (regs . a)
+    getA = useRegisters (a)
     {-# INLINE putA #-}
-    putA r = regs . a .= r
+    putA r = putRegisters a r
     {-# INLINE getS #-}
-    getS = use (regs . s)
+    getS = useRegisters (s)
     {-# INLINE putS #-}
-    putS r = regs . s .= r
+    putS r = putRegisters s r
     {-# INLINE getX #-}
-    getX = use (regs . x)
+    getX = useRegisters (x)
     {-# INLINE putX #-}
-    putX r = regs . x .= r
+    putX r = putRegisters x r
     {-# INLINE getP #-}
-    getP = use (regs . p)
+    getP = useRegisters (p)
     {-# INLINE putP #-}
-    putP r = regs . p .= r
+    putP r = putRegisters p r
     {-# INLINE getY #-}
-    getY = use (regs . y)
+    getY = useRegisters (y)
     {-# INLINE putY #-}
-    putY r = regs . y .= r
+    putY r = putRegisters y r
     {-# INLINE putPC #-}
-    putPC r = regs . pc .= r
+    putPC r = putRegisters pc r
     {-# INLINE addPC #-}
-    addPC n = regs . pc += fromIntegral n
+    addPC n = modifyRegisters pc (+ fromIntegral n)
 
     {-# INLINE debugStr #-}
     debugStr _ _ = return ()
@@ -616,6 +614,11 @@ instance Emu6502 MonadAtari where
     {- INLINE illegal -}
     illegal i = error $ "Illegal opcode 0x" ++ showHex i ""
 
+-- XXX Fix this
+dumpStella :: MonadAtari ()
+dumpStella = return ()
+
+{-
 dumpStella :: MonadAtari ()
 dumpStella = do
     liftIO $ putStrLn "--------"
@@ -655,6 +658,7 @@ dumpStella = do
     liftIO $ putStrLn $ "VDELP0 = " ++ show vdelp0' ++ " " ++
                         "VDELP1 = " ++ show vdelp1' ++ " " ++
                         "VDELBL = " ++ show vdelbl'
+                        -}
 
 {-# INLINABLE dumpMemory #-}
 dumpMemory :: MonadAtari ()
@@ -704,11 +708,11 @@ dumpState = do
 
 {- INLINE setBreak -}
 setBreak :: Int -> Int -> MonadAtari ()
-setBreak breakX breakY = hardware . stellaDebug . posbreak .= (breakX+picx, breakY+picy)
+setBreak breakX breakY = putHardware (stellaDebug . posbreak) (breakX+picx, breakY+picy)
 
 graphicsDelay :: Int64 -> MonadAtari ()
 graphicsDelay n = do
-    c <- use clock
+    c <- useClock id
     zoomHardware $ stellaTickUntil (3*c+n)
 
 {- INLINABLE writeStella -}
@@ -730,36 +734,36 @@ writeStella addr v =
        0x0d -> graphicsDelay 4 >> putORegister pf0 v >> makePlayfield                  -- PF0
        0x0e -> graphicsDelay 4 >> putORegister pf1 v >> makePlayfield                  -- PF1
        0x0f -> graphicsDelay 4 >> putORegister pf2 v >> makePlayfield                  -- PF2
-       0x10 -> graphicsDelay 5 >> use hpos >>= (ppos0 .=)   -- RESP0
-       0x11 -> graphicsDelay 5 >> use hpos >>= (ppos1 .=)   -- RESP1
-       0x12 -> graphicsDelay 4 >> use hpos >>= (mpos0 .=)   -- RESM0
-       0x13 -> graphicsDelay 4 >> use hpos >>= (mpos1 .=)   -- RESM1
-       0x14 -> graphicsDelay 4 >> use hpos >>= (bpos .=)     -- RESBL
+       0x10 -> graphicsDelay 5 >> useHardware (position . _1) >>= putHardware (sprites . s_ppos0) -- RESP0
+       0x11 -> graphicsDelay 5 >> useHardware (position . _1) >>= putHardware (sprites . s_ppos1) -- RESP1
+       0x12 -> graphicsDelay 4 >> useHardware (position . _1) >>= putHardware (sprites . s_mpos0) -- RESM0
+       0x13 -> graphicsDelay 4 >> useHardware (position . _1) >>= putHardware (sprites . s_mpos1) -- RESM1
+       0x14 -> graphicsDelay 4 >> useHardware (position . _1) >>= putHardware (sprites . s_bpos)  -- RESBL
        0x1b -> do -- GRP0
-                hardware . graphics . newGrp0 .= v
-                useHardware (graphics . newGrp1) >>= (hardware . graphics . oldGrp1 .=)
+                putHardware (graphics . newGrp0) v
+                useHardware (graphics . newGrp1) >>= putHardware (graphics . oldGrp1)
        0x1c -> do -- GRP1
-                hardware . graphics . newGrp1 .= v
-                useHardware (graphics . newGrp0) >>= (hardware . graphics . oldGrp0 .=)
-                useHardware (graphics . newBall) >>= (hardware . graphics . oldBall .=)
+                putHardware (graphics . newGrp1) v
+                useHardware (graphics . newGrp0) >>= putHardware (graphics . oldGrp0)
+                useHardware (graphics . newBall) >>= putHardware (graphics . oldBall)
        0x1d -> putORegister enam0 v                -- ENAM0
        0x1e -> putORegister enam1 v                -- ENAM1
-       0x1f -> hardware . graphics . newBall .= testBit v 1   -- ENABL
+       0x1f -> putHardware (graphics . newBall) $ testBit v 1   -- ENABL
        0x20 -> putORegister hmp0 v                 -- HMP0
        0x21 -> putORegister hmp1 v                 -- HMP1
        0x22 -> putORegister hmm0 v                 -- HMM0
        0x23 -> putORegister hmm1 v                 -- HMM1
        0x24 -> putORegister hmbl v                 -- HMBL
-       0x25 -> hardware . graphics . delayP0 .= testBit v 0   -- VDELP0
-       0x26 -> hardware . graphics . delayP1 .= testBit v 0   -- VDELP1
-       0x27 -> hardware . graphics . delayBall .= testBit v 0   -- VDELBL
+       0x25 -> putHardware (graphics . delayP0) $ testBit v 0   -- VDELP0
+       0x26 -> putHardware (graphics . delayP1) $ testBit v 0   -- VDELP1
+       0x27 -> putHardware (graphics . delayBall) $ testBit v 0   -- VDELBL
        0x28 -> putORegister resmp0 v
        0x29 -> putORegister resmp1 v
        0x2a -> zoomHardware $ stellaHmove               -- HMOVE
        0x2b -> zoomHardware $ stellaHmclr               -- HMCLR
        0x2c -> zoomHardware $ stellaCxclr               -- CXCLR
-       0x294 -> hardware . intervalTimer .= start1 v -- TIM1T
-       0x295 -> hardware . intervalTimer .= start8 v -- TIM8T
-       0x296 -> hardware . intervalTimer .= start64 v -- TIM64T
-       0x297 -> hardware . intervalTimer .= start1024 v -- TIM1024T
+       0x294 -> putHardware intervalTimer $ start1 v -- TIM1T
+       0x295 -> putHardware intervalTimer $ start8 v -- TIM8T
+       0x296 -> putHardware intervalTimer $ start64 v -- TIM64T
+       0x297 -> putHardware intervalTimer $ start1024 v -- TIM1024T
        _ -> return () -- liftIO $ putStrLn $ "writing TIA 0x" ++ showHex addr ""
