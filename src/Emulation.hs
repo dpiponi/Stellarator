@@ -35,6 +35,7 @@ import Metrics
 import Data.Bits hiding (bit)
 import Data.Bits.Lens
 import Memory
+import Data.IORef
 import Data.Int
 import VideoOps
 import Atari2600
@@ -63,10 +64,16 @@ initState :: IOUArray Int Word8 ->
              IOUArray IReg Word8 ->
              Word16 ->
              SDL.Surface -> SDL.Surface ->
-             SDL.Window -> Atari2600
+             SDL.Window -> IO Atari2600
 initState ram' mode rom' oregs iregs initialPC
-          helloWorld screenSurface window = Atari2600 {
-              _hardware = Hardware {
+          helloWorld screenSurface window = do
+          memory' <- newIORef $ Memory {
+                  _rom = rom',
+                  _ram = ram',
+                  _bankMode = mode,
+                  _bankOffset = 0
+              }
+          hardware' <- newIORef $ Hardware {
                   _oregisters = oregs,
                   _iregisters = iregs,
                   _position = (0, 0),
@@ -82,16 +89,16 @@ initState ram' mode rom' oregs iregs initialPC
                   _stellaDebug = DebugState.start,
                   _trigger1 = False,
                   _pf = 0
-              },
-              _memory = Memory {
-                  _rom = rom',
-                  _ram = ram',
-                  _bankMode = mode,
-                  _bankOffset = 0
-              },
-              _clock = 0,
-              _regs = R initialPC 0 0 0 0 0xff,
-              _debug = 8
+              }
+          regs' <- newIORef $ R initialPC 0 0 0 0 0xff
+          clock' <- newIORef 0
+          debug' <- newIORef 8
+          return $ Atari2600 {
+              _hardware = hardware',
+              _memory = memory',
+              _regs = regs',
+              _clock = clock',
+              _debug = debug'
           }
 
 {-# INLINE flagC #-}
@@ -125,31 +132,31 @@ flagN = p . bitAt 7
 {-# INLINE putORegister #-}
 putORegister :: OReg -> Word8 -> MonadAtari ()
 putORegister i v = do
-    r <- use (hardware . oregisters)
+    r <- useHardware oregisters
     liftIO $ writeArray r i v
 
 {-# INLINE getORegister #-}
 getORegister :: OReg -> MonadAtari Word8
 getORegister i = do
-    r <- use (hardware . oregisters)
+    r <- useHardware (oregisters)
     liftIO $ readArray r i
 
 {-# INLINE putIRegister #-}
 putIRegister :: IReg -> Word8 -> MonadAtari ()
 putIRegister i v = do
-    r <- use (hardware . iregisters)
+    r <- useHardware (iregisters)
     liftIO $ writeArray r i v
 
 {-# INLINE modifyIRegister #-}
 modifyIRegister :: IReg -> (Word8 -> Word8) -> MonadAtari ()
 modifyIRegister i f = do
-    r <- use (hardware . iregisters)
+    r <- useHardware (iregisters)
     liftIO $ (readArray r i >>= writeArray r i . f)
 
 {-# INLINE getIRegister #-}
 getIRegister :: IReg -> MonadAtari Word8
 getIRegister i = do
-    r <- use (hardware . iregisters)
+    r <- useHardware (iregisters)
     liftIO $ readArray r i
 
 {-# INLINE orIRegister #-}
@@ -203,12 +210,16 @@ stellaHmove = do
     }
 
 {- INLINE stellaResmp0 -}
-stellaResmp0 ::  MonadAtari ()
-stellaResmp0 = use ppos0 >>= (mpos0 .=) -- XXX
+stellaResmp0 :: MonadAtari ()
+stellaResmp0 = do
+    playerPosition <- useHardware (sprites . s_ppos0)
+    putHardware (sprites . s_mpos0) (playerPosition :: Int)
 
 {- INLINE stellaResmp1 -}
 stellaResmp1 :: MonadAtari ()
-stellaResmp1 = use ppos1 >>= (mpos1 .=) -- XXX
+stellaResmp1 = do
+    playerPosition <- useHardware (sprites . s_ppos1)
+    putHardware (sprites . s_mpos1) (playerPosition :: Int)
 
 inBinary :: (Bits a) => Int -> a -> String
 inBinary 0 _ = ""
@@ -230,7 +241,7 @@ explainNusiz nusiz =
 {- INLINE stellaDebugStr -}
 stellaDebugStr :: Int -> String -> MonadAtari ()
 stellaDebugStr n str = do
-    d <- use (hardware . stellaDebug . debugLevel)
+    d <- useHardware (stellaDebug . debugLevel)
     if n <= d
         then do
             liftIO $ putStr str
@@ -239,7 +250,7 @@ stellaDebugStr n str = do
 {- INLINE stellaDebugStrLn -}
 stellaDebugStrLn :: Int -> String -> MonadAtari ()
 stellaDebugStrLn n str = do
-    d <- use (hardware . stellaDebug . debugLevel)
+    d <- useHardware (stellaDebug . debugLevel)
     if n <= d
         then do
             liftIO $ putStrLn str
@@ -333,6 +344,7 @@ stellaVblank v = do
 
     liftIO $ fastPutORegister or vblank v
 
+{-
 {-# INLINE hpos #-}
 {-# INLINE vpos #-}
 hpos, vpos :: Lens' Atari2600 Int
@@ -350,16 +362,17 @@ ppos1 = hardware . sprites . s_ppos1
 mpos0 = hardware . sprites . s_mpos0
 mpos1 = hardware . sprites . s_mpos1
 bpos = hardware . sprites . s_bpos
+-}
 
 makePlayfield :: MonadAtari ()
 makePlayfield = do
-    r <- use (hardware . oregisters)
+    r <- useHardware (oregisters)
     !pf0' <- liftIO $ fastGetORegister r pf0
     !pf1' <- liftIO $ fastGetORegister r pf1
     !pf2' <- liftIO $ fastGetORegister r pf2
     !ctrlpf' <- liftIO $ fastGetORegister r ctrlpf
     let !pf' = assemblePlayfield (testBit ctrlpf' 0) pf0' pf1' pf2'
-    hardware . pf .= pf'
+    putHardware pf pf'
 
 {- INLINABLE readStella -}
 readStella :: Word16 -> MonadAtari Word8
@@ -407,7 +420,7 @@ readStella addr =
         0x3d -> getIRegister inpt5
         0x280 -> getIRegister swcha
         0x282 -> getIRegister swchb
-        0x284 -> use (hardware . intervalTimer . intim)
+        0x284 -> useHardware (intervalTimer . intim)
         _ -> return 0 -- (liftIO $ putStrLn $ "reading TIA 0x" ++ showHex addr "") >> return 0
 
 {- INLINE stellaVsync -}
@@ -423,11 +436,13 @@ stellaVsync v = do
 {- INLINE stellaWsync -}
 stellaWsync :: MonadAtari ()
 stellaWsync = do
-    hpos' <- use hpos
+    hpos' <- useHardware (position . _1)
     when (hpos' > 2) $ do
-        clock += 1 -- sleep the CPU
-        clock' <- use clock
-        zoomHardware $ stellaTickUntil (3*clock')
+        clockRef <- use clock
+        clock' <- liftIO $ readIORef clockRef
+        let clock'' = clock'+1
+        liftIO $ writeIORef clockRef clock''
+        zoomHardware $ stellaTickUntil (3*clock'')
         stellaWsync
 
 -- http://atariage.com/forums/topic/107527-atari-2600-vsyncvblank/
@@ -482,7 +497,7 @@ bankSwitch _        _      !old = old
 pureReadMemory :: Word16 -> MonadAtari Word8
 pureReadMemory addr | addr >= 0x1000 = zoomMemory $ pureReadRom addr
 pureReadMemory addr | isRAM addr = do
-    m <- use (memory . ram)
+    m <- useMemory (ram)
     liftIO $ readArray m (iz addr .&. 0x7f)
 pureReadMemory addr | isTIA addr     = readStella (addr .&. 0x3f)
 pureReadMemory addr | isRIOT addr    = readStella (0x280+(addr .&. 0x1f))
@@ -493,7 +508,7 @@ pureWriteMemory :: Word16 -> Word8 -> MonadAtari ()
 pureWriteMemory addr v = do
     if isRAM addr
         then do
-            m <- use (memory . ram)
+            m <- useMemory (ram)
             liftIO $ writeArray m (iz addr .&. 0x7f) v
         else if isTIA addr
             then writeStella (addr .&. 0x3f) v
@@ -506,7 +521,7 @@ instance Emu6502 MonadAtari where
     readMemory addr' = do
         let addr = addr' .&. 0x1fff -- 6507
         byte <- pureReadMemory addr
-        bankType <- use (memory . bankMode)
+        bankType <- useMemory bankMode
         memory . bankOffset %= bankSwitch bankType addr
         return byte
 
@@ -514,7 +529,7 @@ instance Emu6502 MonadAtari where
     writeMemory addr' v = do
         let addr = addr' .&. 0x1fff -- 6507
         pureWriteMemory addr v
-        bankType <- use (memory . bankMode)
+        bankType <- useMemory bankMode
         memory . bankOffset %= bankSwitch bankType addr
 
     {-# INLINE getPC #-}
@@ -607,8 +622,8 @@ dumpStella = do
     hpos' <- use hpos
     vpos' <- use vpos
     liftIO $ putStrLn $ "hpos = " ++ show hpos' ++ " (" ++ show (hpos'-picx) ++ ") vpos = " ++ show vpos' ++ " (" ++ show (vpos'-picy) ++ ")"
-    grp0' <- use (hardware . graphics . oldGrp0) -- XXX
-    grp1' <- use (hardware . graphics . oldGrp1) -- XXX
+    grp0' <- useHardware (graphics . oldGrp0) -- XXX
+    grp1' <- useHardware (graphics . oldGrp1) -- XXX
     liftIO $ putStrLn $ "GRP0 = " ++ showHex grp0' "" ++ "(" ++ inBinary 8 grp0' ++ ")"
     liftIO $ putStrLn $ "GRP1 = " ++ showHex grp1' "" ++ "(" ++ inBinary 8 grp1' ++ ")"
     pf0' <- getORegister pf0
@@ -623,8 +638,8 @@ dumpStella = do
                         ") NUSIZ1 = " ++ showHex nusiz1' "" ++ "(" ++ explainNusiz nusiz1' ++ ")"
     enam0' <- getORegister enam0
     enam1' <- getORegister enam1
-    enablOld <- use (hardware . graphics . oldBall)
-    enablNew <- use (hardware . graphics . newBall)
+    enablOld <- useHardware (graphics . oldBall)
+    enablNew <- useHardware (graphics . newBall)
     liftIO $ putStr $ "ENAM0 = " ++ show (testBit enam0' 1)
     liftIO $ putStr $ " ENAM1 = " ++ show (testBit enam1' 1)
     liftIO $ putStrLn $ " ENABL = " ++ show (enablOld, enablNew)
@@ -634,9 +649,9 @@ dumpStella = do
     hmm1' <- getORegister hmm1
     liftIO $ putStr $ "missile0 @ " ++ show mpos0' ++ "(" ++ show (clockMove hmm0') ++ ")"
     liftIO $ putStrLn $ " missile1 @ " ++ show mpos1' ++ "(" ++ show (clockMove hmm1') ++ ")"
-    vdelp0' <- use (hardware . graphics . delayP0)
-    vdelp1' <- use (hardware . graphics . delayP1)
-    vdelbl' <- use (hardware . graphics . delayBall)
+    vdelp0' <- useHardware (graphics . delayP0)
+    vdelp1' <- useHardware (graphics . delayP1)
+    vdelbl' <- useHardware (graphics . delayBall)
     liftIO $ putStrLn $ "VDELP0 = " ++ show vdelp0' ++ " " ++
                         "VDELP1 = " ++ show vdelp1' ++ " " ++
                         "VDELBL = " ++ show vdelbl'
@@ -722,11 +737,11 @@ writeStella addr v =
        0x14 -> graphicsDelay 4 >> use hpos >>= (bpos .=)     -- RESBL
        0x1b -> do -- GRP0
                 hardware . graphics . newGrp0 .= v
-                use (hardware . graphics . newGrp1) >>= (hardware . graphics . oldGrp1 .=)
+                useHardware (graphics . newGrp1) >>= (hardware . graphics . oldGrp1 .=)
        0x1c -> do -- GRP1
                 hardware . graphics . newGrp1 .= v
-                use (hardware . graphics . newGrp0) >>= (hardware . graphics . oldGrp0 .=)
-                use (hardware . graphics . newBall) >>= (hardware . graphics . oldBall .=)
+                useHardware (graphics . newGrp0) >>= (hardware . graphics . oldGrp0 .=)
+                useHardware (graphics . newBall) >>= (hardware . graphics . oldBall .=)
        0x1d -> putORegister enam0 v                -- ENAM0
        0x1e -> putORegister enam1 v                -- ENAM1
        0x1f -> hardware . graphics . newBall .= testBit v 1   -- ENABL

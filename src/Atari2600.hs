@@ -2,14 +2,19 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE BangPatterns #-}
 
 module Atari2600(MonadAtari(..),
+                 MyState(..),
                  hardware,
                  graphics,
-                 MyState(..),
+                 useHardware,
+                 putHardware,
                  zoomHardware,
+                 useMemory,
+                 putMemory,
                  zoomMemory,
                  stellaDebug,
                  debug,
@@ -39,8 +44,10 @@ import Data.Word
 import Data.Int
 import Stella.Graphics
 import Stella.Sprites
+import Data.IORef
 import Stella.TIARegisters
 import Control.Lens
+import Control.Monad.Reader
 import Memory
 import Control.Monad.State.Strict
 import Stella.SDLState
@@ -74,15 +81,18 @@ data Hardware = Hardware {
 $(makeLenses ''Hardware)
 
 data Atari2600 = Atari2600 {
-    _memory :: Memory,
-    _hardware :: Hardware,
-    _regs :: Registers,
-    _clock :: !Int64,
-    _debug :: !Int
+    _memory :: IORef Memory,
+    _hardware :: IORef Hardware,
+    _regs :: IORef Registers,
+    _clock :: IORef Int64,
+    _debug :: IORef Int
 }
 
 $(makeLenses ''Atari2600)
 $(makeLenses ''Registers)
+
+newtype MonadAtari a = M { unM :: ReaderT Atari2600 IO a }
+      deriving (Functor, Applicative, Monad, MonadReader Atari2600, MonadIO)
 
 --newtype MonadAtari a = M { unM :: StateT Atari2600 IO a }
 --    deriving (Functor, Applicative, Monad, MonadState Atari2600, MonadIO)
@@ -116,6 +126,7 @@ instance MonadIO (MyState s) where
     {-# INLINE liftIO #-}
     liftIO m = S $ \ !s -> do { m' <- m; return $! SP s m' }
 
+{-
 newtype MonadAtari a = M { unM :: MyState Atari2600 a }
     deriving (Functor, Applicative, Monad, MonadState Atari2600, MonadIO)
 
@@ -126,11 +137,48 @@ zoomMemory (S m) = do
     SP mem' a <- liftIO $ m (_memory s)
     put $ s { _memory = mem' }
     return a
+-}
+
+{-# INLINE useHardware #-}
+useHardware :: Getting b Hardware b -> MonadAtari b
+useHardware lens = do
+    atari <- ask
+    hardware' <- liftIO $ readIORef (atari ^. hardware)
+    return $! hardware' ^. lens
+
+{-# INLINE putHardware #-}
+putHardware :: ASetter Hardware Hardware a a -> a -> MonadAtari ()
+putHardware lens value = do
+    atari <- ask
+    liftIO $ modifyIORef' (atari ^. hardware) (set lens value)
 
 {-# INLINE zoomHardware #-}
 zoomHardware :: MyState Hardware a -> MonadAtari a
 zoomHardware (S m) = do
-    s <- get
-    SP mem' a <- liftIO $ m (_hardware s)
-    put $ s { _hardware = mem' }
+    atari <- ask
+    hardware' <- liftIO $ readIORef (atari ^. hardware)
+    SP hardware'' a <- liftIO $ m hardware'
+    liftIO $ writeIORef (atari ^. hardware) hardware''
+    return a
+
+{-# INLINE useMemory #-}
+useMemory :: Getting b Memory b -> MonadAtari b
+useMemory lens = do
+    atari <- ask
+    memory' <- liftIO $ readIORef (atari ^. memory)
+    return $! memory' ^. lens
+
+{-# INLINE putMemory #-}
+putMemory :: ASetter Memory Memory a a -> a -> MonadAtari ()
+putMemory lens value = do
+    atari <- ask
+    liftIO $ modifyIORef' (atari ^. memory) (set lens value)
+
+{-# INLINE zoomMemory #-}
+zoomMemory :: MyState Memory a -> MonadAtari a
+zoomMemory (S m) = do
+    atari <- ask
+    memory' <- liftIO $ readIORef (atari ^. memory)
+    SP memory'' a <- liftIO $ m memory'
+    liftIO $ writeIORef (atari ^. memory) memory''
     return a
