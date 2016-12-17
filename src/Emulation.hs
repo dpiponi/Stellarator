@@ -5,6 +5,7 @@
 {-# LANGUAGE BinaryLiterals #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE Strict #-}
 
 module Emulation(stellaDebug,
                  dumpStella,
@@ -156,14 +157,14 @@ orIRegister :: IReg -> Word8 -> MonadAtari ()
 orIRegister i v = modifyIRegister i (v .|.)
 
 {- INLINE stellaHmclr -}
-stellaHmclr :: StateT Hardware IO ()
+stellaHmclr :: MyState Hardware ()
 stellaHmclr = do
     r <- use oregisters
     liftIO $ mapM_ (flip (fastPutORegister r) 0) [hmp0, hmp1,
                                                   hmm0, hmm1, hmbl]
 
 {- INLINE stellaCxclr -}
-stellaCxclr :: StateT Hardware IO ()
+stellaCxclr :: MyState Hardware ()
 stellaCxclr = do
     r <- use iregisters
     liftIO $ mapM_ (flip (fastPutIRegister r) 0) [cxm0p, cxm1p, cxm0fb,
@@ -171,7 +172,7 @@ stellaCxclr = do
                                                   cxblpf, cxppmm]
 
 {- INLINE stellaHmove -}
-stellaHmove :: StateT Hardware IO ()
+stellaHmove :: MyState Hardware ()
 stellaHmove = do
     Sprites !ppos0' !ppos1' !mpos0' !mpos1' !bpos' <- use sprites
 
@@ -317,7 +318,7 @@ Overscan        sta WSYNC
 -}
 
 {- INLINE stellaVblank -}
-stellaVblank :: Word8 -> StateT Hardware IO ()
+stellaVblank :: Word8 -> MyState Hardware ()
 stellaVblank v = do
     ir <- use iregisters
     or <- use oregisters
@@ -410,7 +411,7 @@ readStella addr =
         _ -> return 0 -- (liftIO $ putStrLn $ "reading TIA 0x" ++ showHex addr "") >> return 0
 
 {- INLINE stellaVsync -}
-stellaVsync :: Word8 -> StateT Hardware IO ()
+stellaVsync :: Word8 -> MyState Hardware ()
 stellaVsync v = do
     or <- use oregisters
     oldv <- liftIO $ fastGetORegister or vsync
@@ -426,7 +427,7 @@ stellaWsync = do
     when (hpos' > 2) $ do
         clock += 1 -- sleep the CPU
         clock' <- use clock
-        M $ zoom hardware $ stellaTickUntil (3*clock')
+        zoomHardware $ stellaTickUntil (3*clock')
         stellaWsync
 
 -- http://atariage.com/forums/topic/107527-atari-2600-vsyncvblank/
@@ -435,7 +436,7 @@ stellaWsync = do
 church 0 f x = x
 church n f x = church (n-1) f (f x)
 
-stellaTickUntil :: Int64 -> StateT Hardware IO ()
+stellaTickUntil :: Int64 -> MyState Hardware ()
 stellaTickUntil n = do
     !c <- use stellaClock
     let !diff = n-c
@@ -444,7 +445,6 @@ stellaTickUntil n = do
         -- carried out on individual ticks
         stellaClock += diff
         !it <- use intervalTimer
-        -- intervalTimer %= timerTick
         intervalTimer .= church diff timerTick it
         r <- use oregisters
         resmp0' <- liftIO $ fastGetORegister r resmp0
@@ -452,15 +452,18 @@ stellaTickUntil n = do
         sprites %= clampMissiles resmp0' resmp1'
 
         hardware' <- get
-        hardware'' <- liftIO $ stellaTick (fromIntegral diff) hardware'
+        surface <- use (stellaSDL . sdlBackSurface)
+        !ptr <- liftIO $ surfacePixels surface
+        let !ptr' = castPtr ptr :: Ptr Word32
+        hardware'' <- liftIO $ stellaTick (fromIntegral diff) hardware' ptr'
         put hardware''
 
 {-# INLINE pureReadRom #-}
-pureReadRom :: Word16 -> StateT Memory IO Word8
+pureReadRom :: Word16 -> MyState Memory Word8
 pureReadRom addr = do
     m <- use rom
     offset <- use bankOffset
-    byte <- liftIO $ readArray m ((iz addr .&. 0xfff)+fromIntegral offset)
+    !byte <- liftIO $ readArray m ((iz addr .&. 0xfff)+fromIntegral offset)
     return byte
 
 {-# INLINE bankSwitch #-}
@@ -477,7 +480,7 @@ bankSwitch _        _      !old = old
 
 {-# INLINE pureReadMemory #-}
 pureReadMemory :: Word16 -> MonadAtari Word8
-pureReadMemory addr | addr >= 0x1000 = M $ zoom memory $ pureReadRom addr
+pureReadMemory addr | addr >= 0x1000 = zoomMemory $ pureReadRom addr
 pureReadMemory addr | isRAM addr = do
     m <- use (memory . ram)
     liftIO $ readArray m (iz addr .&. 0x7f)
@@ -520,7 +523,7 @@ instance Emu6502 MonadAtari where
     tick n = do
         clock += fromIntegral n
         c <- use clock
-        M $ zoom hardware $ stellaTickUntil (3*c)
+        zoomHardware $ stellaTickUntil (3*c)
     {-# INLINE putC #-}
     putC b = regs . flagC .= b
     {-# INLINE getC #-}
@@ -691,14 +694,14 @@ setBreak breakX breakY = hardware . stellaDebug . posbreak .= (breakX+picx, brea
 graphicsDelay :: Int64 -> MonadAtari ()
 graphicsDelay n = do
     c <- use clock
-    M $ zoom hardware $ stellaTickUntil (3*c+n)
+    zoomHardware $ stellaTickUntil (3*c+n)
 
 {- INLINABLE writeStella -}
 writeStella :: Word16 -> Word8 -> MonadAtari ()
 writeStella addr v = 
     case addr of
-       0x00 -> M $ zoom hardware $ stellaVsync v             -- VSYNC
-       0x01 -> M $ zoom hardware $ stellaVblank v            -- VBLANK
+       0x00 -> zoomHardware $ stellaVsync v             -- VSYNC
+       0x01 -> zoomHardware $ stellaVblank v            -- VBLANK
        0x02 -> stellaWsync               -- WSYNC
        0x04 -> putORegister nusiz0 v        -- NUSIZ0
        0x05 -> putORegister nusiz1 v        -- NUSIZ1
@@ -737,9 +740,9 @@ writeStella addr v =
        0x27 -> hardware . graphics . delayBall .= testBit v 0   -- VDELBL
        0x28 -> putORegister resmp0 v
        0x29 -> putORegister resmp1 v
-       0x2a -> M $ zoom hardware $ stellaHmove               -- HMOVE
-       0x2b -> M $ zoom hardware $ stellaHmclr               -- HMCLR
-       0x2c -> M $ zoom hardware $ stellaCxclr               -- CXCLR
+       0x2a -> zoomHardware $ stellaHmove               -- HMOVE
+       0x2b -> zoomHardware $ stellaHmclr               -- HMCLR
+       0x2c -> zoomHardware $ stellaCxclr               -- CXCLR
        0x294 -> hardware . intervalTimer .= start1 v -- TIM1T
        0x295 -> hardware . intervalTimer .= start8 v -- TIM8T
        0x296 -> hardware . intervalTimer .= start64 v -- TIM64T

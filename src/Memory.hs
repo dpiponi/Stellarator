@@ -1,5 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE Strict #-}
 
 module Memory where
 
@@ -44,8 +45,8 @@ data BankMode = UnBanked | F6 | F8 deriving (Show, Data, Typeable)
 data Memory = Memory {
     _ram :: IOUArray Int Word8,
     _rom :: IOUArray Int Word8,
-    _bankMode :: BankMode,
-    _bankOffset :: Word16
+    _bankMode :: !BankMode,
+    _bankOffset :: !Word16
 }
 
 $(makeLenses ''Memory)

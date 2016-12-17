@@ -1,5 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE BinaryLiterals #-}
+{-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE Strict #-}
 
 module VideoOps(compositeAndCollide,
@@ -198,44 +199,29 @@ compositeAndCollide hardware'@(Hardware {_graphics = graphics',
                                       lmissile0 lmissile1
                                       lplayer0 lplayer1 pixelx
 
-stellaTick :: Int -> Hardware -> IO Hardware
-stellaTick n hardware' | n <= 0 = return hardware'
+stellaTick :: Int -> Hardware -> Ptr Word32 -> IO Hardware
+stellaTick n hardware' _ | n <= 0 = return hardware'
 stellaTick n hardware'@(Hardware { _stellaDebug = stellaDebug'@(DebugState { _posbreak = posbreak'@(!xbreak', !ybreak')}),
                                    _oregisters = r,
-                                   _position = position'@(!hpos', !vpos'),
-                                   _stellaSDL = SDLState { _sdlBackSurface = !surface } }) = do
-    -- (xbreak', ybreak') <- use (stellaDebug . posbreak)
-    -- (hpos', vpos') <- use position
+                                   _position = position'@(!hpos', !vpos') }) ptr' = do
     let posbreak'' = if (hpos', vpos') == (xbreak', ybreak') then (-1, -1) else posbreak'
 
-    -- stellaClock += 1
-    -- intervalTimer %= timerTick
-    
-    -- Display
     when (vpos' >= picy && vpos' < picy+screenScanLines && hpos' >= picx) $ do
-        -- !surface <- use (stellaSDL . sdlBackSurface)
-        !ptr <- liftIO $ surfacePixels surface
-        let !ptr' = castPtr ptr :: Ptr Word32
+        -- !ptr <- liftIO $ surfacePixels surface
+        -- let !ptr' = castPtr ptr :: Ptr Word32
         let !pixelx = hpos'-picx
         let !pixely = vpos'-picy
 
-        -- Get address of pixel in back buffer
-        let !addr = fromIntegral (screenWidth*pixely+pixelx)
+        let !pixelAddr = fromIntegral (screenWidth*pixely+pixelx)
 
-        -- r <- use oregisters
-        -- (hpos', _) <- use position
-
-        -- hardware' <- get
         liftIO $ do
             !blank <- fastGetORegister r vblank
             if testBit blank 1
-                then pokeElemOff ptr' addr 0x404040
+                then pokeElemOff ptr' pixelAddr 0x404040
                 else do
                     !final <- compositeAndCollide hardware' pixelx hpos' r
                     let !rgb = lut!(final `shift` (-1))
-                    pokeElemOff ptr' addr rgb
+                    pokeElemOff ptr' pixelAddr rgb
 
-    -- position %= updatePos
-
-    stellaTick (n-1) $ hardware' { _position = updatePos position',
-                                   _stellaDebug = stellaDebug' { _posbreak = posbreak'' } }
+    stellaTick (n-1) hardware' { _position = updatePos position',
+                                   _stellaDebug = stellaDebug' { _posbreak = posbreak'' } } ptr'

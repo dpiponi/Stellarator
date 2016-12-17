@@ -74,7 +74,7 @@ clargs = Args { file = "adventure.bin", bank = UnBanked }
 
 times :: (Integral n, Monad m) => n -> m a -> m ()
 times 0 _ = return ()
-times n m = m >> times (n-1) m
+times !n m = m >> times (n-1) m
 
 {- INLINE isPressed -}
 isPressed :: InputMotion -> Bool
@@ -178,7 +178,7 @@ main = do
 
             loop
 
-    flip runStateT state $ unM $ do
+    flip runS state $ unM $ do
         -- Joystick buttons not pressed
         putIRegister inpt4 0x80
         putIRegister inpt5 0x80

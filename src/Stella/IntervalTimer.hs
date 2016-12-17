@@ -7,23 +7,17 @@ import Foreign.C.Types
 import Control.Lens
 
 data IntervalTimer = IntervalTimer {
-    _intim :: !Word8,
-    _subtimer :: !CInt,
-    _interval :: !CInt
+    _intim :: {-# UNPACK #-} !Word8,
+    _subtimer :: {-# UNPACK #-} !Int,
+    _interval :: {-# UNPACK #-} !Int
 }
 
 $(makeLenses ''IntervalTimer)
 
 timerTick :: IntervalTimer -> IntervalTimer
-
-timerTick (IntervalTimer 0 0 interval') =
-    IntervalTimer (-1) (3*1-1) 1
-
-timerTick (IntervalTimer intim' 0 interval') =
-    IntervalTimer (intim'-1) (3*interval'-1) interval'
-
-timerTick (IntervalTimer intim' subtimer' interval') =
-    IntervalTimer intim' (subtimer'-1) interval'
+timerTick (IntervalTimer 0      0         interval') = IntervalTimer (-1) (3*1-1) 1
+timerTick (IntervalTimer intim' 0         interval') = IntervalTimer (intim'-1) (3*interval'-1) interval'
+timerTick (IntervalTimer intim' subtimer' interval') = IntervalTimer intim' (subtimer'-1) interval'
 
 start :: IntervalTimer
 start = IntervalTimer {
