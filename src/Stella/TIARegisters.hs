@@ -52,6 +52,9 @@ swcha, swchb :: IReg
 swcha = 0x280
 swchb = 0x282
 
+type ORegArray = IOUArray OReg Word8
+type IRegArray = IOUArray IReg Word8
+
 {-# INLINE fastGetORegister #-}
 fastGetORegister :: IOUArray OReg Word8 -> OReg -> IO Word8
 fastGetORegister = readArray
