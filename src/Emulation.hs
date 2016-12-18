@@ -75,8 +75,6 @@ initState ram' mode rom' oregs iregs initialPC
               }
           sprites' <- newIORef Stella.Sprites.start
           hardware' <- newIORef $ Hardware {
-                  _oregisters = oregs,
-                  _iregisters = iregs,
                   _position = (0, 0),
                   _stellaSDL = SDLState {
                       _sdlBackSurface = helloWorld,
@@ -102,7 +100,9 @@ initState ram' mode rom' oregs iregs initialPC
               _sprites = sprites',
               _intervalTimer = intervalTimer',
               _graphics = graphics',
-              _stellaClock = stellaClock'
+              _stellaClock = stellaClock',
+              _oregisters = oregs,
+              _iregisters = iregs
           }
 
 {-# INLINE flagC #-}
@@ -136,31 +136,31 @@ flagN = p . bitAt 7
 {-# INLINE putORegister #-}
 putORegister :: OReg -> Word8 -> MonadAtari ()
 putORegister i v = do
-    r <- useHardware oregisters
+    r <- getORegisters
     liftIO $ writeArray r i v
 
 {-# INLINE getORegister #-}
 getORegister :: OReg -> MonadAtari Word8
 getORegister i = do
-    r <- useHardware (oregisters)
+    r <- getORegisters
     liftIO $ readArray r i
 
 {-# INLINE putIRegister #-}
 putIRegister :: IReg -> Word8 -> MonadAtari ()
 putIRegister i v = do
-    r <- useHardware (iregisters)
+    r <- getIRegisters
     liftIO $ writeArray r i v
 
 {-# INLINE modifyIRegister #-}
 modifyIRegister :: IReg -> (Word8 -> Word8) -> MonadAtari ()
 modifyIRegister i f = do
-    r <- useHardware (iregisters)
+    r <- getIRegisters
     liftIO $ (readArray r i >>= writeArray r i . f)
 
 {-# INLINE getIRegister #-}
 getIRegister :: IReg -> MonadAtari Word8
 getIRegister i = do
-    r <- useHardware (iregisters)
+    r <- getIRegisters
     liftIO $ readArray r i
 
 {-# INLINE orIRegister #-}
@@ -170,14 +170,14 @@ orIRegister i v = modifyIRegister i (v .|.)
 {- INLINE stellaHmclr -}
 stellaHmclr :: MonadAtari ()
 stellaHmclr = do
-    r <- useHardware oregisters
+    r <- getORegisters
     liftIO $ mapM_ (flip (fastPutORegister r) 0) [hmp0, hmp1,
                                                   hmm0, hmm1, hmbl]
 
 {- INLINE stellaCxclr -}
 stellaCxclr :: MonadAtari ()
 stellaCxclr = do
-    r <- useHardware iregisters
+    r <- getIRegisters
     liftIO $ mapM_ (flip (fastPutIRegister r) 0) [cxm0p, cxm1p, cxm0fb,
                                                   cxm1fb, cxp0fb, cxp1fb,
                                                   cxblpf, cxppmm]
@@ -187,7 +187,7 @@ stellaHmove :: MonadAtari ()
 stellaHmove = do
     Sprites !ppos0' !ppos1' !mpos0' !mpos1' !bpos' <- useSprites id
 
-    !r <- useHardware oregisters
+    !r <- getORegisters
     let getOReg !reg = liftIO $ fastGetORegister r reg
 
     !poffset0 <- getOReg hmp0
@@ -335,8 +335,8 @@ Overscan        sta WSYNC
 {- INLINE stellaVblank -}
 stellaVblank :: Word8 -> MonadAtari ()
 stellaVblank v = do
-    ir <- useHardware iregisters
-    or <- useHardware oregisters
+    ir <- getIRegisters
+    or <- getORegisters
     trigger <- useHardware trigger1
     if not trigger
         then do
@@ -370,7 +370,7 @@ bpos = hardware . sprites . s_bpos
 
 makePlayfield :: MonadAtari ()
 makePlayfield = do
-    r <- useHardware (oregisters)
+    r <- getORegisters
     !pf0' <- liftIO $ fastGetORegister r pf0
     !pf1' <- liftIO $ fastGetORegister r pf1
     !pf2' <- liftIO $ fastGetORegister r pf2
@@ -430,7 +430,7 @@ readStella addr =
 {- INLINE stellaVsync -}
 stellaVsync :: Word8 -> MonadAtari ()
 stellaVsync v = do
-    or <- useHardware oregisters
+    or <- getORegisters
     oldv <- liftIO $ fastGetORegister or vsync
     when (testBit oldv 1 && not (testBit v 1)) $ putHardware position (0, 0)
     liftIO $ fastPutORegister or vsync v
@@ -463,7 +463,8 @@ stellaTickUntil n = do
         modifyStellaClock id (+ diff)
         !it <- useIntervalTimer id
         putIntervalTimer id (church diff timerTick it)
-        r <- useHardware oregisters
+        r <- getORegisters
+        ir <- getIRegisters
         resmp0' <- liftIO $ fastGetORegister r resmp0
         resmp1' <- liftIO $ fastGetORegister r resmp1
         modifySprites id $ clampMissiles resmp0' resmp1'
@@ -471,11 +472,11 @@ stellaTickUntil n = do
         hardware' <- useHardware id
         graphics' <- useGraphics id
         surface <- useHardware (stellaSDL . sdlBackSurface)
-        !ptr <- liftIO $ surfacePixels surface
+        !ptr <- liftIO $ surfacePixels surface -- XXX <---
         let !ptr' = castPtr ptr :: Ptr Word32
         sprites' <- useSprites id
-        hardware'' <- liftIO $ stellaTick (fromIntegral diff) hardware' graphics' sprites' ptr'
-        putHardware id hardware''
+        hardware'' <- liftIO $ stellaTick (fromIntegral diff) ir r hardware' graphics' sprites' ptr'
+        putHardware id hardware'' -- XX Does this update sprites??? XXX
 
 {-# INLINE pureReadRom #-}
 pureReadRom :: Word16 -> MonadAtari Word8
