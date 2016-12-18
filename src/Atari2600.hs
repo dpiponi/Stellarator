@@ -28,6 +28,9 @@ module Atari2600(MonadAtari(..),
                  useIntervalTimer,
                  putIntervalTimer,
                  modifyIntervalTimer,
+                 useGraphics,
+                 putGraphics,
+                 modifyGraphics,
                  stellaDebug,
                  debug,
                  clock,
@@ -80,7 +83,6 @@ data Hardware = Hardware {
     _stellaDebug :: DebugState,
     _position :: !(Int, Int),
     _stellaClock :: !Int64,
-    _graphics :: Graphics,
     _trigger1 :: !Bool,
     _oregisters :: IOUArray OReg Word8,
     _iregisters :: IOUArray IReg Word8,
@@ -97,7 +99,8 @@ data Atari2600 = Atari2600 {
     _clock :: IORef Int64,
     _debug :: IORef Int,
     _sprites :: IORef Sprites,
-    _intervalTimer :: IORef IntervalTimer
+    _intervalTimer :: IORef IntervalTimer,
+    _graphics :: IORef Graphics
 }
 
 $(makeLenses ''Atari2600)
@@ -222,3 +225,21 @@ putIntervalTimer lens value = do
 modifyIntervalTimer lens modifier = do
     atari <- ask
     liftIO $ modifyIORef' (atari ^. intervalTimer) (over lens modifier)
+
+{-# INLINE useGraphics #-}
+useGraphics :: Getting b Graphics b -> MonadAtari b
+useGraphics lens = do
+    atari <- ask
+    graphics' <- liftIO $ readIORef (atari ^. graphics)
+    return $! graphics' ^. lens
+
+{-# INLINE putGraphics #-}
+putGraphics :: ASetter Graphics Graphics a a -> a -> MonadAtari ()
+putGraphics lens value = do
+    atari <- ask
+    liftIO $ modifyIORef' (atari ^. graphics) (set lens value)
+
+{-# INLINE modifyGraphics #-}
+modifyGraphics lens modifier = do
+    atari <- ask
+    liftIO $ modifyIORef' (atari ^. graphics) (over lens modifier)

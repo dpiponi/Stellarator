@@ -167,9 +167,8 @@ doCollisions ir lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1 = do
     when lball $ fastOrIRegister ir cxblpf $ bit 7 lplayfield
 
 {- INLINE compositeAndCollide -}
-compositeAndCollide :: Hardware -> Sprites -> Int -> Int -> IOUArray OReg Word8 -> IO Word8
-compositeAndCollide hardware' sprites' pixelx hpos' r = do
-    let graphics' = hardware' ^. graphics
+compositeAndCollide :: Hardware -> Graphics -> Sprites -> Int -> Int -> IOUArray OReg Word8 -> IO Word8
+compositeAndCollide hardware' graphics' sprites' pixelx hpos' r = do
     let Sprites { _s_mpos0 = mpos0',
               _s_mpos1 = mpos1',
               _s_ppos0 = ppos0',
@@ -203,11 +202,11 @@ compositeAndCollide hardware' sprites' pixelx hpos' r = do
                                       lmissile0 lmissile1
                                       lplayer0 lplayer1 pixelx
 
-stellaTick :: Int -> Hardware -> Sprites -> Ptr Word32 -> IO Hardware
-stellaTick n hardware' _ _ | n <= 0 = return hardware'
+stellaTick :: Int -> Hardware -> Graphics -> Sprites -> Ptr Word32 -> IO Hardware
+stellaTick n hardware' _ _ _ | n <= 0 = return hardware'
 stellaTick n hardware'@(Hardware { _stellaDebug = stellaDebug'@(DebugState { _posbreak = posbreak'@(!xbreak', !ybreak')}),
                                    _oregisters = r,
-                                   _position = position'@(!hpos', !vpos') }) sprites' ptr' = do
+                                   _position = position'@(!hpos', !vpos') }) graphics' sprites' ptr' = do
     let posbreak'' = if (hpos', vpos') == (xbreak', ybreak') then (-1, -1) else posbreak'
 
     when (vpos' >= picy && vpos' < picy+screenScanLines && hpos' >= picx) $ do
@@ -223,9 +222,9 @@ stellaTick n hardware'@(Hardware { _stellaDebug = stellaDebug'@(DebugState { _po
             if testBit blank 1
                 then pokeElemOff ptr' pixelAddr 0x404040
                 else do
-                    !final <- compositeAndCollide hardware' sprites' pixelx hpos' r
+                    !final <- compositeAndCollide hardware' graphics' sprites' pixelx hpos' r
                     let !rgb = lut!(final `shift` (-1))
                     pokeElemOff ptr' pixelAddr rgb
 
     stellaTick (n-1) hardware' { _position = updatePos position',
-                                   _stellaDebug = stellaDebug' { _posbreak = posbreak'' } } sprites' ptr'
+                                   _stellaDebug = stellaDebug' { _posbreak = posbreak'' } } graphics' sprites' ptr'

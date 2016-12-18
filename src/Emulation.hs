@@ -83,7 +83,6 @@ initState ram' mode rom' oregs iregs initialPC
                       _sdlFrontSurface = screenSurface,
                       _sdlFrontWindow = window
                   },
-                  _graphics = Stella.Graphics.start,
                   _stellaClock = 0,
                   _stellaDebug = DebugState.start,
                   _trigger1 = False,
@@ -93,6 +92,7 @@ initState ram' mode rom' oregs iregs initialPC
           clock' <- newIORef 0
           debug' <- newIORef 8
           intervalTimer' <- newIORef Stella.IntervalTimer.start
+          graphics' <- newIORef Stella.Graphics.start
           return $ Atari2600 {
               _hardware = hardware',
               _memory = memory',
@@ -100,7 +100,8 @@ initState ram' mode rom' oregs iregs initialPC
               _clock = clock',
               _debug = debug',
               _sprites = sprites',
-              _intervalTimer = intervalTimer'
+              _intervalTimer = intervalTimer',
+              _graphics = graphics'
           }
 
 {-# INLINE flagC #-}
@@ -467,11 +468,12 @@ stellaTickUntil n = do
         modifySprites id $ clampMissiles resmp0' resmp1'
 
         hardware' <- useHardware id
+        graphics' <- useGraphics id
         surface <- useHardware (stellaSDL . sdlBackSurface)
         !ptr <- liftIO $ surfacePixels surface
         let !ptr' = castPtr ptr :: Ptr Word32
         sprites' <- useSprites id
-        hardware'' <- liftIO $ stellaTick (fromIntegral diff) hardware' sprites' ptr'
+        hardware'' <- liftIO $ stellaTick (fromIntegral diff) hardware' graphics' sprites' ptr'
         putHardware id hardware''
 
 {-# INLINE pureReadRom #-}
@@ -743,23 +745,23 @@ writeStella addr v =
        0x13 -> graphicsDelay 4 >> useHardware (position . _1) >>= putSprites s_mpos1 -- RESM1
        0x14 -> graphicsDelay 4 >> useHardware (position . _1) >>= putSprites s_bpos  -- RESBL
        0x1b -> do -- GRP0
-                putHardware (graphics . newGrp0) v
-                useHardware (graphics . newGrp1) >>= putHardware (graphics . oldGrp1)
+                putGraphics (newGrp0) v
+                useGraphics (newGrp1) >>= putGraphics (oldGrp1)
        0x1c -> do -- GRP1
-                putHardware (graphics . newGrp1) v
-                useHardware (graphics . newGrp0) >>= putHardware (graphics . oldGrp0)
-                useHardware (graphics . newBall) >>= putHardware (graphics . oldBall)
+                putGraphics (newGrp1) v
+                useGraphics (newGrp0) >>= putGraphics (oldGrp0)
+                useGraphics (newBall) >>= putGraphics (oldBall)
        0x1d -> putORegister enam0 v                -- ENAM0
        0x1e -> putORegister enam1 v                -- ENAM1
-       0x1f -> putHardware (graphics . newBall) $ testBit v 1   -- ENABL
+       0x1f -> putGraphics (newBall) $ testBit v 1   -- ENABL
        0x20 -> putORegister hmp0 v                 -- HMP0
        0x21 -> putORegister hmp1 v                 -- HMP1
        0x22 -> putORegister hmm0 v                 -- HMM0
        0x23 -> putORegister hmm1 v                 -- HMM1
        0x24 -> putORegister hmbl v                 -- HMBL
-       0x25 -> putHardware (graphics . delayP0) $ testBit v 0   -- VDELP0
-       0x26 -> putHardware (graphics . delayP1) $ testBit v 0   -- VDELP1
-       0x27 -> putHardware (graphics . delayBall) $ testBit v 0   -- VDELBL
+       0x25 -> putGraphics (delayP0) $ testBit v 0   -- VDELP0
+       0x26 -> putGraphics (delayP1) $ testBit v 0   -- VDELP1
+       0x27 -> putGraphics (delayBall) $ testBit v 0   -- VDELBL
        0x28 -> putORegister resmp0 v
        0x29 -> putORegister resmp1 v
        0x2a -> stellaHmove               -- HMOVE
