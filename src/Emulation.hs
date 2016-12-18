@@ -164,26 +164,26 @@ orIRegister :: IReg -> Word8 -> MonadAtari ()
 orIRegister i v = modifyIRegister i (v .|.)
 
 {- INLINE stellaHmclr -}
-stellaHmclr :: StateT Hardware IO ()
+stellaHmclr :: MonadAtari ()
 stellaHmclr = do
-    r <- use oregisters
+    r <- useHardware oregisters
     liftIO $ mapM_ (flip (fastPutORegister r) 0) [hmp0, hmp1,
                                                   hmm0, hmm1, hmbl]
 
 {- INLINE stellaCxclr -}
-stellaCxclr :: StateT Hardware IO ()
+stellaCxclr :: MonadAtari ()
 stellaCxclr = do
-    r <- use iregisters
+    r <- useHardware iregisters
     liftIO $ mapM_ (flip (fastPutIRegister r) 0) [cxm0p, cxm1p, cxm0fb,
                                                   cxm1fb, cxp0fb, cxp1fb,
                                                   cxblpf, cxppmm]
 
 {- INLINE stellaHmove -}
-stellaHmove :: StateT Hardware IO ()
+stellaHmove :: MonadAtari ()
 stellaHmove = do
-    Sprites !ppos0' !ppos1' !mpos0' !mpos1' !bpos' <- use sprites
+    Sprites !ppos0' !ppos1' !mpos0' !mpos1' !bpos' <- useHardware sprites
 
-    !r <- use oregisters
+    !r <- useHardware oregisters
     let getOReg !reg = liftIO $ fastGetORegister r reg
 
     !poffset0 <- getOReg hmp0
@@ -201,7 +201,7 @@ stellaHmove = do
     !boffset <- getOReg hmbl
     let !bpos'' = wrap160 (bpos'-clockMove boffset)
 
-    sprites .= Sprites {
+    putHardware sprites $ Sprites {
         _s_ppos0 = ppos0'',
         _s_ppos1 = ppos1'',
         _s_mpos0 = mpos0'',
@@ -329,11 +329,11 @@ Overscan        sta WSYNC
 -}
 
 {- INLINE stellaVblank -}
-stellaVblank :: Word8 -> StateT Hardware IO ()
+stellaVblank :: Word8 -> MonadAtari ()
 stellaVblank v = do
-    ir <- use iregisters
-    or <- use oregisters
-    trigger <- use trigger1
+    ir <- useHardware iregisters
+    or <- useHardware oregisters
+    trigger <- useHardware trigger1
     if not trigger
         then do
             i <- liftIO $ fastGetIRegister ir inpt4 -- XXX write modifyIRegister
@@ -424,13 +424,13 @@ readStella addr =
         _ -> return 0 -- (liftIO $ putStrLn $ "reading TIA 0x" ++ showHex addr "") >> return 0
 
 {- INLINE stellaVsync -}
-stellaVsync :: Word8 -> StateT Hardware IO ()
+stellaVsync :: Word8 -> MonadAtari ()
 stellaVsync v = do
-    or <- use oregisters
+    or <- useHardware oregisters
     oldv <- liftIO $ fastGetORegister or vsync
-    when (testBit oldv 1 && not (testBit v 1)) $ position .= (0, 0)
+    when (testBit oldv 1 && not (testBit v 1)) $ putHardware position (0, 0)
     liftIO $ fastPutORegister or vsync v
-    sdlState <- use stellaSDL
+    sdlState <- useHardware stellaSDL
     liftIO $ renderDisplay sdlState
 
 {- INLINE stellaWsync -}
@@ -719,8 +719,8 @@ graphicsDelay n = do
 writeStella :: Word16 -> Word8 -> MonadAtari ()
 writeStella addr v = 
     case addr of
-       0x00 -> zoomHardware $ stellaVsync v             -- VSYNC
-       0x01 -> zoomHardware $ stellaVblank v            -- VBLANK
+       0x00 -> stellaVsync v             -- VSYNC
+       0x01 -> stellaVblank v            -- VBLANK
        0x02 -> stellaWsync               -- WSYNC
        0x04 -> putORegister nusiz0 v        -- NUSIZ0
        0x05 -> putORegister nusiz1 v        -- NUSIZ1
@@ -759,9 +759,9 @@ writeStella addr v =
        0x27 -> putHardware (graphics . delayBall) $ testBit v 0   -- VDELBL
        0x28 -> putORegister resmp0 v
        0x29 -> putORegister resmp1 v
-       0x2a -> zoomHardware $ stellaHmove               -- HMOVE
-       0x2b -> zoomHardware $ stellaHmclr               -- HMCLR
-       0x2c -> zoomHardware $ stellaCxclr               -- CXCLR
+       0x2a -> stellaHmove               -- HMOVE
+       0x2b -> stellaHmclr               -- HMCLR
+       0x2c -> stellaCxclr               -- CXCLR
        0x294 -> putHardware intervalTimer $ start1 v -- TIM1T
        0x295 -> putHardware intervalTimer $ start8 v -- TIM8T
        0x296 -> putHardware intervalTimer $ start64 v -- TIM64T
