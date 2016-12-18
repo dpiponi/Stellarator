@@ -137,7 +137,7 @@ handleKey motion sym = do
 
 loopUntil :: Int64 -> MonadAtari ()
 loopUntil !n = do
-    !stellaClock' <- useHardware stellaClock
+    !stellaClock' <- useStellaClock id
     when (stellaClock' < n) $ do
         step
         loopUntil n
@@ -174,7 +174,7 @@ main = do
 
             let quit = elem SDL.QuitEvent $ map SDL.eventPayload events
             forM_ events handleEvent
-            stellaClock' <- useHardware stellaClock
+            stellaClock' <- useStellaClock id
             loopUntil (stellaClock' + 1000)
 
             loop
