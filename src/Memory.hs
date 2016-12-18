@@ -22,6 +22,15 @@ import Data.Array.Unboxed
 --                  True -> RIOT
 --                  False -> RAM
 
+data MemoryType = TIA | RAM | RIOT | ROM deriving Show
+
+{-# INLINE memoryType #-}
+memoryType :: Word16 -> MemoryType
+memoryType a | testBit a 12      = ROM
+memoryType a | not (testBit a 7) = TIA
+memoryType a | testBit a 9       = RIOT
+memoryType _                     = RAM
+
 {-# INLINE isTIA #-}
 isTIA :: Word16 -> Bool
 isTIA a = not (testBit a 7) && not (testBit a 12)
