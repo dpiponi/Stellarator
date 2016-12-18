@@ -498,33 +498,24 @@ bankSwitch F6       0x1ff9 _    = 0x3000
 bankSwitch _        _      !old = old
 
 {-# INLINE pureReadMemory #-}
-pureReadMemory :: Word16 -> MonadAtari Word8
-pureReadMemory addr | addr >= 0x1000 = pureReadRom addr
-pureReadMemory addr | isRAM addr = do
-    m <- useMemory ram
-    liftIO $ readArray m (iz addr .&. 0x7f)
-pureReadMemory addr | isTIA addr     = readStella (addr .&. 0x3f)
-pureReadMemory addr | isRIOT addr    = readStella (0x280+(addr .&. 0x1f))
-pureReadMemory _                     = error $ "The cases were exhaustive :-("
+pureReadMemory :: MemoryType -> Word16 -> MonadAtari Word8
+pureReadMemory ROM  addr = pureReadRom addr
+pureReadMemory TIA  addr = readStella (addr .&. 0x3f)
+pureReadMemory RIOT addr = readStella (0x280+(addr .&. 0x1f))
+pureReadMemory RAM  addr = do { m <- useMemory ram; liftIO $ readArray m (iz addr .&. 0x7f) }
 
 {-# INLINE pureWriteMemory #-}
-pureWriteMemory :: Word16 -> Word8 -> MonadAtari ()
-pureWriteMemory addr v = do
-    if isRAM addr
-        then do
-            m <- useMemory (ram)
-            liftIO $ writeArray m (iz addr .&. 0x7f) v
-        else if isTIA addr
-            then writeStella (addr .&. 0x3f) v
-            else if isRIOT addr
-                    then writeStella (0x280+(addr .&. 0x1f)) v
-                    else return () -- ROM
+pureWriteMemory :: MemoryType -> Word16 -> Word8 -> MonadAtari ()
+pureWriteMemory TIA  addr v = writeStella (addr .&. 0x3f) v
+pureWriteMemory RIOT addr v = writeStella (0x280+(addr .&. 0x1f)) v
+pureWriteMemory RAM  addr v = do { m <- useMemory ram; liftIO $ writeArray m (iz addr .&. 0x7f) v }
+pureWriteMemory ROM  _    _ = return ()
 
 instance Emu6502 MonadAtari where
     {-# INLINE readMemory #-}
     readMemory addr' = do
         let addr = addr' .&. 0x1fff -- 6507
-        byte <- pureReadMemory addr
+        byte <- pureReadMemory (memoryType addr) addr
         bankType <- useMemory bankMode
         modifyMemory bankOffset $ bankSwitch bankType addr
         return byte
@@ -532,7 +523,7 @@ instance Emu6502 MonadAtari where
     {-# INLINE writeMemory #-}
     writeMemory addr' v = do
         let addr = addr' .&. 0x1fff -- 6507
-        pureWriteMemory addr v
+        pureWriteMemory (memoryType addr) addr v
         bankType <- useMemory bankMode
         modifyMemory bankOffset $ bankSwitch bankType addr
 
