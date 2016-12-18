@@ -83,7 +83,6 @@ initState ram' mode rom' oregs iregs initialPC
                       _sdlFrontSurface = screenSurface,
                       _sdlFrontWindow = window
                   },
-                  _intervalTimer = Stella.IntervalTimer.start,
                   _graphics = Stella.Graphics.start,
                   _stellaClock = 0,
                   _stellaDebug = DebugState.start,
@@ -93,13 +92,15 @@ initState ram' mode rom' oregs iregs initialPC
           regs' <- newIORef $ R initialPC 0 0 0 0 0xff
           clock' <- newIORef 0
           debug' <- newIORef 8
+          intervalTimer' <- newIORef Stella.IntervalTimer.start
           return $ Atari2600 {
               _hardware = hardware',
               _memory = memory',
               _regs = regs',
               _clock = clock',
               _debug = debug',
-              _sprites = sprites'
+              _sprites = sprites',
+              _intervalTimer = intervalTimer'
           }
 
 {-# INLINE flagC #-}
@@ -421,7 +422,7 @@ readStella addr =
         0x3d -> getIRegister inpt5
         0x280 -> getIRegister swcha
         0x282 -> getIRegister swchb
-        0x284 -> useHardware (intervalTimer . intim)
+        0x284 -> useIntervalTimer intim
         _ -> return 0 -- (liftIO $ putStrLn $ "reading TIA 0x" ++ showHex addr "") >> return 0
 
 {- INLINE stellaVsync -}
@@ -458,8 +459,8 @@ stellaTickUntil n = do
         -- Batch together items that don't need to be
         -- carried out on individual ticks
         modifyHardware stellaClock (+ diff)
-        !it <- useHardware intervalTimer
-        putHardware intervalTimer (church diff timerTick it)
+        !it <- useIntervalTimer id
+        putIntervalTimer id (church diff timerTick it)
         r <- useHardware oregisters
         resmp0' <- liftIO $ fastGetORegister r resmp0
         resmp1' <- liftIO $ fastGetORegister r resmp1
@@ -764,8 +765,8 @@ writeStella addr v =
        0x2a -> stellaHmove               -- HMOVE
        0x2b -> stellaHmclr               -- HMCLR
        0x2c -> stellaCxclr               -- CXCLR
-       0x294 -> putHardware intervalTimer $ start1 v -- TIM1T
-       0x295 -> putHardware intervalTimer $ start8 v -- TIM8T
-       0x296 -> putHardware intervalTimer $ start64 v -- TIM64T
-       0x297 -> putHardware intervalTimer $ start1024 v -- TIM1024T
+       0x294 -> putIntervalTimer id $ start1 v -- TIM1T
+       0x295 -> putIntervalTimer id $ start8 v -- TIM8T
+       0x296 -> putIntervalTimer id $ start64 v -- TIM64T
+       0x297 -> putIntervalTimer id $ start1024 v -- TIM1024T
        _ -> return () -- liftIO $ putStrLn $ "writing TIA 0x" ++ showHex addr ""
