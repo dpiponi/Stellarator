@@ -164,14 +164,14 @@ orIRegister :: IReg -> Word8 -> MonadAtari ()
 orIRegister i v = modifyIRegister i (v .|.)
 
 {- INLINE stellaHmclr -}
-stellaHmclr :: MyState Hardware ()
+stellaHmclr :: StateT Hardware IO ()
 stellaHmclr = do
     r <- use oregisters
     liftIO $ mapM_ (flip (fastPutORegister r) 0) [hmp0, hmp1,
                                                   hmm0, hmm1, hmbl]
 
 {- INLINE stellaCxclr -}
-stellaCxclr :: MyState Hardware ()
+stellaCxclr :: StateT Hardware IO ()
 stellaCxclr = do
     r <- use iregisters
     liftIO $ mapM_ (flip (fastPutIRegister r) 0) [cxm0p, cxm1p, cxm0fb,
@@ -179,7 +179,7 @@ stellaCxclr = do
                                                   cxblpf, cxppmm]
 
 {- INLINE stellaHmove -}
-stellaHmove :: MyState Hardware ()
+stellaHmove :: StateT Hardware IO ()
 stellaHmove = do
     Sprites !ppos0' !ppos1' !mpos0' !mpos1' !bpos' <- use sprites
 
@@ -329,7 +329,7 @@ Overscan        sta WSYNC
 -}
 
 {- INLINE stellaVblank -}
-stellaVblank :: Word8 -> MyState Hardware ()
+stellaVblank :: Word8 -> StateT Hardware IO ()
 stellaVblank v = do
     ir <- use iregisters
     or <- use oregisters
@@ -424,7 +424,7 @@ readStella addr =
         _ -> return 0 -- (liftIO $ putStrLn $ "reading TIA 0x" ++ showHex addr "") >> return 0
 
 {- INLINE stellaVsync -}
-stellaVsync :: Word8 -> MyState Hardware ()
+stellaVsync :: Word8 -> StateT Hardware IO ()
 stellaVsync v = do
     or <- use oregisters
     oldv <- liftIO $ fastGetORegister or vsync
@@ -449,7 +449,7 @@ stellaWsync = do
 church 0 f x = x
 church n f x = church (n-1) f (f x)
 
-stellaTickUntil :: Int64 -> MyState Hardware ()
+stellaTickUntil :: Int64 -> StateT Hardware IO ()
 stellaTickUntil n = do
     !c <- use stellaClock
     let !diff = n-c
@@ -472,7 +472,7 @@ stellaTickUntil n = do
         put hardware''
 
 {-# INLINE pureReadRom #-}
-pureReadRom :: Word16 -> MyState Memory Word8
+pureReadRom :: Word16 -> StateT Memory IO Word8
 pureReadRom addr = do
     m <- use rom
     offset <- use bankOffset
