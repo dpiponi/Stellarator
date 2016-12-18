@@ -14,19 +14,19 @@ module Atari2600(MonadAtari(..),
                  useHardware,
                  putHardware,
                  modifyHardware,
-                 zoomHardware,
+                 -- zoomHardware,
                  useMemory,
                  putMemory,
                  modifyMemory,
-                 zoomMemory,
+                 -- zoomMemory,
                  useRegisters,
                  putRegisters,
                  modifyRegisters,
-                 zoomRegisters,
+                 -- zoomRegisters,
                  useClock,
                  putClock,
                  modifyClock,
-                 zoomClock,
+                 -- zoomClock,
                  stellaDebug,
                  debug,
                  clock,
@@ -170,6 +170,7 @@ modifyHardware lens modifier = do
     atari <- ask
     liftIO $ modifyIORef' (atari ^. hardware) (over lens modifier)
 
+{-
 {-# INLINE zoomHardware #-}
 zoomHardware :: StateT Hardware IO a -> MonadAtari a
 zoomHardware m = do
@@ -178,6 +179,7 @@ zoomHardware m = do
     (a, hardware'') <- liftIO $ runStateT m hardware'
     liftIO $ writeIORef (atari ^. hardware) hardware''
     return a
+-}
 
 {-# INLINE useMemory #-}
 useMemory :: Getting b Memory b -> MonadAtari b
@@ -197,6 +199,7 @@ modifyMemory lens modifier = do
     atari <- ask
     liftIO $ modifyIORef' (atari ^. memory) (over lens modifier)
 
+{-
 {-# INLINE zoomMemory #-}
 zoomMemory :: StateT Memory IO a -> MonadAtari a
 zoomMemory m = do
@@ -205,6 +208,7 @@ zoomMemory m = do
     (a, memory'') <- liftIO $ runStateT m memory'
     liftIO $ writeIORef (atari ^. memory) memory''
     return a
+-}
 
 {-# INLINE useRegisters #-}
 useRegisters :: Getting b Registers b -> MonadAtari b
