@@ -73,6 +73,7 @@ initState ram' mode rom' oregs iregs initialPC
                   _bankMode = mode,
                   _bankOffset = 0
               }
+          sprites' <- newIORef Stella.Sprites.start
           hardware' <- newIORef $ Hardware {
                   _oregisters = oregs,
                   _iregisters = iregs,
@@ -82,7 +83,6 @@ initState ram' mode rom' oregs iregs initialPC
                       _sdlFrontSurface = screenSurface,
                       _sdlFrontWindow = window
                   },
-                  _sprites = Stella.Sprites.start,
                   _intervalTimer = Stella.IntervalTimer.start,
                   _graphics = Stella.Graphics.start,
                   _stellaClock = 0,
@@ -98,7 +98,8 @@ initState ram' mode rom' oregs iregs initialPC
               _memory = memory',
               _regs = regs',
               _clock = clock',
-              _debug = debug'
+              _debug = debug',
+              _sprites = sprites'
           }
 
 {-# INLINE flagC #-}
@@ -181,7 +182,7 @@ stellaCxclr = do
 {- INLINE stellaHmove -}
 stellaHmove :: MonadAtari ()
 stellaHmove = do
-    Sprites !ppos0' !ppos1' !mpos0' !mpos1' !bpos' <- useHardware sprites
+    Sprites !ppos0' !ppos1' !mpos0' !mpos1' !bpos' <- useSprites id
 
     !r <- useHardware oregisters
     let getOReg !reg = liftIO $ fastGetORegister r reg
@@ -201,7 +202,7 @@ stellaHmove = do
     !boffset <- getOReg hmbl
     let !bpos'' = wrap160 (bpos'-clockMove boffset)
 
-    putHardware sprites $ Sprites {
+    putSprites id $ Sprites {
         _s_ppos0 = ppos0'',
         _s_ppos1 = ppos1'',
         _s_mpos0 = mpos0'',
@@ -212,14 +213,14 @@ stellaHmove = do
 {- INLINE stellaResmp0 -}
 stellaResmp0 :: MonadAtari ()
 stellaResmp0 = do
-    playerPosition <- useHardware (sprites . s_ppos0)
-    putHardware (sprites . s_mpos0) (playerPosition :: Int)
+    playerPosition <- useSprites s_ppos0
+    putSprites s_mpos0 (playerPosition :: Int)
 
 {- INLINE stellaResmp1 -}
 stellaResmp1 :: MonadAtari ()
 stellaResmp1 = do
-    playerPosition <- useHardware (sprites . s_ppos1)
-    putHardware (sprites . s_mpos1) (playerPosition :: Int)
+    playerPosition <- useSprites s_ppos1
+    putSprites s_mpos1 (playerPosition :: Int)
 
 inBinary :: (Bits a) => Int -> a -> String
 inBinary 0 _ = ""
@@ -462,13 +463,14 @@ stellaTickUntil n = do
         r <- useHardware oregisters
         resmp0' <- liftIO $ fastGetORegister r resmp0
         resmp1' <- liftIO $ fastGetORegister r resmp1
-        modifyHardware sprites $ clampMissiles resmp0' resmp1'
+        modifySprites id $ clampMissiles resmp0' resmp1'
 
         hardware' <- useHardware id
         surface <- useHardware (stellaSDL . sdlBackSurface)
         !ptr <- liftIO $ surfacePixels surface
         let !ptr' = castPtr ptr :: Ptr Word32
-        hardware'' <- liftIO $ stellaTick (fromIntegral diff) hardware' ptr'
+        sprites' <- useSprites id
+        hardware'' <- liftIO $ stellaTick (fromIntegral diff) hardware' sprites' ptr'
         putHardware id hardware''
 
 {-# INLINE pureReadRom #-}
@@ -734,11 +736,11 @@ writeStella addr v =
        0x0d -> graphicsDelay 4 >> putORegister pf0 v >> makePlayfield                  -- PF0
        0x0e -> graphicsDelay 4 >> putORegister pf1 v >> makePlayfield                  -- PF1
        0x0f -> graphicsDelay 4 >> putORegister pf2 v >> makePlayfield                  -- PF2
-       0x10 -> graphicsDelay 5 >> useHardware (position . _1) >>= putHardware (sprites . s_ppos0) -- RESP0
-       0x11 -> graphicsDelay 5 >> useHardware (position . _1) >>= putHardware (sprites . s_ppos1) -- RESP1
-       0x12 -> graphicsDelay 4 >> useHardware (position . _1) >>= putHardware (sprites . s_mpos0) -- RESM0
-       0x13 -> graphicsDelay 4 >> useHardware (position . _1) >>= putHardware (sprites . s_mpos1) -- RESM1
-       0x14 -> graphicsDelay 4 >> useHardware (position . _1) >>= putHardware (sprites . s_bpos)  -- RESBL
+       0x10 -> graphicsDelay 5 >> useHardware (position . _1) >>= putSprites s_ppos0 -- RESP0
+       0x11 -> graphicsDelay 5 >> useHardware (position . _1) >>= putSprites s_ppos1 -- RESP1
+       0x12 -> graphicsDelay 4 >> useHardware (position . _1) >>= putSprites s_mpos0 -- RESM0
+       0x13 -> graphicsDelay 4 >> useHardware (position . _1) >>= putSprites s_mpos1 -- RESM1
+       0x14 -> graphicsDelay 4 >> useHardware (position . _1) >>= putSprites s_bpos  -- RESBL
        0x1b -> do -- GRP0
                 putHardware (graphics . newGrp0) v
                 useHardware (graphics . newGrp1) >>= putHardware (graphics . oldGrp1)

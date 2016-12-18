@@ -17,8 +17,10 @@ import Control.Monad.Trans
 import Data.Array.Unboxed
 import Data.Array.IO
 import Stella.TIARegisters
+import Control.Lens
 import Stella.Graphics
 import DebugState
+import Data.IORef
 import Foreign.Ptr
 import Foreign.Storable
 import SDL.Video.Renderer
@@ -165,16 +167,18 @@ doCollisions ir lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1 = do
     when lball $ fastOrIRegister ir cxblpf $ bit 7 lplayfield
 
 {- INLINE compositeAndCollide -}
-compositeAndCollide :: Hardware -> Int -> Int -> IOUArray OReg Word8 -> IO Word8
-compositeAndCollide hardware'@(Hardware {_graphics = graphics',
-                                         _sprites = Sprites { _s_mpos0 = mpos0',
-                                                              _s_mpos1 = mpos1',
-                                                              _s_ppos0 = ppos0',
-                                                              _s_ppos1 = ppos1',
-                                                              _s_bpos  = bpos'
-                                                            },
-                                         _pf = pf',
-                                         _iregisters = ir}) pixelx hpos' r = do
+compositeAndCollide :: Hardware -> Sprites -> Int -> Int -> IOUArray OReg Word8 -> IO Word8
+compositeAndCollide hardware' sprites' pixelx hpos' r = do
+    let graphics' = hardware' ^. graphics
+    let Sprites { _s_mpos0 = mpos0',
+              _s_mpos1 = mpos1',
+              _s_ppos0 = ppos0',
+              _s_ppos1 = ppos1',
+              _s_bpos  = bpos'
+            } = sprites'
+    let pf' = hardware' ^. pf
+    let ir = hardware' ^. iregisters
+
     resmp0' <- fastGetORegister r resmp0
     resmp1' <- fastGetORegister r resmp1
     ctrlpf' <- fastGetORegister r ctrlpf
@@ -199,11 +203,11 @@ compositeAndCollide hardware'@(Hardware {_graphics = graphics',
                                       lmissile0 lmissile1
                                       lplayer0 lplayer1 pixelx
 
-stellaTick :: Int -> Hardware -> Ptr Word32 -> IO Hardware
-stellaTick n hardware' _ | n <= 0 = return hardware'
+stellaTick :: Int -> Hardware -> Sprites -> Ptr Word32 -> IO Hardware
+stellaTick n hardware' _ _ | n <= 0 = return hardware'
 stellaTick n hardware'@(Hardware { _stellaDebug = stellaDebug'@(DebugState { _posbreak = posbreak'@(!xbreak', !ybreak')}),
                                    _oregisters = r,
-                                   _position = position'@(!hpos', !vpos') }) ptr' = do
+                                   _position = position'@(!hpos', !vpos') }) sprites' ptr' = do
     let posbreak'' = if (hpos', vpos') == (xbreak', ybreak') then (-1, -1) else posbreak'
 
     when (vpos' >= picy && vpos' < picy+screenScanLines && hpos' >= picx) $ do
@@ -219,9 +223,9 @@ stellaTick n hardware'@(Hardware { _stellaDebug = stellaDebug'@(DebugState { _po
             if testBit blank 1
                 then pokeElemOff ptr' pixelAddr 0x404040
                 else do
-                    !final <- compositeAndCollide hardware' pixelx hpos' r
+                    !final <- compositeAndCollide hardware' sprites' pixelx hpos' r
                     let !rgb = lut!(final `shift` (-1))
                     pokeElemOff ptr' pixelAddr rgb
 
     stellaTick (n-1) hardware' { _position = updatePos position',
-                                   _stellaDebug = stellaDebug' { _posbreak = posbreak'' } } ptr'
+                                   _stellaDebug = stellaDebug' { _posbreak = posbreak'' } } sprites' ptr'
