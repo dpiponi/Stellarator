@@ -472,10 +472,10 @@ stellaTickUntil n = do
         put hardware''
 
 {-# INLINE pureReadRom #-}
-pureReadRom :: Word16 -> StateT Memory IO Word8
+pureReadRom :: Word16 -> MonadAtari Word8
 pureReadRom addr = do
-    m <- use rom
-    offset <- use bankOffset
+    m <- useMemory rom
+    offset <- useMemory bankOffset
     !byte <- liftIO $ readArray m ((iz addr .&. 0xfff)+fromIntegral offset)
     return byte
 
@@ -493,7 +493,7 @@ bankSwitch _        _      !old = old
 
 {-# INLINE pureReadMemory #-}
 pureReadMemory :: Word16 -> MonadAtari Word8
-pureReadMemory addr | addr >= 0x1000 = zoomMemory $ pureReadRom addr
+pureReadMemory addr | addr >= 0x1000 = pureReadRom addr
 pureReadMemory addr | isRAM addr = do
     m <- useMemory (ram)
     liftIO $ readArray m (iz addr .&. 0x7f)
