@@ -8,28 +8,23 @@
 {-# LANGUAGE Strict #-}
 
 module Atari2600(MonadAtari(..),
-                 --MyState(..),
                  hardware,
                  graphics,
                  useHardware,
                  putHardware,
                  modifyHardware,
-                 -- zoomHardware,
                  useMemory,
                  putMemory,
                  modifyMemory,
-                 -- zoomMemory,
                  useRegisters,
                  putRegisters,
                  modifyRegisters,
                  useSprites,
                  putSprites,
                  modifySprites,
-                 -- zoomRegisters,
                  useClock,
                  putClock,
                  modifyClock,
-                 -- zoomClock,
                  stellaDebug,
                  debug,
                  clock,
@@ -108,53 +103,6 @@ $(makeLenses ''Registers)
 newtype MonadAtari a = M { unM :: ReaderT Atari2600 IO a }
       deriving (Functor, Applicative, Monad, MonadReader Atari2600, MonadIO)
 
---newtype MonadAtari a = M { unM :: StateT Atari2600 IO a }
---    deriving (Functor, Applicative, Monad, MonadState Atari2600, MonadIO)
-
-{-
-data SP a b = SP !a !b
-newtype MyState s a = S { runS :: s -> IO (SP s a) }
-
-instance Functor (MyState s) where
-    {-# INLINE fmap #-}
-    fmap f (S g) = S $ \s -> do { SP s' a <- g s ; return (SP s' (f a)) }
-
-instance Applicative (MyState s) where
-    {-# INLINE pure #-}
-    pure a = S $ \s -> return $! SP s a
-    {-# INLINE (<*>) #-}
-    S f <*> S x = S $ \s -> do { SP s' a' <- f s; SP s'' a'' <- x s'; return (SP s'' (a' a'')) }
-
-instance Monad (MyState s) where
-    {-# INLINE return #-}
-    return a = S $ \s -> return $! SP s a
-    {-# INLINE (>>=) #-}
-    S f >>= g = S $ \ !s -> do { SP s' a' <- f s; runS (g a') $! s' }
-
-instance MonadState s (MyState s) where
-    {-# INLINE get #-} 
-    get = S $ \ !s -> return $! SP s s
-    {-# INLINE put #-} 
-    put a = S $ \ !s -> return $! SP a ()
-
-instance MonadIO (MyState s) where
-    {-# INLINE liftIO #-}
-    liftIO m = S $ \ !s -> do { m' <- m; return $! SP s m' }
-    -}
-
-{-
-newtype MonadAtari a = M { unM :: MyState Atari2600 a }
-    deriving (Functor, Applicative, Monad, MonadState Atari2600, MonadIO)
-
-{-# INLINE zoomMemory #-}
-zoomMemory :: MyState Memory a -> MonadAtari a
-zoomMemory (S m) = do
-    s <- get
-    SP mem' a <- liftIO $ m (_memory s)
-    put $ s { _memory = mem' }
-    return a
--}
-
 {-# INLINE useHardware #-}
 useHardware :: Getting b Hardware b -> MonadAtari b
 useHardware lens = do
@@ -173,17 +121,6 @@ modifyHardware lens modifier = do
     atari <- ask
     liftIO $ modifyIORef' (atari ^. hardware) (over lens modifier)
 
-{-
-{-# INLINE zoomHardware #-}
-zoomHardware :: StateT Hardware IO a -> MonadAtari a
-zoomHardware m = do
-    atari <- ask
-    hardware' <- liftIO $ readIORef (atari ^. hardware)
-    (a, hardware'') <- liftIO $ runStateT m hardware'
-    liftIO $ writeIORef (atari ^. hardware) hardware''
-    return a
--}
-
 {-# INLINE useMemory #-}
 useMemory :: Getting b Memory b -> MonadAtari b
 useMemory lens = do
@@ -201,17 +138,6 @@ putMemory lens value = do
 modifyMemory lens modifier = do
     atari <- ask
     liftIO $ modifyIORef' (atari ^. memory) (over lens modifier)
-
-{-
-{-# INLINE zoomMemory #-}
-zoomMemory :: StateT Memory IO a -> MonadAtari a
-zoomMemory m = do
-    atari <- ask
-    memory' <- liftIO $ readIORef (atari ^. memory)
-    (a, memory'') <- liftIO $ runStateT m memory'
-    liftIO $ writeIORef (atari ^. memory) memory''
-    return a
--}
 
 {-# INLINE useRegisters #-}
 useRegisters :: Getting b Registers b -> MonadAtari b
@@ -257,17 +183,6 @@ putClock lens value = do
 modifyClock lens modifier = do
     atari <- ask
     liftIO $ modifyIORef' (atari ^. clock) (over lens modifier)
-
-{-
-{-# INLINE zoomClock #-}
-zoomClock :: StateT Int64 IO a -> MonadAtari a
-zoomClock m = do
-    atari <- ask
-    clock' <- liftIO $ readIORef (atari ^. clock)
-    (a, clock'') <- liftIO $ runStateT m clock'
-    liftIO $ writeIORef (atari ^. clock) clock''
-    return a
--}
 
 {-# INLINE useSprites #-}
 useSprites :: Getting b Sprites b -> MonadAtari b
