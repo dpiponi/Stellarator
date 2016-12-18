@@ -7,7 +7,7 @@
 {-# LANGUAGE BangPatterns #-}
 
 module Atari2600(MonadAtari(..),
-                 MyState(..),
+                 --MyState(..),
                  hardware,
                  graphics,
                  useHardware,
@@ -107,6 +107,7 @@ newtype MonadAtari a = M { unM :: ReaderT Atari2600 IO a }
 --newtype MonadAtari a = M { unM :: StateT Atari2600 IO a }
 --    deriving (Functor, Applicative, Monad, MonadState Atari2600, MonadIO)
 
+{-
 data SP a b = SP !a !b
 newtype MyState s a = S { runS :: s -> IO (SP s a) }
 
@@ -135,6 +136,7 @@ instance MonadState s (MyState s) where
 instance MonadIO (MyState s) where
     {-# INLINE liftIO #-}
     liftIO m = S $ \ !s -> do { m' <- m; return $! SP s m' }
+    -}
 
 {-
 newtype MonadAtari a = M { unM :: MyState Atari2600 a }
@@ -168,11 +170,11 @@ modifyHardware lens modifier = do
     liftIO $ modifyIORef' (atari ^. hardware) (over lens modifier)
 
 {-# INLINE zoomHardware #-}
-zoomHardware :: MyState Hardware a -> MonadAtari a
-zoomHardware (S m) = do
+zoomHardware :: StateT Hardware IO a -> MonadAtari a
+zoomHardware m = do
     atari <- ask
     hardware' <- liftIO $ readIORef (atari ^. hardware)
-    SP hardware'' a <- liftIO $ m hardware'
+    (a, hardware'') <- liftIO $ runStateT m hardware'
     liftIO $ writeIORef (atari ^. hardware) hardware''
     return a
 
@@ -195,11 +197,11 @@ modifyMemory lens modifier = do
     liftIO $ modifyIORef' (atari ^. memory) (over lens modifier)
 
 {-# INLINE zoomMemory #-}
-zoomMemory :: MyState Memory a -> MonadAtari a
-zoomMemory (S m) = do
+zoomMemory :: StateT Memory IO a -> MonadAtari a
+zoomMemory m = do
     atari <- ask
     memory' <- liftIO $ readIORef (atari ^. memory)
-    SP memory'' a <- liftIO $ m memory'
+    (a, memory'') <- liftIO $ runStateT m memory'
     liftIO $ writeIORef (atari ^. memory) memory''
     return a
 
@@ -222,11 +224,11 @@ modifyRegisters lens modifier = do
     liftIO $ modifyIORef' (atari ^. regs) (over lens modifier)
 
 {-# INLINE zoomRegisters #-}
-zoomRegisters :: MyState Registers a -> MonadAtari a
-zoomRegisters (S m) = do
+zoomRegisters :: StateT Registers IO a -> MonadAtari a
+zoomRegisters m = do
     atari <- ask
     registers' <- liftIO $ readIORef (atari ^. regs)
-    SP registers'' a <- liftIO $ m registers'
+    (a, registers'') <- liftIO $ runStateT m registers'
     liftIO $ writeIORef (atari ^. regs) registers''
     return a
 
@@ -249,10 +251,10 @@ modifyClock lens modifier = do
     liftIO $ modifyIORef' (atari ^. clock) (over lens modifier)
 
 {-# INLINE zoomClock #-}
-zoomClock :: MyState Int64 a -> MonadAtari a
-zoomClock (S m) = do
+zoomClock :: StateT Int64 IO a -> MonadAtari a
+zoomClock m = do
     atari <- ask
     clock' <- liftIO $ readIORef (atari ^. clock)
-    SP clock'' a <- liftIO $ m clock'
+    (a, clock'') <- liftIO $ runStateT m clock'
     liftIO $ writeIORef (atari ^. clock) clock''
     return a
