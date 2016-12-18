@@ -83,7 +83,6 @@ initState ram' mode rom' oregs iregs initialPC
                       _sdlFrontSurface = screenSurface,
                       _sdlFrontWindow = window
                   },
-                  _stellaClock = 0,
                   _stellaDebug = DebugState.start,
                   _trigger1 = False,
                   _pf = 0
@@ -93,6 +92,7 @@ initState ram' mode rom' oregs iregs initialPC
           debug' <- newIORef 8
           intervalTimer' <- newIORef Stella.IntervalTimer.start
           graphics' <- newIORef Stella.Graphics.start
+          stellaClock' <- newIORef 0
           return $ Atari2600 {
               _hardware = hardware',
               _memory = memory',
@@ -101,7 +101,8 @@ initState ram' mode rom' oregs iregs initialPC
               _debug = debug',
               _sprites = sprites',
               _intervalTimer = intervalTimer',
-              _graphics = graphics'
+              _graphics = graphics',
+              _stellaClock = stellaClock'
           }
 
 {-# INLINE flagC #-}
@@ -454,12 +455,12 @@ church n f x = church (n-1) f (f x)
 
 stellaTickUntil :: Int64 -> MonadAtari ()
 stellaTickUntil n = do
-    !c <- useHardware stellaClock
+    !c <- useStellaClock id
     let !diff = n-c
     when (diff >= 0) $ do
         -- Batch together items that don't need to be
         -- carried out on individual ticks
-        modifyHardware stellaClock (+ diff)
+        modifyStellaClock id (+ diff)
         !it <- useIntervalTimer id
         putIntervalTimer id (church diff timerTick it)
         r <- useHardware oregisters
