@@ -17,7 +17,7 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  ghc-options:         -O5 -Wall -fwarn-missing-signatures -ddump-simpl -ddump-asm -funbox-strict-fields -XStrict
+  ghc-options:         -O5 -Wall -fwarn-missing-signatures -ddump-simpl -ddump-asm
   exposed-modules:     TIAColors, Binary, Core, Disasm, Stella.Graphics, Stella.Sprites,
                        DebugCmd, Memory, Stella.IntervalTimer, Stella.SDLState, Stella.TIARegisters, DebugState, Atari2600, Debugger, Metrics, BitManips, Emulation, VideoOps
   build-depends:       base >= 4.7 && < 5
@@ -37,7 +37,7 @@ library
 executable stellarator-exe
   hs-source-dirs:      app
   main-is:             Main.hs
-  ghc-options:         -O5 -fwarn-missing-signatures -ddump-simpl -ddump-asm -funbox-strict-fields -XStrict
+  ghc-options:         -O5 -fwarn-missing-signatures -ddump-simpl -ddump-asm
   build-depends:       base
                      , sdl2
                      , bytestring

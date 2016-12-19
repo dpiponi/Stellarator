@@ -1,7 +1,5 @@
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE BinaryLiterals #-}
 {-# LANGUAGE ApplicativeDo #-}
-{-# LANGUAGE Strict #-}
 
 module VideoOps(compositeAndCollide,
                 clampMissiles,
@@ -204,25 +202,25 @@ compositeAndCollide hardware' ir graphics' sprites' pixelx hpos' r = do
 
 stellaTick :: Int -> IRegArray -> ORegArray -> Hardware -> Graphics -> Sprites -> Ptr Word32 -> IO Hardware
 stellaTick n _ _ hardware' _ _ _ | n <= 0 = return hardware'
-stellaTick n ir or hardware'@(Hardware { _stellaDebug = stellaDebug'@(DebugState { _posbreak = posbreak'@(!xbreak', !ybreak')}),
-                                         _position = position'@(!hpos', !vpos') }) graphics' sprites' ptr' = do
+stellaTick n ir or hardware'@(Hardware { _stellaDebug = stellaDebug'@(DebugState { _posbreak = posbreak'@(xbreak', ybreak')}),
+                                         _position = position'@(hpos', vpos') }) graphics' sprites' ptr' = do
     let posbreak'' = if (hpos', vpos') == (xbreak', ybreak') then (-1, -1) else posbreak'
 
     when (vpos' >= picy && vpos' < picy+screenScanLines && hpos' >= picx) $ do
-        -- !ptr <- liftIO $ surfacePixels surface
-        -- let !ptr' = castPtr ptr :: Ptr Word32
-        let !pixelx = hpos'-picx
-        let !pixely = vpos'-picy
+        -- ptr <- liftIO $ surfacePixels surface
+        -- let ptr' = castPtr ptr :: Ptr Word32
+        let pixelx = hpos'-picx
+        let pixely = vpos'-picy
 
-        let !pixelAddr = fromIntegral (screenWidth*pixely+pixelx)
+        let pixelAddr = fromIntegral (screenWidth*pixely+pixelx)
 
         liftIO $ do
-            !blank <- fastGetORegister or vblank
+            blank <- fastGetORegister or vblank
             if testBit blank 1
                 then pokeElemOff ptr' pixelAddr 0x404040
                 else do
-                    !final <- compositeAndCollide hardware' ir graphics' sprites' pixelx hpos' or
-                    let !rgb = lut!(final `shift` (-1))
+                    final <- compositeAndCollide hardware' ir graphics' sprites' pixelx hpos' or
+                    let rgb = lut!(final `shift` (-1))
                     pokeElemOff ptr' pixelAddr rgb
 
     stellaTick (n-1) ir or hardware' { _position = updatePos position',

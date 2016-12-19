@@ -1,11 +1,9 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE BinaryLiterals #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE ApplicativeDo #-}
-{-# LANGUAGE Strict #-}
 
 module Emulation(stellaDebug,
                  dumpStella,
@@ -185,25 +183,25 @@ stellaCxclr = do
 {- INLINE stellaHmove -}
 stellaHmove :: MonadAtari ()
 stellaHmove = do
-    Sprites !ppos0' !ppos1' !mpos0' !mpos1' !bpos' <- useSprites id
+    Sprites ppos0' ppos1' mpos0' mpos1' bpos' <- useSprites id
 
-    !r <- getORegisters
-    let getOReg !reg = liftIO $ fastGetORegister r reg
+    r <- getORegisters
+    let getOReg reg = liftIO $ fastGetORegister r reg
 
-    !poffset0 <- getOReg hmp0
-    let !ppos0'' = wrap160 (ppos0'-clockMove poffset0)
+    poffset0 <- getOReg hmp0
+    let ppos0'' = wrap160 (ppos0'-clockMove poffset0)
 
-    !poffset1 <- getOReg hmp1
-    let !ppos1'' = wrap160 (ppos1'-clockMove poffset1)
+    poffset1 <- getOReg hmp1
+    let ppos1'' = wrap160 (ppos1'-clockMove poffset1)
 
-    !moffset0 <- getOReg hmm0
-    let !mpos0'' = wrap160 (mpos0'-clockMove moffset0) -- XXX do rest
+    moffset0 <- getOReg hmm0
+    let mpos0'' = wrap160 (mpos0'-clockMove moffset0) -- XXX do rest
 
-    !moffset1 <- getOReg hmm1
-    let !mpos1'' = wrap160 (mpos1'-clockMove moffset1) -- XXX do rest
+    moffset1 <- getOReg hmm1
+    let mpos1'' = wrap160 (mpos1'-clockMove moffset1) -- XXX do rest
 
-    !boffset <- getOReg hmbl
-    let !bpos'' = wrap160 (bpos'-clockMove boffset)
+    boffset <- getOReg hmbl
+    let bpos'' = wrap160 (bpos'-clockMove boffset)
 
     putSprites id $ Sprites {
         _s_ppos0 = ppos0'',
@@ -371,11 +369,11 @@ bpos = hardware . sprites . s_bpos
 makePlayfield :: MonadAtari ()
 makePlayfield = do
     r <- getORegisters
-    !pf0' <- liftIO $ fastGetORegister r pf0
-    !pf1' <- liftIO $ fastGetORegister r pf1
-    !pf2' <- liftIO $ fastGetORegister r pf2
-    !ctrlpf' <- liftIO $ fastGetORegister r ctrlpf
-    let !pf' = assemblePlayfield (testBit ctrlpf' 0) pf0' pf1' pf2'
+    pf0' <- liftIO $ fastGetORegister r pf0
+    pf1' <- liftIO $ fastGetORegister r pf1
+    pf2' <- liftIO $ fastGetORegister r pf2
+    ctrlpf' <- liftIO $ fastGetORegister r ctrlpf
+    let pf' = assemblePlayfield (testBit ctrlpf' 0) pf0' pf1' pf2'
     putHardware pf pf'
 
 {- INLINABLE readStella -}
@@ -455,13 +453,13 @@ church n f x = church (n-1) f (f x)
 
 stellaTickUntil :: Int64 -> MonadAtari ()
 stellaTickUntil n = do
-    !c <- useStellaClock id
-    let !diff = n-c
+    c <- useStellaClock id
+    let diff = n-c
     when (diff >= 0) $ do
         -- Batch together items that don't need to be
         -- carried out on individual ticks
         modifyStellaClock id (+ diff)
-        !it <- useIntervalTimer id
+        it <- useIntervalTimer id
         putIntervalTimer id (church diff timerTick it)
         r <- getORegisters
         ir <- getIRegisters
@@ -472,8 +470,8 @@ stellaTickUntil n = do
         hardware' <- useHardware id
         graphics' <- useGraphics id
         surface <- getBackSurface
-        !ptr <- liftIO $ surfacePixels surface -- <-- XXX I think it's OK but not sure
-        let !ptr' = castPtr ptr :: Ptr Word32
+        ptr <- liftIO $ surfacePixels surface -- <-- XXX I think it's OK but not sure
+        let ptr' = castPtr ptr :: Ptr Word32
         sprites' <- useSprites id
         hardware'' <- liftIO $ stellaTick (fromIntegral diff) ir r hardware' graphics' sprites' ptr'
         putHardware id hardware'' -- XX Does this update sprites??? XXX
@@ -483,12 +481,12 @@ pureReadRom :: Word16 -> MonadAtari Word8
 pureReadRom addr = do
     m <- useMemory rom
     offset <- useMemory bankOffset
-    !byte <- liftIO $ readArray m ((iz addr .&. 0xfff)+fromIntegral offset)
+    byte <- liftIO $ readArray m ((iz addr .&. 0xfff)+fromIntegral offset)
     return byte
 
 {-# INLINE bankSwitch #-}
 bankSwitch :: BankMode -> Word16 -> Word16 -> Word16
-bankSwitch _        !addr  !old | addr < 0x1ff6 = old
+bankSwitch _        addr  old | addr < 0x1ff6 = old
 bankSwitch UnBanked _      _    = 0
 bankSwitch F8       0x1ff8 _    = 0
 bankSwitch F8       0x1ff9 _    = 0x1000
@@ -496,7 +494,7 @@ bankSwitch F6       0x1ff6 _    = 0
 bankSwitch F6       0x1ff7 _    = 0x1000
 bankSwitch F6       0x1ff8 _    = 0x2000
 bankSwitch F6       0x1ff9 _    = 0x3000
-bankSwitch _        _      !old = old
+bankSwitch _        _      old = old
 
 {-# INLINE pureReadMemory #-}
 pureReadMemory :: MemoryType -> Word16 -> MonadAtari Word8
