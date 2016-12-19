@@ -37,6 +37,9 @@ module Atari2600(MonadAtari(..),
                  getORegisters,
                  getIRegisters,
                  stellaDebug,
+                 getBackSurface,
+                 getFrontSurface,
+                 getFrontWindow,
                  debug,
                  clock,
                  regs,
@@ -50,7 +53,7 @@ module Atari2600(MonadAtari(..),
                  stellaClock,
                  sprites,
                  position,
-                 stellaSDL,
+                 -- stellaSDL,
                  pf,
                  oregisters,
                  iregisters,
@@ -64,6 +67,8 @@ import Data.Word
 import Data.Int
 import Stella.Graphics
 import Stella.Sprites
+import SDL.Vect
+import SDL.Video
 import Data.IORef
 import Stella.TIARegisters
 import Control.Lens
@@ -88,7 +93,7 @@ data Hardware = Hardware {
     _stellaDebug :: DebugState,
     _position :: !(Int, Int),
     _trigger1 :: !Bool,
-    _stellaSDL :: SDLState,
+    -- _stellaSDL :: SDLState,
     _pf :: !Word64
 }
 
@@ -105,7 +110,10 @@ data Atari2600 = Atari2600 {
     _graphics :: IORef Graphics,
     _stellaClock :: IORef Int64,
     _oregisters :: IOUArray OReg Word8,
-    _iregisters :: IOUArray IReg Word8
+    _iregisters :: IOUArray IReg Word8,
+    _sdlBackSurface :: Surface,
+    _sdlFrontSurface :: Surface,
+    _sdlFrontWindow :: Window
 }
 
 $(makeLenses ''Atari2600)
@@ -278,3 +286,21 @@ getIRegisters :: MonadAtari IRegArray
 getIRegisters = do
     atari <- ask
     return $ atari ^. iregisters
+
+{-# INLINE getBackSurface #-}
+getBackSurface :: MonadAtari Surface
+getBackSurface = do
+    atari <- ask
+    return $ atari ^. sdlBackSurface
+
+{-# INLINE getFrontSurface #-}
+getFrontSurface :: MonadAtari Surface
+getFrontSurface = do
+    atari <- ask
+    return $ atari ^. sdlFrontSurface
+
+{-# INLINE getFrontWindow #-}
+getFrontWindow :: MonadAtari Window
+getFrontWindow = do
+    atari <- ask
+    return $ atari ^. sdlFrontWindow

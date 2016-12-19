@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE Strict #-}
 
 module Main where
 

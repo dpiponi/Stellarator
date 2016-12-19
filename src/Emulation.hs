@@ -47,6 +47,8 @@ import Foreign.Ptr
 import Foreign.Storable
 import Numeric
 import Prelude hiding (last)
+import SDL.Vect
+import SDL.Video
 import SDL.Video.Renderer
 import Stella.Graphics
 import Stella.IntervalTimer
@@ -76,11 +78,6 @@ initState ram' mode rom' oregs iregs initialPC
           sprites' <- newIORef Stella.Sprites.start
           hardware' <- newIORef $ Hardware {
                   _position = (0, 0),
-                  _stellaSDL = SDLState {
-                      _sdlBackSurface = helloWorld,
-                      _sdlFrontSurface = screenSurface,
-                      _sdlFrontWindow = window
-                  },
                   _stellaDebug = DebugState.start,
                   _trigger1 = False,
                   _pf = 0
@@ -102,7 +99,10 @@ initState ram' mode rom' oregs iregs initialPC
               _graphics = graphics',
               _stellaClock = stellaClock',
               _oregisters = oregs,
-              _iregisters = iregs
+              _iregisters = iregs,
+              _sdlBackSurface = helloWorld,
+              _sdlFrontSurface = screenSurface,
+              _sdlFrontWindow = window
           }
 
 {-# INLINE flagC #-}
@@ -434,8 +434,8 @@ stellaVsync v = do
     oldv <- liftIO $ fastGetORegister or vsync
     when (testBit oldv 1 && not (testBit v 1)) $ putHardware position (0, 0)
     liftIO $ fastPutORegister or vsync v
-    sdlState <- useHardware stellaSDL
-    liftIO $ renderDisplay sdlState
+    -- sdlState <- useHardware stellaSDL
+    renderDisplay
 
 {- INLINE stellaWsync -}
 stellaWsync :: MonadAtari ()
@@ -471,8 +471,8 @@ stellaTickUntil n = do
 
         hardware' <- useHardware id
         graphics' <- useGraphics id
-        surface <- useHardware (stellaSDL . sdlBackSurface)
-        !ptr <- liftIO $ surfacePixels surface -- XXX <---
+        surface <- getBackSurface
+        !ptr <- liftIO $ surfacePixels surface -- <-- XXX I think it's OK but not sure
         let !ptr' = castPtr ptr :: Ptr Word32
         sprites' <- useSprites id
         hardware'' <- liftIO $ stellaTick (fromIntegral diff) ir r hardware' graphics' sprites' ptr'
@@ -765,3 +765,15 @@ writeStella addr v =
        0x296 -> putIntervalTimer id $ start64 v -- TIM64T
        0x297 -> putIntervalTimer id $ start1024 v -- TIM1024T
        _ -> return () -- liftIO $ putStrLn $ "writing TIA 0x" ++ showHex addr ""
+
+renderDisplay :: MonadAtari ()
+renderDisplay = do
+    back <- getBackSurface
+    front <- getFrontSurface
+    window <- getFrontWindow
+    unlockSurface back
+    surfaceBlitScaled back Nothing front
+                (Just (Rectangle (P (V2 0 0))
+                                 (V2 (fromIntegral $ screenWidth*xscale) (fromIntegral $ screenHeight*yscale))))
+    lockSurface back
+    updateWindowSurface window
