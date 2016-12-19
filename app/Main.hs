@@ -5,8 +5,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE Strict #-}
 
 module Main where
 
@@ -68,7 +66,7 @@ import Atari2600
 import Debugger
 
 
---  XXX Do this! If reset occurs during horizontal blank, the object will appear at the left side of the television screen
+--  XXX Do this If reset occurs during horizontal blank, the object will appear at the left side of the television screen
 data Args = Args { file :: String, bank :: BankMode } deriving (Show, Data, Typeable)
 
 clargs :: Args
@@ -76,7 +74,7 @@ clargs = Args { file = "adventure.bin", bank = UnBanked }
 
 times :: (Integral n, Monad m) => n -> m a -> m ()
 times 0 _ = return ()
-times !n m = m >> times (n-1) m
+times n m = m >> times (n-1) m
 
 {- INLINE isPressed -}
 isPressed :: InputMotion -> Bool
@@ -110,12 +108,12 @@ handleKey motion sym = do
     let pressed = isPressed motion
     case keysymScancode sym of
         SDL.Scancode1 -> dumpState
-        SDL.ScancodeUp ->  modifyIRegister swcha (setBitTo 4 (not pressed))
-        SDL.ScancodeDown ->  modifyIRegister swcha (setBitTo 5 (not pressed))
-        SDL.ScancodeLeft ->  modifyIRegister swcha (setBitTo 6 (not pressed))
-        SDL.ScancodeRight ->  modifyIRegister swcha (setBitTo 7 (not pressed))
-        SDL.ScancodeC ->  modifyIRegister swchb (setBitTo 1 (not pressed))
-        SDL.ScancodeV ->  modifyIRegister swchb (setBitTo 0 (not pressed))
+        SDL.ScancodeUp -> modifyIRegister swcha (setBitTo 4 (not pressed))
+        SDL.ScancodeDown -> modifyIRegister swcha (setBitTo 5 (not pressed))
+        SDL.ScancodeLeft -> modifyIRegister swcha (setBitTo 6 (not pressed))
+        SDL.ScancodeRight -> modifyIRegister swcha (setBitTo 7 (not pressed))
+        SDL.ScancodeC -> modifyIRegister swchb (setBitTo 1 (not pressed))
+        SDL.ScancodeV -> modifyIRegister swchb (setBitTo 0 (not pressed))
         SDL.ScancodeSpace ->  do
             vblank' <- getORegister vblank
             putHardware trigger1 pressed
@@ -137,8 +135,8 @@ handleKey motion sym = do
         otherwise -> return ()
 
 loopUntil :: Int64 -> MonadAtari ()
-loopUntil !n = do
-    !stellaClock' <- useStellaClock id
+loopUntil n = do
+    stellaClock' <- useStellaClock id
     when (stellaClock' < n) $ do
         step
         loopUntil n
