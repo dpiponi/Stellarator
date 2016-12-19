@@ -478,7 +478,7 @@ bankSwitch F6       0x1ff8 _    = 0x2000
 bankSwitch F6       0x1ff9 _    = 0x3000
 bankSwitch _        _      !old = old
 
-{-# INLINE pureReadMemory #-}
+{-# NOINLINE pureReadMemory #-}
 pureReadMemory :: Word16 -> MonadAtari Word8
 pureReadMemory addr | addr >= 0x1000 = zoomMemory $ pureReadRom addr
 pureReadMemory addr | isRAM addr = do
@@ -488,7 +488,7 @@ pureReadMemory addr | isTIA addr     = readStella (addr .&. 0x3f)
 pureReadMemory addr | isRIOT addr    = readStella (0x280+(addr .&. 0x1f))
 pureReadMemory _                     = error $ "The cases were exhaustive :-("
 
-{-# INLINE pureWriteMemory #-}
+{-# NOINLINE pureWriteMemory #-}
 pureWriteMemory :: Word16 -> Word8 -> MonadAtari ()
 pureWriteMemory addr v = do
     if isRAM addr
