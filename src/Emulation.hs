@@ -33,6 +33,7 @@ import Data.Data
 import Data.Array.IO
 import Data.Array.Unboxed
 import Metrics
+import Control.Monad.Reader
 import Data.Bits hiding (bit)
 import Data.Bits.Lens
 import Memory
@@ -71,8 +72,6 @@ initState :: IOUArray Int Word8 ->
 initState ram' mode rom' oregs iregs initialPC
           helloWorld screenSurface window = do
           memory' <- newIORef $ Memory {
-                  _rom = rom',
-                  _ram = ram',
                   _bankMode = mode,
                   _bankOffset = 0
               }
@@ -88,6 +87,8 @@ initState ram' mode rom' oregs iregs initialPC
           intArray' <- newArray (0, 127) 0      -- Overkill
           word64Array' <- newArray (0, 127) 0      -- Overkill
           return $ Atari2600 {
+              _rom = rom',
+              _ram = ram',
               _stellaDebug = stellaDebug',
               _memory = memory',
               _regs = regs',
@@ -511,7 +512,8 @@ stellaTickUntil n = do
 {-# INLINE pureReadRom #-}
 pureReadRom :: Word16 -> MonadAtari Word8
 pureReadRom addr = do
-    m <- useMemory rom
+    atari <- ask
+    let m = atari ^. rom
     offset <- useMemory bankOffset
     byte <- liftIO $ readArray m ((iz addr .&. 0xfff)+fromIntegral offset)
     return byte
@@ -533,14 +535,20 @@ pureReadMemory :: MemoryType -> Word16 -> MonadAtari Word8
 pureReadMemory ROM  addr = pureReadRom addr
 pureReadMemory TIA  addr = readStella (addr .&. 0x3f)
 pureReadMemory RIOT addr = readStella (0x280+(addr .&. 0x1f))
-pureReadMemory RAM  addr = do { m <- useMemory ram; liftIO $ readArray m (iz addr .&. 0x7f) }
+pureReadMemory RAM  addr = do
+    atari <- ask
+    let m = atari ^. ram
+    liftIO $ readArray m (iz addr .&. 0x7f)
 
 {-# INLINE pureWriteMemory #-}
 pureWriteMemory :: MemoryType -> Word16 -> Word8 -> MonadAtari ()
 pureWriteMemory TIA  addr v = writeStella (addr .&. 0x3f) v
 pureWriteMemory RIOT addr v = writeStella (0x280+(addr .&. 0x1f)) v
-pureWriteMemory RAM  addr v = do { m <- useMemory ram; liftIO $ writeArray m (iz addr .&. 0x7f) v }
 pureWriteMemory ROM  _    _ = return ()
+pureWriteMemory RAM  addr v = do
+    atari <- ask
+    let m = atari ^. ram
+    liftIO $ writeArray m (iz addr .&. 0x7f) v
 
 instance Emu6502 MonadAtari where
     {-# INLINE readMemory #-}

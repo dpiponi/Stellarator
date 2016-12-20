@@ -7,6 +7,8 @@
 
 module Atari2600(MonadAtari(..),
                  {-hardware,-}
+                 rom,
+                 ram,
                  graphics,
                  useStellaDebug,
                  putStellaDebug,
@@ -91,18 +93,10 @@ data Registers = R {
     _s :: !Word8
 }
 
-{-
-data Hardware = Hardware {
-    _stellaDebug :: DebugState
-    -- _pf :: !Word64
-}
-
-$(makeLenses ''Hardware)
--}
-
 data Atari2600 = Atari2600 {
     _memory :: IORef Memory,
-    -- _hardware :: IORef Hardware,
+    _ram :: IOUArray Int Word8,
+    _rom :: IOUArray Int Word8,
     _stellaDebug :: IORef DebugState,
     _regs :: IORef Registers,
     _clock :: IORef Int64,
