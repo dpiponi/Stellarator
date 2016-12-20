@@ -6,11 +6,11 @@
 {-# LANGUAGE ApplicativeDo #-}
 
 module Atari2600(MonadAtari(..),
-                 hardware,
+                 {-hardware,-}
                  graphics,
-                 useHardware,
-                 putHardware,
-                 modifyHardware,
+                 useStellaDebug,
+                 putStellaDebug,
+                 modifyStellaDebug,
                  useMemory,
                  putMemory,
                  modifyMemory,
@@ -34,6 +34,10 @@ module Atari2600(MonadAtari(..),
                  modifyGraphics,
                  getORegisters,
                  getIRegisters,
+                 getBoolArray,
+                 getIntArray,
+                 getInt64Array,
+                 getWord64Array,
                  stellaDebug,
                  getBackSurface,
                  getFrontSurface,
@@ -50,13 +54,13 @@ module Atari2600(MonadAtari(..),
                  memory,
                  stellaClock,
                  sprites,
-                 position,
+                 -- position,
                  -- stellaSDL,
-                 pf,
+                 {- pf, -}
                  oregisters,
                  iregisters,
-                 trigger1,
-                 Hardware(..),
+                 {- trigger1, -}
+                 --Hardware(..),
                  Atari2600(..),
                  Registers(..),
                  intervalTimer) where
@@ -87,19 +91,19 @@ data Registers = R {
     _s :: !Word8
 }
 
+{-
 data Hardware = Hardware {
-    _stellaDebug :: DebugState,
-    _position :: !(Int, Int),
-    _trigger1 :: !Bool,
-    -- _stellaSDL :: SDLState,
-    _pf :: !Word64
+    _stellaDebug :: DebugState
+    -- _pf :: !Word64
 }
 
 $(makeLenses ''Hardware)
+-}
 
 data Atari2600 = Atari2600 {
     _memory :: IORef Memory,
-    _hardware :: IORef Hardware,
+    -- _hardware :: IORef Hardware,
+    _stellaDebug :: IORef DebugState,
     _regs :: IORef Registers,
     _clock :: IORef Int64,
     _debug :: IORef Int,
@@ -111,7 +115,11 @@ data Atari2600 = Atari2600 {
     _iregisters :: IOUArray IReg Word8,
     _sdlBackSurface :: Surface,
     _sdlFrontSurface :: Surface,
-    _sdlFrontWindow :: Window
+    _sdlFrontWindow :: Window,
+    _boolArray :: IOUArray BoolReg Bool,
+    _intArray :: IOUArray IntReg Int,
+    _int64Array :: Segment Int64,
+    _word64Array :: Segment Word64
 }
 
 $(makeLenses ''Atari2600)
@@ -120,23 +128,23 @@ $(makeLenses ''Registers)
 newtype MonadAtari a = M { unM :: ReaderT Atari2600 IO a }
       deriving (Functor, Applicative, Monad, MonadReader Atari2600, MonadIO)
 
-{-# INLINE useHardware #-}
-useHardware :: Getting b Hardware b -> MonadAtari b
-useHardware lens = do
+{-# INLINE useStellaDebug #-}
+useStellaDebug :: Getting b DebugState b -> MonadAtari b
+useStellaDebug lens = do
     atari <- ask
-    hardware' <- liftIO $ readIORef (atari ^. hardware)
-    return $! hardware' ^. lens
+    stellaDebug' <- liftIO $ readIORef (atari ^. stellaDebug)
+    return $! stellaDebug' ^. lens
 
-{-# INLINE putHardware #-}
-putHardware :: ASetter Hardware Hardware a a -> a -> MonadAtari ()
-putHardware lens value = do
+{-# INLINE putStellaDebug #-}
+putStellaDebug :: ASetter DebugState DebugState a a -> a -> MonadAtari ()
+putStellaDebug lens value = do
     atari <- ask
-    liftIO $ modifyIORef' (atari ^. hardware) (set lens value)
+    liftIO $ modifyIORef' (atari ^. stellaDebug) (set lens value)
 
-{-# INLINE modifyHardware #-}
-modifyHardware lens modifier = do
+{-# INLINE modifyStellaDebug #-}
+modifyStellaDebug lens modifier = do
     atari <- ask
-    liftIO $ modifyIORef' (atari ^. hardware) (over lens modifier)
+    liftIO $ modifyIORef' (atari ^. stellaDebug) (over lens modifier)
 
 {-# INLINE useMemory #-}
 useMemory :: Getting b Memory b -> MonadAtari b
@@ -278,6 +286,30 @@ getORegisters :: MonadAtari ORegArray
 getORegisters = do
     atari <- ask
     return $ atari ^. oregisters
+
+{-# INLINE getBoolArray #-}
+getBoolArray :: MonadAtari BoolRegArray
+getBoolArray = do
+    atari <- ask
+    return $ atari ^. boolArray
+
+{-# INLINE getIntArray #-}
+getIntArray :: MonadAtari IntRegArray
+getIntArray = do
+    atari <- ask
+    return $ atari ^. intArray
+
+{-# INLINE getInt64Array #-}
+getInt64Array :: MonadAtari (Segment Int64)
+getInt64Array = do
+    atari <- ask
+    return $ atari ^. int64Array
+
+{-# INLINE getWord64Array #-}
+getWord64Array :: MonadAtari (Segment Word64)
+getWord64Array = do
+    atari <- ask
+    return $ atari ^. word64Array
 
 {-# INLINE getIRegisters #-}
 getIRegisters :: MonadAtari IRegArray

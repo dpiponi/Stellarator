@@ -1,14 +1,21 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Stella.TIARegisters where
 --module Stella.TIARegisters(OReg, IReg, fastGetORegister, fastModifyIRegister, fastOrIRegister) where
 
 import Data.Word
 import Data.Array.IO
+import Data.Int
 import Data.Bits
 
+newtype TypedIndex t = TO Int deriving (Ord, Ix, Eq, Num)
+
+-- Could be Int instead of Word16
 newtype OReg = OReg Word16 deriving (Ord, Ix, Eq, Num)
 newtype IReg = IReg Word16 deriving (Ord, Ix, Eq, Num)
+newtype IntReg = IntReg Int deriving (Ord, Ix, Eq, Num)
+newtype BoolReg = BoolReg Int deriving (Ord, Ix, Eq, Num)
 
 nusiz0, nusiz1, colup0, colup1, pf0, pf1, pf2, enam0, enam1, hmp0, hmp1, hmm0, hmm1, hmbl :: OReg
 vblank, vsync, refp0, refp1, colupf, colubk, ctrlpf, resmp0, resmp1 :: OReg
@@ -52,8 +59,51 @@ swcha, swchb :: IReg
 swcha = 0x280
 swchb = 0x282
 
+trigger1, delayP0, delayP1, delayBall, oldBall, newBall :: BoolReg
+trigger1 = 0
+delayP0 = 1
+delayP1 = 2
+delayBall = 3
+oldBall = 4
+newBall = 5
+
+pf :: TypedIndex Word64
+pf = 0
+
+hpos, vpos :: IntReg
+hpos = 0
+vpos = 1
+
 type ORegArray = IOUArray OReg Word8
 type IRegArray = IOUArray IReg Word8
+type IntRegArray = IOUArray IntReg Int
+type BoolRegArray = IOUArray BoolReg Bool
+
+{-# INLINE ld #-}
+ld :: MArray IOUArray a IO => IOUArray (TypedIndex a) a -> TypedIndex a -> IO a
+ld = readArray
+
+{-# INLINE st #-}
+st :: MArray IOUArray a IO => IOUArray (TypedIndex a) a -> TypedIndex a -> a -> IO ()
+st = writeArray
+
+type Segment a = IOUArray (TypedIndex a) a
+
+{-# INLINE fastGetBoolRegister #-}
+fastGetBoolRegister :: BoolRegArray -> BoolReg -> IO Bool
+fastGetBoolRegister = readArray
+
+{-# INLINE fastPutBoolRegister #-}
+fastPutBoolRegister :: BoolRegArray -> BoolReg -> Bool -> IO ()
+fastPutBoolRegister = writeArray
+
+{-# INLINE fastGetIntRegister #-}
+fastGetIntRegister :: IntRegArray -> IntReg -> IO Int
+fastGetIntRegister = readArray
+
+{-# INLINE fastPutIntRegister #-}
+fastPutIntRegister :: IntRegArray -> IntReg -> Int -> IO ()
+fastPutIntRegister = writeArray
 
 {-# INLINE fastGetORegister #-}
 fastGetORegister :: IOUArray OReg Word8 -> OReg -> IO Word8

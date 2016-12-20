@@ -116,7 +116,9 @@ handleKey motion sym = do
         SDL.ScancodeV -> modifyIRegister swchb (setBitTo 0 (not pressed))
         SDL.ScancodeSpace ->  do
             vblank' <- getORegister vblank
-            putHardware trigger1 pressed
+            -- putHardware trigger1 pressed
+            boolr <- getBoolArray
+            liftIO $ fastPutBoolRegister boolr trigger1 pressed
             let latch = testBit vblank' 6
             case (latch, pressed) of
                 (False, _) -> do
