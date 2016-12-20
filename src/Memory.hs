@@ -51,8 +51,6 @@ isROM a = testBit a 12
 data BankMode = UnBanked | F6 | F8 deriving (Show, Data, Typeable)
 
 data Memory = Memory {
-    _ram :: IOUArray Int Word8,
-    _rom :: IOUArray Int Word8,
     _bankMode :: !BankMode,
     _bankOffset :: !Word16
 }
