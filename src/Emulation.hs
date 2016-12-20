@@ -17,6 +17,9 @@ module Emulation(stellaDebug,
                  initState,
                  getIRegister,
                  putIRegister,
+                 getIntRegister,
+                 putBoolRegister,
+                 getBoolRegister,
                  trigger1,
                  modifyIRegister,
                  getORegister) where
@@ -74,20 +77,18 @@ initState ram' mode rom' oregs iregs initialPC
                   _bankOffset = 0
               }
           sprites' <- newIORef Stella.Sprites.start
-          hardware' <- newIORef $ Hardware {
-                  _position = (0, 0),
-                  _stellaDebug = DebugState.start,
-                  _trigger1 = False,
-                  _pf = 0
-              }
+          stellaDebug' <- newIORef DebugState.start
           regs' <- newIORef $ R initialPC 0 0 0 0 0xff
           clock' <- newIORef 0
           debug' <- newIORef 8
           intervalTimer' <- newIORef Stella.IntervalTimer.start
           graphics' <- newIORef Stella.Graphics.start
           stellaClock' <- newIORef 0
+          boolArray' <- newArray (0, 127) False -- Overkill
+          intArray' <- newArray (0, 127) 0      -- Overkill
+          word64Array' <- newArray (0, 127) 0      -- Overkill
           return $ Atari2600 {
-              _hardware = hardware',
+              _stellaDebug = stellaDebug',
               _memory = memory',
               _regs = regs',
               _clock = clock',
@@ -100,7 +101,10 @@ initState ram' mode rom' oregs iregs initialPC
               _iregisters = iregs,
               _sdlBackSurface = helloWorld,
               _sdlFrontSurface = screenSurface,
-              _sdlFrontWindow = window
+              _sdlFrontWindow = window,
+              _boolArray = boolArray',
+              _intArray = intArray',
+              _word64Array = word64Array'
           }
 
 {-# INLINE flagC #-}
@@ -149,6 +153,18 @@ putIRegister i v = do
     r <- getIRegisters
     liftIO $ writeArray r i v
 
+{-# INLINE putBoolRegister #-}
+putBoolRegister :: BoolReg -> Bool -> MonadAtari ()
+putBoolRegister i v = do
+    r <- getBoolArray
+    liftIO $ writeArray r i v
+
+{-# INLINE getBoolRegister #-}
+getBoolRegister :: BoolReg -> MonadAtari Bool
+getBoolRegister i = do
+    r <- getBoolArray
+    liftIO $ readArray r i
+
 {-# INLINE modifyIRegister #-}
 modifyIRegister :: IReg -> (Word8 -> Word8) -> MonadAtari ()
 modifyIRegister i f = do
@@ -159,6 +175,12 @@ modifyIRegister i f = do
 getIRegister :: IReg -> MonadAtari Word8
 getIRegister i = do
     r <- getIRegisters
+    liftIO $ readArray r i
+
+{-# INLINE getIntRegister #-}
+getIntRegister :: IntReg -> MonadAtari Int
+getIntRegister i = do
+    r <- getIntArray
     liftIO $ readArray r i
 
 {-# INLINE orIRegister #-}
@@ -243,7 +265,7 @@ explainNusiz nusiz =
 {- INLINE stellaDebugStr -}
 stellaDebugStr :: Int -> String -> MonadAtari ()
 stellaDebugStr n str = do
-    d <- useHardware (stellaDebug . debugLevel)
+    d <- useStellaDebug debugLevel
     if n <= d
         then do
             liftIO $ putStr str
@@ -252,7 +274,7 @@ stellaDebugStr n str = do
 {- INLINE stellaDebugStrLn -}
 stellaDebugStrLn :: Int -> String -> MonadAtari ()
 stellaDebugStrLn n str = do
-    d <- useHardware (stellaDebug . debugLevel)
+    d <- useStellaDebug debugLevel
     if n <= d
         then do
             liftIO $ putStrLn str
@@ -335,8 +357,9 @@ stellaVblank :: Word8 -> MonadAtari ()
 stellaVblank v = do
     ir <- getIRegisters
     or <- getORegisters
-    trigger <- useHardware trigger1
-    if not trigger
+    boolr <- getBoolArray
+    trigger1 <- liftIO $ fastGetBoolRegister boolr trigger1
+    if not trigger1
         then do
             i <- liftIO $ fastGetIRegister ir inpt4 -- XXX write modifyIRegister
             liftIO $ fastPutIRegister ir inpt4 (setBit i 7)
@@ -374,7 +397,8 @@ makePlayfield = do
     pf2' <- liftIO $ fastGetORegister r pf2
     ctrlpf' <- liftIO $ fastGetORegister r ctrlpf
     let pf' = assemblePlayfield (testBit ctrlpf' 0) pf0' pf1' pf2'
-    putHardware pf pf'
+    word64r <- getWord64Array
+    liftIO $ st word64r pf pf'
 
 {- INLINABLE readStella -}
 readStella :: Word16 -> MonadAtari Word8
@@ -430,7 +454,10 @@ stellaVsync :: Word8 -> MonadAtari ()
 stellaVsync v = do
     or <- getORegisters
     oldv <- liftIO $ fastGetORegister or vsync
-    when (testBit oldv 1 && not (testBit v 1)) $ putHardware position (0, 0)
+    when (testBit oldv 1 && not (testBit v 1)) $ do
+        intr <- getIntArray
+        liftIO $ fastPutIntRegister intr hpos 0
+        liftIO $ fastPutIntRegister intr vpos 0
     liftIO $ fastPutORegister or vsync v
     -- sdlState <- useHardware stellaSDL
     renderDisplay
@@ -438,7 +465,8 @@ stellaVsync v = do
 {- INLINE stellaWsync -}
 stellaWsync :: MonadAtari ()
 stellaWsync = do
-    hpos' <- useHardware (position . _1)
+    intr <- getIntArray
+    hpos' <- liftIO $ fastGetIntRegister intr hpos
     when (hpos' > 2) $ do
         modifyClock id (+ 1)
         clock' <- useClock id
@@ -463,18 +491,22 @@ stellaTickUntil n = do
         putIntervalTimer id (church diff timerTick it)
         r <- getORegisters
         ir <- getIRegisters
+        intr <- getIntArray
+        word64r <- getWord64Array
+        boolr <- getBoolArray
         resmp0' <- liftIO $ fastGetORegister r resmp0
         resmp1' <- liftIO $ fastGetORegister r resmp1
         modifySprites id $ clampMissiles resmp0' resmp1'
 
-        hardware' <- useHardware id
+        stellaDebug' <- useStellaDebug id
         graphics' <- useGraphics id
         surface <- getBackSurface
         ptr <- liftIO $ surfacePixels surface -- <-- XXX I think it's OK but not sure
         let ptr' = castPtr ptr :: Ptr Word32
         sprites' <- useSprites id
-        hardware'' <- liftIO $ stellaTick (fromIntegral diff) ir r hardware' graphics' sprites' ptr'
-        putHardware id hardware'' -- XX Does this update sprites??? XXX
+        -- XXX Not sure stellaDebug actually changes here so may be some redundancy
+        stellaDebug'' <- liftIO $ stellaTick (fromIntegral diff) word64r intr boolr ir r stellaDebug' graphics' sprites' ptr'
+        putStellaDebug id stellaDebug'' -- XX Does this update sprites??? XXX
 
 {-# INLINE pureReadRom #-}
 pureReadRom :: Word16 -> MonadAtari Word8
@@ -704,7 +736,7 @@ dumpState = do
 
 {- INLINE setBreak -}
 setBreak :: Int -> Int -> MonadAtari ()
-setBreak breakX breakY = putHardware (stellaDebug . posbreak) (breakX+picx, breakY+picy)
+setBreak breakX breakY = putStellaDebug posbreak (breakX+picx, breakY+picy)
 
 graphicsDelay :: Int64 -> MonadAtari ()
 graphicsDelay n = do
@@ -730,29 +762,29 @@ writeStella addr v =
        0x0d -> graphicsDelay 4 >> putORegister pf0 v >> makePlayfield                  -- PF0
        0x0e -> graphicsDelay 4 >> putORegister pf1 v >> makePlayfield                  -- PF1
        0x0f -> graphicsDelay 4 >> putORegister pf2 v >> makePlayfield                  -- PF2
-       0x10 -> graphicsDelay 5 >> useHardware (position . _1) >>= putSprites s_ppos0 -- RESP0
-       0x11 -> graphicsDelay 5 >> useHardware (position . _1) >>= putSprites s_ppos1 -- RESP1
-       0x12 -> graphicsDelay 4 >> useHardware (position . _1) >>= putSprites s_mpos0 -- RESM0
-       0x13 -> graphicsDelay 4 >> useHardware (position . _1) >>= putSprites s_mpos1 -- RESM1
-       0x14 -> graphicsDelay 4 >> useHardware (position . _1) >>= putSprites s_bpos  -- RESBL
+       0x10 -> graphicsDelay 5 >> getIntRegister hpos >>= putSprites s_ppos0 -- RESP0
+       0x11 -> graphicsDelay 5 >> getIntRegister hpos >>= putSprites s_ppos1 -- RESP1
+       0x12 -> graphicsDelay 4 >> getIntRegister hpos >>= putSprites s_mpos0 -- RESM0
+       0x13 -> graphicsDelay 4 >> getIntRegister hpos >>= putSprites s_mpos1 -- RESM1
+       0x14 -> graphicsDelay 4 >> getIntRegister hpos >>= putSprites s_bpos  -- RESBL
        0x1b -> do -- GRP0
                 putGraphics (newGrp0) v
-                useGraphics (newGrp1) >>= putGraphics (oldGrp1)
+                useGraphics (newGrp1) >>= putGraphics oldGrp1
        0x1c -> do -- GRP1
                 putGraphics (newGrp1) v
                 useGraphics (newGrp0) >>= putGraphics (oldGrp0)
-                useGraphics (newBall) >>= putGraphics (oldBall)
+                getBoolRegister newBall >>= putBoolRegister oldBall
        0x1d -> putORegister enam0 v                -- ENAM0
        0x1e -> putORegister enam1 v                -- ENAM1
-       0x1f -> putGraphics (newBall) $ testBit v 1   -- ENABL
+       0x1f -> putBoolRegister newBall $ testBit v 1   -- ENABL
        0x20 -> putORegister hmp0 v                 -- HMP0
        0x21 -> putORegister hmp1 v                 -- HMP1
        0x22 -> putORegister hmm0 v                 -- HMM0
        0x23 -> putORegister hmm1 v                 -- HMM1
        0x24 -> putORegister hmbl v                 -- HMBL
-       0x25 -> putGraphics (delayP0) $ testBit v 0   -- VDELP0
-       0x26 -> putGraphics (delayP1) $ testBit v 0   -- VDELP1
-       0x27 -> putGraphics (delayBall) $ testBit v 0   -- VDELBL
+       0x25 -> putBoolRegister delayP0 $ testBit v 0   -- VDELP0
+       0x26 -> putBoolRegister delayP1 $ testBit v 0   -- VDELP1
+       0x27 -> putBoolRegister delayBall $ testBit v 0   -- VDELBL
        0x28 -> putORegister resmp0 v
        0x29 -> putORegister resmp1 v
        0x2a -> stellaHmove               -- HMOVE

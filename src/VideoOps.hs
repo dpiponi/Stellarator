@@ -12,10 +12,11 @@ import Atari2600
 import Stella.Sprites
 import Control.Monad
 import Control.Monad.Trans
+import Data.Int
 import Data.Array.Unboxed
 import Data.Array.IO
 import Stella.TIARegisters
-import Control.Lens
+-- import Control.Lens
 import Stella.Graphics
 import DebugState
 import Data.IORef
@@ -81,33 +82,29 @@ missile nusiz0' enam0' o resmp0'                          = o < missileSize nusi
 
 -- Atari2600 programmer's guide p.40
 {- INLINE player0 -}
-player0 :: IOUArray OReg Word8 -> Graphics -> Word8 -> Int -> IO Bool
-player0 _ _ _ o | o < 0 = return False
-player0 r graphics'@(Graphics {_delayP0 = delayP0',
-                               _oldGrp0 = oldGrp0',
-                               _newGrp0 = newGrp0'}) nusiz0' o = do
+player0 :: IOUArray OReg Word8 -> Bool -> Graphics -> Word8 -> Int -> IO Bool
+player0 _ _ _ _ o | o < 0 = return False
+player0 r delayP0' graphics'@(Graphics {_oldGrp0 = oldGrp0',
+                                     _newGrp0 = newGrp0'}) nusiz0' o = do
     let sizeCopies = 0b111 .&. nusiz0'
     let grp0' = if delayP0' then oldGrp0' else newGrp0'
     refp0' <- fastGetORegister r refp0
     return $ stretchPlayer (testBit refp0' 3) sizeCopies o grp0'
 
 {- INLINE player1 -}
-player1 :: IOUArray OReg Word8 -> Graphics -> Word8 -> Int -> IO Bool
-player1 _ _ _ o | o < 0 = return False
-player1 r (Graphics {_delayP1 = delayP1',
-                     _oldGrp1 = oldGrp1',
-                     _newGrp1 = newGrp1'}) nusiz1' o = do
+player1 :: IOUArray OReg Word8 -> Bool -> Graphics -> Word8 -> Int -> IO Bool
+player1 _ _ _ _ o | o < 0 = return False
+player1 r delayP1' (Graphics {_oldGrp1 = oldGrp1',
+                              _newGrp1 = newGrp1'}) nusiz1' o = do
     let sizeCopies = 0b111 .&. nusiz1'
     let grp1' = if delayP1' then oldGrp1' else newGrp1'
     refp1' <- fastGetORegister r refp1
     return $ stretchPlayer (testBit refp1' 3) sizeCopies o grp1'
 
 {- INLINE ball -}
-ball :: Graphics -> Word8 -> Int -> Bool
-ball _ _ o | o < 0 = False
-ball (Graphics { _delayBall = delayBall',
-                 _oldBall = oldBall',
-                 _newBall = newBall'}) ctrlpf' o = do
+ball :: Bool -> Bool -> Bool -> Word8 -> Int -> Bool
+ball _ _ _ _ o | o < 0 = False
+ball delayBall' oldBall' newBall' ctrlpf' o = do
     let enabl' = if delayBall' then oldBall' else newBall'
     if enabl'
         then do
@@ -165,15 +162,15 @@ doCollisions ir lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1 = do
     when lball $ fastOrIRegister ir cxblpf $ bit 7 lplayfield
 
 {- INLINE compositeAndCollide -}
-compositeAndCollide :: Hardware -> IRegArray -> Graphics -> Sprites -> Int -> Int -> ORegArray -> IO Word8
-compositeAndCollide hardware' ir graphics' sprites' pixelx hpos' r = do
+compositeAndCollide :: Segment Word64 -> BoolRegArray -> IRegArray -> Graphics -> Sprites -> Int -> Int -> ORegArray -> IO Word8
+compositeAndCollide word64r boolr ir graphics' sprites' pixelx hpos' r = do
     let Sprites { _s_mpos0 = mpos0',
               _s_mpos1 = mpos1',
               _s_ppos0 = ppos0',
               _s_ppos1 = ppos1',
               _s_bpos  = bpos'
             } = sprites'
-    let pf' = hardware' ^. pf
+    -- let pf' = hardware' ^. pf
     -- let ir = hardware' ^. iregisters
 
     resmp0' <- fastGetORegister r resmp0
@@ -183,12 +180,18 @@ compositeAndCollide hardware' ir graphics' sprites' pixelx hpos' r = do
     enam1' <- fastGetORegister r enam1
     nusiz0' <- fastGetORegister r nusiz0
     nusiz1' <- fastGetORegister r nusiz1
+    delayP0' <- fastGetBoolRegister boolr delayP0
+    delayP1' <- fastGetBoolRegister boolr delayP1
+    delayBall' <- fastGetBoolRegister boolr delayBall
+    oldBall' <- fastGetBoolRegister boolr oldBall
+    newBall' <- fastGetBoolRegister boolr newBall
+    pf' <- ld word64r pf
 
     let lmissile0 = missile nusiz0' enam0' (hpos'-mpos0') resmp0'
     let lmissile1 = missile nusiz1' enam1' (hpos'-mpos1') resmp1'
-    lplayer0 <- player0 r graphics' nusiz0' (hpos'-ppos0')
-    lplayer1 <- player1 r graphics' nusiz1' (hpos'-ppos1')
-    let lball = ball graphics' ctrlpf' (hpos'-bpos')
+    lplayer0 <- player0 r delayP0' graphics' nusiz0' (hpos'-ppos0')
+    lplayer1 <- player1 r delayP1' graphics' nusiz1' (hpos'-ppos1')
+    let lball = ball delayBall' oldBall' newBall' ctrlpf' (hpos'-bpos')
     let playfieldx = fromIntegral (pixelx `shift` (-2))
     let lplayfield = playfieldx >= 0 && playfieldx < 40 && testBit pf' playfieldx
 
@@ -200,10 +203,11 @@ compositeAndCollide hardware' ir graphics' sprites' pixelx hpos' r = do
                                       lmissile0 lmissile1
                                       lplayer0 lplayer1 pixelx
 
-stellaTick :: Int -> IRegArray -> ORegArray -> Hardware -> Graphics -> Sprites -> Ptr Word32 -> IO Hardware
-stellaTick n _ _ hardware' _ _ _ | n <= 0 = return hardware'
-stellaTick n ir or hardware'@(Hardware { _stellaDebug = stellaDebug'@(DebugState { _posbreak = posbreak'@(xbreak', ybreak')}),
-                                         _position = position'@(hpos', vpos') }) graphics' sprites' ptr' = do
+stellaTick :: Int -> Segment Word64 -> IntRegArray -> BoolRegArray -> IRegArray -> ORegArray -> DebugState -> Graphics -> Sprites -> Ptr Word32 -> IO DebugState
+stellaTick n _ _ _ _ _ hardware' _ _ _ | n <= 0 = return hardware'
+stellaTick n word64r intr boolr ir or stellaDebug'@(DebugState { _posbreak = posbreak'@(xbreak', ybreak')}) graphics' sprites' ptr' = do
+    hpos' <- fastGetIntRegister intr hpos
+    vpos' <- fastGetIntRegister intr vpos
     let posbreak'' = if (hpos', vpos') == (xbreak', ybreak') then (-1, -1) else posbreak'
 
     when (vpos' >= picy && vpos' < picy+screenScanLines && hpos' >= picx) $ do
@@ -219,9 +223,11 @@ stellaTick n ir or hardware'@(Hardware { _stellaDebug = stellaDebug'@(DebugState
             if testBit blank 1
                 then pokeElemOff ptr' pixelAddr 0x404040
                 else do
-                    final <- compositeAndCollide hardware' ir graphics' sprites' pixelx hpos' or
+                    final <- compositeAndCollide word64r boolr ir graphics' sprites' pixelx hpos' or
                     let rgb = lut!(final `shift` (-1))
                     pokeElemOff ptr' pixelAddr rgb
 
-    stellaTick (n-1) ir or hardware' { _position = updatePos position',
-                                   _stellaDebug = stellaDebug' { _posbreak = posbreak'' } } graphics' sprites' ptr'
+    let (hpos'', vpos'') = updatePos (hpos', vpos')
+    fastPutIntRegister intr hpos hpos''
+    fastPutIntRegister intr vpos vpos''
+    stellaTick (n-1) word64r intr boolr ir or stellaDebug' { _posbreak = posbreak'' } graphics' sprites' ptr'

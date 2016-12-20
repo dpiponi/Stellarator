@@ -14,6 +14,7 @@ import Text.Parsec
 import Control.Monad.State.Strict
 import Control.Lens
 import System.Console.Haskeline
+import Stella.TIARegisters
 
 comparison :: (Int -> Int -> Bool) -> Expr -> Expr -> MonadAtari Value
 comparison operator expr0 expr1 = do
@@ -69,14 +70,14 @@ eval DebugCmd.Clock = do
     value <- useClock id
     return (EInt (fromIntegral value))
 eval Row = do
-    value <- useHardware (position . _2)
+    value <- getIntRegister vpos
     return (EInt (fromIntegral value))
 eval Col = do
-    value <- useHardware (position . _1)
+    value <- getIntRegister hpos
     return (EInt (fromIntegral value))
 
 eval (Var s) = do
-    v <- useHardware (stellaDebug . variables)
+    v <- useStellaDebug variables
     case Map.lookup s v of
         Nothing -> return EFail
         Just x -> return x
@@ -165,8 +166,8 @@ execCommand cmd =
     case cmd of
         Let var e -> do
             e' <- eval e
-            modifyHardware (stellaDebug . variables) $ Map.insert var e'
-            _ <- useHardware (stellaDebug . variables)
+            modifyStellaDebug variables $ Map.insert var e'
+            _ <- useStellaDebug variables -- Uh? XXX
             return False
         Block cmds -> do
             forM_ cmds execCommand
