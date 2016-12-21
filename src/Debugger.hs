@@ -70,10 +70,12 @@ eval DebugCmd.Clock = do
     value <- useClock id
     return (EInt (fromIntegral value))
 eval Row = do
-    value <- getIntRegister vpos
+    intr <- view intArray
+    value <- liftIO $ ld intr vpos
     return (EInt (fromIntegral value))
 eval Col = do
-    value <- getIntRegister hpos
+    intr <- view intArray
+    value <- liftIO $ ld intr hpos
     return (EInt (fromIntegral value))
 
 eval (Var s) = do

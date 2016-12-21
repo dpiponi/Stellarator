@@ -17,9 +17,12 @@ module Emulation(stellaDebug,
                  initState,
                  getIRegister,
                  putIRegister,
+                 {-
                  getIntRegister,
                  putBoolRegister,
                  getBoolRegister,
+                 -}
+                 word8Array,
                  trigger1,
                  modifyIRegister,
                  getORegister) where
@@ -61,6 +64,33 @@ import TIAColors
 import BitManips
 import qualified SDL
 
+timerTick' :: Word8 -> Int -> Int -> (Word8, Int, Int)
+timerTick' 0      0         interval' = ((-1), (3*1-1), 1)
+timerTick' intim' 0         interval' = ((intim'-1), (3*interval'-1), interval')
+timerTick' intim' subtimer' interval' = (intim', (subtimer'-1), interval')
+
+timerTick :: Segment Int -> Segment Word8 -> IO ()
+timerTick intr word8r = do
+    intim' <- ld word8r intim
+    subtimer' <- ld intr subtimer
+    interval' <- ld intr interval
+    let (intim'', subtimer'', interval'') = timerTick' intim' subtimer' interval'
+    st word8r intim intim''
+    st intr subtimer subtimer''
+    st intr interval interval''
+
+startIntervalTimer :: Segment Int -> Segment Word8 -> IO ()
+startIntervalTimer intr word8r = do
+    st word8r intim 0
+    st intr subtimer 0
+    st intr interval 0
+
+startIntervalTimerN :: Segment Int -> Segment Word8 -> Int -> Word8 -> IO ()
+startIntervalTimerN intr word8r n v = do
+    st intr interval n
+    st intr subtimer (3*n-1)
+    st word8r intim v
+
 initState :: IOUArray Int Word8 ->
              BankMode ->
              IOUArray Int Word8 ->
@@ -80,12 +110,14 @@ initState ram' mode rom' oregs iregs initialPC
           regs' <- newIORef $ R initialPC 0 0 0 0 0xff
           clock' <- newIORef 0
           debug' <- newIORef 8
-          intervalTimer' <- newIORef Stella.IntervalTimer.start
+          --intervalTimer' <- newIORef Stella.IntervalTimer.start
           graphics' <- newIORef Stella.Graphics.start
           stellaClock' <- newIORef 0
           boolArray' <- newArray (0, 127) False -- Overkill
           intArray' <- newArray (0, 127) 0      -- Overkill
           word64Array' <- newArray (0, 127) 0      -- Overkill
+          word8Array' <- newArray (0, 127) 0      -- Overkill
+          startIntervalTimer intArray' word8Array'
           return $ Atari2600 {
               _rom = rom',
               _ram = ram',
@@ -95,7 +127,7 @@ initState ram' mode rom' oregs iregs initialPC
               _clock = clock',
               _debug = debug',
               _sprites = sprites',
-              _intervalTimer = intervalTimer',
+              --_intervalTimer = intervalTimer',
               _graphics = graphics',
               _stellaClock = stellaClock',
               _oregisters = oregs,
@@ -105,7 +137,8 @@ initState ram' mode rom' oregs iregs initialPC
               _sdlFrontWindow = window,
               _boolArray = boolArray',
               _intArray = intArray',
-              _word64Array = word64Array'
+              _word64Array = word64Array',
+              _word8Array = word8Array'
           }
 
 {-# INLINE flagC #-}
@@ -154,6 +187,7 @@ putIRegister i v = do
     r <- getIRegisters
     liftIO $ writeArray r i v
 
+{-
 {-# INLINE putBoolRegister #-}
 putBoolRegister :: BoolReg -> Bool -> MonadAtari ()
 putBoolRegister i v = do
@@ -165,6 +199,7 @@ getBoolRegister :: BoolReg -> MonadAtari Bool
 getBoolRegister i = do
     r <- getBoolArray
     liftIO $ readArray r i
+-}
 
 {-# INLINE modifyIRegister #-}
 modifyIRegister :: IReg -> (Word8 -> Word8) -> MonadAtari ()
@@ -178,6 +213,7 @@ getIRegister i = do
     r <- getIRegisters
     liftIO $ readArray r i
 
+{-
 {-# INLINE getIntRegister #-}
 getIntRegister :: IntReg -> MonadAtari Int
 getIntRegister i = do
@@ -187,6 +223,7 @@ getIntRegister i = do
 {-# INLINE orIRegister #-}
 orIRegister :: IReg -> Word8 -> MonadAtari ()
 orIRegister i v = modifyIRegister i (v .|.)
+-}
 
 {- INLINE stellaHmclr -}
 stellaHmclr :: MonadAtari ()
@@ -359,7 +396,7 @@ stellaVblank v = do
     ir <- getIRegisters
     or <- getORegisters
     boolr <- getBoolArray
-    trigger1 <- liftIO $ fastGetBoolRegister boolr trigger1
+    trigger1 <- liftIO $ ld boolr trigger1
     if not trigger1
         then do
             i <- liftIO $ fastGetIRegister ir inpt4 -- XXX write modifyIRegister
@@ -447,7 +484,9 @@ readStella addr =
         0x3d -> getIRegister inpt5
         0x280 -> getIRegister swcha
         0x282 -> getIRegister swchb
-        0x284 -> useIntervalTimer intim
+        0x284 -> do
+            word8r <- view word8Array
+            liftIO $ ld word8r intim
         _ -> return 0 -- (liftIO $ putStrLn $ "reading TIA 0x" ++ showHex addr "") >> return 0
 
 {- INLINE stellaVsync -}
@@ -457,8 +496,8 @@ stellaVsync v = do
     oldv <- liftIO $ fastGetORegister or vsync
     when (testBit oldv 1 && not (testBit v 1)) $ do
         intr <- getIntArray
-        liftIO $ fastPutIntRegister intr hpos 0
-        liftIO $ fastPutIntRegister intr vpos 0
+        liftIO $ st intr hpos 0
+        liftIO $ st intr vpos 0
     liftIO $ fastPutORegister or vsync v
     -- sdlState <- useHardware stellaSDL
     renderDisplay
@@ -467,7 +506,7 @@ stellaVsync v = do
 stellaWsync :: MonadAtari ()
 stellaWsync = do
     intr <- getIntArray
-    hpos' <- liftIO $ fastGetIntRegister intr hpos
+    hpos' <- liftIO $ ld intr hpos
     when (hpos' > 2) $ do
         modifyClock id (+ 1)
         clock' <- useClock id
@@ -488,13 +527,15 @@ stellaTickUntil n = do
         -- Batch together items that don't need to be
         -- carried out on individual ticks
         modifyStellaClock id (+ diff)
-        it <- useIntervalTimer id
-        putIntervalTimer id (church diff timerTick it)
         r <- getORegisters
         ir <- getIRegisters
         intr <- getIntArray
         word64r <- getWord64Array
         boolr <- getBoolArray
+        word8r <- view word8Array
+        -- it <- useIntervalTimer id
+        -- putIntervalTimer id (church diff timerTick it)
+        liftIO $ replicateM_ (fromIntegral diff) $ timerTick intr word8r
         resmp0' <- liftIO $ fastGetORegister r resmp0
         resmp1' <- liftIO $ fastGetORegister r resmp1
         modifySprites id $ clampMissiles resmp0' resmp1'
@@ -634,14 +675,14 @@ instance Emu6502 MonadAtari where
 {-
     {- INLINE debugStr 9 -}
     debugStr n str = do
-        d <- use debug
+        d <- view debug
         if n <= d
             then liftIO $ putStr str
             else return ()
 
     {- INLINE debugStrLn 9 -}
     debugStrLn n str = do
-        d <- use debug
+        d <- view debug
         if n <= d
             then liftIO $ putStrLn str
             else return ()
@@ -658,8 +699,8 @@ dumpStella = return ()
 dumpStella :: MonadAtari ()
 dumpStella = do
     liftIO $ putStrLn "--------"
-    hpos' <- use hpos
-    vpos' <- use vpos
+    hpos' <- view hpos
+    vpos' <- view vpos
     liftIO $ putStrLn $ "hpos = " ++ show hpos' ++ " (" ++ show (hpos'-picx) ++ ") vpos = " ++ show vpos' ++ " (" ++ show (vpos'-picy) ++ ")"
     grp0' <- useHardware (graphics . oldGrp0) -- XXX
     grp1' <- useHardware (graphics . oldGrp1) -- XXX
@@ -682,8 +723,8 @@ dumpStella = do
     liftIO $ putStr $ "ENAM0 = " ++ show (testBit enam0' 1)
     liftIO $ putStr $ " ENAM1 = " ++ show (testBit enam1' 1)
     liftIO $ putStrLn $ " ENABL = " ++ show (enablOld, enablNew)
-    mpos0' <- use mpos0
-    mpos1' <- use mpos1
+    mpos0' <- view mpos0
+    mpos1' <- view mpos1
     hmm0' <- getORegister hmm0
     hmm1' <- getORegister hmm1
     liftIO $ putStr $ "missile0 @ " ++ show mpos0' ++ "(" ++ show (clockMove hmm0') ++ ")"
@@ -714,7 +755,7 @@ dumpMemory = do
 dumpRegisters :: MonadAtari ()
 dumpRegisters = do
     -- XXX bring clock back
-    --tClock <- use clock
+    --tClock <- view clock
     --putStr 9 $ "clock = " ++ show tClock
     regPC <- getPC
     liftIO $ putStr $ " pc = " ++ showHex regPC ""
@@ -753,7 +794,10 @@ graphicsDelay n = do
 
 {- INLINABLE writeStella -}
 writeStella :: Word16 -> Word8 -> MonadAtari ()
-writeStella addr v = 
+writeStella addr v = do
+    intr <- view intArray
+    boolr <- view boolArray
+    word8r <- view word8Array
     case addr of
        0x00 -> stellaVsync v             -- VSYNC
        0x01 -> stellaVblank v            -- VBLANK
@@ -770,38 +814,38 @@ writeStella addr v =
        0x0d -> graphicsDelay 4 >> putORegister pf0 v >> makePlayfield                  -- PF0
        0x0e -> graphicsDelay 4 >> putORegister pf1 v >> makePlayfield                  -- PF1
        0x0f -> graphicsDelay 4 >> putORegister pf2 v >> makePlayfield                  -- PF2
-       0x10 -> graphicsDelay 5 >> getIntRegister hpos >>= putSprites s_ppos0 -- RESP0
-       0x11 -> graphicsDelay 5 >> getIntRegister hpos >>= putSprites s_ppos1 -- RESP1
-       0x12 -> graphicsDelay 4 >> getIntRegister hpos >>= putSprites s_mpos0 -- RESM0
-       0x13 -> graphicsDelay 4 >> getIntRegister hpos >>= putSprites s_mpos1 -- RESM1
-       0x14 -> graphicsDelay 4 >> getIntRegister hpos >>= putSprites s_bpos  -- RESBL
+       0x10 -> graphicsDelay 5 >> liftIO (ld intr hpos) >>= putSprites s_ppos0 -- RESP0
+       0x11 -> graphicsDelay 5 >> liftIO (ld intr hpos) >>= putSprites s_ppos1 -- RESP1
+       0x12 -> graphicsDelay 4 >> liftIO (ld intr hpos) >>= putSprites s_mpos0 -- RESM0
+       0x13 -> graphicsDelay 4 >> liftIO (ld intr hpos) >>= putSprites s_mpos1 -- RESM1
+       0x14 -> graphicsDelay 4 >> liftIO (ld intr hpos) >>= putSprites s_bpos  -- RESBL
        0x1b -> do -- GRP0
                 putGraphics (newGrp0) v
                 useGraphics (newGrp1) >>= putGraphics oldGrp1
        0x1c -> do -- GRP1
                 putGraphics (newGrp1) v
                 useGraphics (newGrp0) >>= putGraphics (oldGrp0)
-                getBoolRegister newBall >>= putBoolRegister oldBall
+                liftIO $ ld boolr newBall >>= st boolr oldBall
        0x1d -> putORegister enam0 v                -- ENAM0
        0x1e -> putORegister enam1 v                -- ENAM1
-       0x1f -> putBoolRegister newBall $ testBit v 1   -- ENABL
+       0x1f -> liftIO $ st boolr newBall $ testBit v 1   -- ENABL
        0x20 -> putORegister hmp0 v                 -- HMP0
        0x21 -> putORegister hmp1 v                 -- HMP1
        0x22 -> putORegister hmm0 v                 -- HMM0
        0x23 -> putORegister hmm1 v                 -- HMM1
        0x24 -> putORegister hmbl v                 -- HMBL
-       0x25 -> putBoolRegister delayP0 $ testBit v 0   -- VDELP0
-       0x26 -> putBoolRegister delayP1 $ testBit v 0   -- VDELP1
-       0x27 -> putBoolRegister delayBall $ testBit v 0   -- VDELBL
+       0x25 -> liftIO $ st boolr delayP0 $ testBit v 0   -- VDELP0
+       0x26 -> liftIO $ st boolr delayP1 $ testBit v 0   -- VDELP1
+       0x27 -> liftIO $ st boolr delayBall $ testBit v 0   -- VDELBL
        0x28 -> putORegister resmp0 v
        0x29 -> putORegister resmp1 v
        0x2a -> stellaHmove               -- HMOVE
        0x2b -> stellaHmclr               -- HMCLR
        0x2c -> stellaCxclr               -- CXCLR
-       0x294 -> putIntervalTimer id $ start1 v -- TIM1T
-       0x295 -> putIntervalTimer id $ start8 v -- TIM8T
-       0x296 -> putIntervalTimer id $ start64 v -- TIM64T
-       0x297 -> putIntervalTimer id $ start1024 v -- TIM1024T
+       0x294 -> liftIO $ startIntervalTimerN intr word8r 1 v
+       0x295 -> liftIO $ startIntervalTimerN intr word8r 8 v
+       0x296 -> liftIO $ startIntervalTimerN intr word8r 64 v
+       0x297 -> liftIO $ startIntervalTimerN intr word8r 1024 v
        _ -> return () -- liftIO $ putStrLn $ "writing TIA 0x" ++ showHex addr ""
 
 renderDisplay :: MonadAtari ()

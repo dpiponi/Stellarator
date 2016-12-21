@@ -59,7 +59,7 @@ swcha, swchb :: IReg
 swcha = 0x280
 swchb = 0x282
 
-trigger1, delayP0, delayP1, delayBall, oldBall, newBall :: BoolReg
+trigger1, delayP0, delayP1, delayBall, oldBall, newBall :: TypedIndex Bool
 trigger1 = 0
 delayP0 = 1
 delayP1 = 2
@@ -70,14 +70,19 @@ newBall = 5
 pf :: TypedIndex Word64
 pf = 0
 
-hpos, vpos :: IntReg
+hpos, vpos, subtimer, interval :: TypedIndex Int
 hpos = 0
 vpos = 1
+subtimer = 2
+interval = 3
+
+intim :: TypedIndex Word8
+intim = 0
 
 type ORegArray = IOUArray OReg Word8
 type IRegArray = IOUArray IReg Word8
-type IntRegArray = IOUArray IntReg Int
-type BoolRegArray = IOUArray BoolReg Bool
+--type IntRegArray = IOUArray IntReg Int
+--type BoolRegArray = IOUArray BoolReg Bool
 
 {-# INLINE ld #-}
 ld :: MArray IOUArray a IO => IOUArray (TypedIndex a) a -> TypedIndex a -> IO a
@@ -89,6 +94,7 @@ st = writeArray
 
 type Segment a = IOUArray (TypedIndex a) a
 
+{-
 {-# INLINE fastGetBoolRegister #-}
 fastGetBoolRegister :: BoolRegArray -> BoolReg -> IO Bool
 fastGetBoolRegister = readArray
@@ -104,6 +110,7 @@ fastGetIntRegister = readArray
 {-# INLINE fastPutIntRegister #-}
 fastPutIntRegister :: IntRegArray -> IntReg -> Int -> IO ()
 fastPutIntRegister = writeArray
+-}
 
 {-# INLINE fastGetORegister #-}
 fastGetORegister :: IOUArray OReg Word8 -> OReg -> IO Word8

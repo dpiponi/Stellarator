@@ -6,6 +6,7 @@ import Data.Word
 import Foreign.C.Types
 import Control.Lens
 
+{-
 data IntervalTimer = IntervalTimer {
     _intim :: {-# UNPACK #-} !Word8,
     _subtimer :: {-# UNPACK #-} !Int,
@@ -13,7 +14,9 @@ data IntervalTimer = IntervalTimer {
 }
 
 $(makeLenses ''IntervalTimer)
+-}
 
+{-
 timerTick :: IntervalTimer -> IntervalTimer
 timerTick (IntervalTimer 0      0         interval') = IntervalTimer (-1) (3*1-1) 1
 timerTick (IntervalTimer intim' 0         interval') = IntervalTimer (intim'-1) (3*interval'-1) interval'
@@ -53,3 +56,4 @@ start1024 v = IntervalTimer {
     _subtimer = 1024*3-1,
     _intim = v
 }
+-}

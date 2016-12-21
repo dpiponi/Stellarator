@@ -118,7 +118,7 @@ handleKey motion sym = do
             vblank' <- getORegister vblank
             -- putHardware trigger1 pressed
             boolr <- getBoolArray
-            liftIO $ fastPutBoolRegister boolr trigger1 pressed
+            liftIO $ st boolr trigger1 pressed
             let latch = testBit vblank' 6
             case (latch, pressed) of
                 (False, _) -> do
