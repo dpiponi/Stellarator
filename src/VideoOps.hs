@@ -162,7 +162,7 @@ doCollisions ir lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1 = do
     when lball $ fastOrIRegister ir cxblpf $ bit 7 lplayfield
 
 {- INLINE compositeAndCollide -}
-compositeAndCollide :: Segment Word64 -> BoolRegArray -> IRegArray -> Graphics -> Sprites -> Int -> Int -> ORegArray -> IO Word8
+compositeAndCollide :: Segment Word64 -> Segment Bool -> IRegArray -> Graphics -> Sprites -> Int -> Int -> ORegArray -> IO Word8
 compositeAndCollide word64r boolr ir graphics' sprites' pixelx hpos' r = do
     let Sprites { _s_mpos0 = mpos0',
               _s_mpos1 = mpos1',
@@ -180,11 +180,11 @@ compositeAndCollide word64r boolr ir graphics' sprites' pixelx hpos' r = do
     enam1' <- fastGetORegister r enam1
     nusiz0' <- fastGetORegister r nusiz0
     nusiz1' <- fastGetORegister r nusiz1
-    delayP0' <- fastGetBoolRegister boolr delayP0
-    delayP1' <- fastGetBoolRegister boolr delayP1
-    delayBall' <- fastGetBoolRegister boolr delayBall
-    oldBall' <- fastGetBoolRegister boolr oldBall
-    newBall' <- fastGetBoolRegister boolr newBall
+    delayP0' <- ld boolr delayP0
+    delayP1' <- ld boolr delayP1
+    delayBall' <- ld boolr delayBall
+    oldBall' <- ld boolr oldBall
+    newBall' <- ld boolr newBall
     pf' <- ld word64r pf
 
     let lmissile0 = missile nusiz0' enam0' (hpos'-mpos0') resmp0'
@@ -203,11 +203,11 @@ compositeAndCollide word64r boolr ir graphics' sprites' pixelx hpos' r = do
                                       lmissile0 lmissile1
                                       lplayer0 lplayer1 pixelx
 
-stellaTick :: Int -> Segment Word64 -> IntRegArray -> BoolRegArray -> IRegArray -> ORegArray -> DebugState -> Graphics -> Sprites -> Ptr Word32 -> IO DebugState
+stellaTick :: Int -> Segment Word64 -> Segment Int -> Segment Bool -> IRegArray -> ORegArray -> DebugState -> Graphics -> Sprites -> Ptr Word32 -> IO DebugState
 stellaTick n _ _ _ _ _ hardware' _ _ _ | n <= 0 = return hardware'
 stellaTick n word64r intr boolr ir or stellaDebug'@(DebugState { _posbreak = posbreak'@(xbreak', ybreak')}) graphics' sprites' ptr' = do
-    hpos' <- fastGetIntRegister intr hpos
-    vpos' <- fastGetIntRegister intr vpos
+    hpos' <- ld intr hpos
+    vpos' <- ld intr vpos
     let posbreak'' = if (hpos', vpos') == (xbreak', ybreak') then (-1, -1) else posbreak'
 
     when (vpos' >= picy && vpos' < picy+screenScanLines && hpos' >= picx) $ do
@@ -228,6 +228,6 @@ stellaTick n word64r intr boolr ir or stellaDebug'@(DebugState { _posbreak = pos
                     pokeElemOff ptr' pixelAddr rgb
 
     let (hpos'', vpos'') = updatePos (hpos', vpos')
-    fastPutIntRegister intr hpos hpos''
-    fastPutIntRegister intr vpos vpos''
+    st intr hpos hpos''
+    st intr vpos vpos''
     stellaTick (n-1) word64r intr boolr ir or stellaDebug' { _posbreak = posbreak'' } graphics' sprites' ptr'

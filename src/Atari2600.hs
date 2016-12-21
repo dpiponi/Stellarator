@@ -14,6 +14,9 @@ module Atari2600(MonadAtari(..),
                  putStellaDebug,
                  modifyStellaDebug,
                  useMemory,
+                 word8Array,
+                 intArray,
+                 boolArray,
                  putMemory,
                  modifyMemory,
                  useRegisters,
@@ -28,9 +31,9 @@ module Atari2600(MonadAtari(..),
                  useStellaClock,
                  putStellaClock,
                  modifyStellaClock,
-                 useIntervalTimer,
-                 putIntervalTimer,
-                 modifyIntervalTimer,
+                 -- useIntervalTimer,
+                 -- putIntervalTimer,
+                 -- modifyIntervalTimer,
                  useGraphics,
                  putGraphics,
                  modifyGraphics,
@@ -64,8 +67,7 @@ module Atari2600(MonadAtari(..),
                  {- trigger1, -}
                  --Hardware(..),
                  Atari2600(..),
-                 Registers(..),
-                 intervalTimer) where
+                 Registers(..)) where
 
 import Data.Word
 import Data.Int
@@ -102,7 +104,7 @@ data Atari2600 = Atari2600 {
     _clock :: IORef Int64,
     _debug :: IORef Int,
     _sprites :: IORef Sprites,
-    _intervalTimer :: IORef IntervalTimer,
+    -- _intervalTimer :: IORef IntervalTimer,
     _graphics :: IORef Graphics,
     _stellaClock :: IORef Int64,
     _oregisters :: IOUArray OReg Word8,
@@ -110,10 +112,11 @@ data Atari2600 = Atari2600 {
     _sdlBackSurface :: Surface,
     _sdlFrontSurface :: Surface,
     _sdlFrontWindow :: Window,
-    _boolArray :: IOUArray BoolReg Bool,
-    _intArray :: IOUArray IntReg Int,
+    _boolArray :: Segment Bool,
+    _intArray :: Segment Int,
     _int64Array :: Segment Int64,
-    _word64Array :: Segment Word64
+    _word64Array :: Segment Word64,
+    _word8Array :: Segment Word8
 }
 
 $(makeLenses ''Atari2600)
@@ -221,6 +224,7 @@ modifySprites lens modifier = do
     atari <- ask
     liftIO $ modifyIORef' (atari ^. sprites) (over lens modifier)
 
+{-
 {-# INLINE useIntervalTimer #-}
 useIntervalTimer :: Getting b IntervalTimer b -> MonadAtari b
 useIntervalTimer lens = do
@@ -238,6 +242,7 @@ putIntervalTimer lens value = do
 modifyIntervalTimer lens modifier = do
     atari <- ask
     liftIO $ modifyIORef' (atari ^. intervalTimer) (over lens modifier)
+-}
 
 {-# INLINE useGraphics #-}
 useGraphics :: Getting b Graphics b -> MonadAtari b
@@ -282,13 +287,13 @@ getORegisters = do
     return $ atari ^. oregisters
 
 {-# INLINE getBoolArray #-}
-getBoolArray :: MonadAtari BoolRegArray
+getBoolArray :: MonadAtari (Segment Bool)
 getBoolArray = do
     atari <- ask
     return $ atari ^. boolArray
 
 {-# INLINE getIntArray #-}
-getIntArray :: MonadAtari IntRegArray
+getIntArray :: MonadAtari (Segment Int)
 getIntArray = do
     atari <- ask
     return $ atari ^. intArray
