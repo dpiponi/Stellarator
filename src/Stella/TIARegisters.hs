@@ -76,8 +76,16 @@ vpos = 1
 subtimer = 2
 interval = 3
 
-intim :: TypedIndex Word8
+pc :: TypedIndex Word16
+pc = 0
+
+intim, p, a, x, y, s :: TypedIndex Word8
 intim = 0
+p = 1
+a = 2
+x = 3
+y = 4
+s = 5
 
 type ORegArray = IOUArray OReg Word8
 type IRegArray = IOUArray IReg Word8

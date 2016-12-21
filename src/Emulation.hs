@@ -107,7 +107,7 @@ initState ram' mode rom' oregs iregs initialPC
               }
           sprites' <- newIORef Stella.Sprites.start
           stellaDebug' <- newIORef DebugState.start
-          regs' <- newIORef $ R initialPC 0 0 0 0 0xff
+          -- regs' <- newIORef $ R initialPC 0 0 0 0 0xff
           clock' <- newIORef 0
           debug' <- newIORef 8
           --intervalTimer' <- newIORef Stella.IntervalTimer.start
@@ -116,14 +116,16 @@ initState ram' mode rom' oregs iregs initialPC
           boolArray' <- newArray (0, 127) False -- Overkill
           intArray' <- newArray (0, 127) 0      -- Overkill
           word64Array' <- newArray (0, 127) 0      -- Overkill
+          word16Array' <- newArray (0, 127) 0      -- Overkill
           word8Array' <- newArray (0, 127) 0      -- Overkill
+          liftIO $ st word16Array' pc initialPC
           startIntervalTimer intArray' word8Array'
           return $ Atari2600 {
               _rom = rom',
               _ram = ram',
               _stellaDebug = stellaDebug',
               _memory = memory',
-              _regs = regs',
+              -- _regs = regs',
               _clock = clock',
               _debug = debug',
               _sprites = sprites',
@@ -138,9 +140,11 @@ initState ram' mode rom' oregs iregs initialPC
               _boolArray = boolArray',
               _intArray = intArray',
               _word64Array = word64Array',
+              _word16Array = word16Array',
               _word8Array = word8Array'
           }
 
+{-
 {-# INLINE flagC #-}
 flagC :: Lens' Registers Bool
 flagC = p . bitAt 0
@@ -168,6 +172,7 @@ flagV = p . bitAt 6
 {-# INLINE flagN #-}
 flagN :: Lens' Registers Bool
 flagN = p . bitAt 7
+-}
 
 {-# INLINE putORegister #-}
 putORegister :: OReg -> Word8 -> MonadAtari ()
@@ -495,7 +500,7 @@ stellaVsync v = do
     or <- getORegisters
     oldv <- liftIO $ fastGetORegister or vsync
     when (testBit oldv 1 && not (testBit v 1)) $ do
-        intr <- getIntArray
+        intr <- view intArray
         liftIO $ st intr hpos 0
         liftIO $ st intr vpos 0
     liftIO $ fastPutORegister or vsync v
@@ -505,7 +510,7 @@ stellaVsync v = do
 {- INLINE stellaWsync -}
 stellaWsync :: MonadAtari ()
 stellaWsync = do
-    intr <- getIntArray
+    intr <- view intArray
     hpos' <- liftIO $ ld intr hpos
     when (hpos' > 2) $ do
         modifyClock id (+ 1)
@@ -529,7 +534,7 @@ stellaTickUntil n = do
         modifyStellaClock id (+ diff)
         r <- getORegisters
         ir <- getIRegisters
-        intr <- getIntArray
+        intr <- view intArray
         word64r <- getWord64Array
         boolr <- getBoolArray
         word8r <- view word8Array
@@ -608,64 +613,64 @@ instance Emu6502 MonadAtari where
         modifyMemory bankOffset $ bankSwitch bankType addr
 
     {-# INLINE getPC #-}
-    getPC = useRegisters (pc)
+    getPC = do { int16r <- view word16Array; liftIO $ ld int16r pc }
     {-# INLINE tick #-}
     tick n = do
         modifyClock id (+ fromIntegral n)
         c <- useClock id
         stellaTickUntil (3*c)
     {-# INLINE putC #-}
-    putC b = putRegisters flagC b
+    putC b = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; liftIO $ st word8r p (p' & bitAt 0 .~ b) }
     {-# INLINE getC #-}
-    getC = useRegisters (flagC)
+    getC = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; return (p' ^. bitAt 0) }
     {-# INLINE putZ #-}
-    putZ b = putRegisters flagZ b
+    putZ b = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; liftIO $ st word8r p (p' & bitAt 1 .~ b) }
     {-# INLINE getZ #-}
-    getZ = useRegisters (flagZ)
+    getZ = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; return (p' ^. bitAt 1) }
     {-# INLINE putI #-}
-    putI b = putRegisters flagI b
+    putI b = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; liftIO $ st word8r p (p' & bitAt 2 .~ b) }
     {-# INLINE getI #-}
-    getI = useRegisters (flagI)
+    getI = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; return (p' ^. bitAt 2) }
     {-# INLINE putD #-}
-    putD b = putRegisters flagD b
+    putD b = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; liftIO $ st word8r p (p' & bitAt 3 .~ b) }
     {-# INLINE getD #-}
-    getD = useRegisters (flagD)
+    getD = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; return (p' ^. bitAt 3) }
     {-# INLINE putB #-}
-    putB b = putRegisters flagB b
+    putB b = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; liftIO $ st word8r p (p' & bitAt 4 .~ b) }
     {-# INLINE getB #-}
-    getB = useRegisters (flagB)
+    getB = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; return (p' ^. bitAt 4) }
     {-# INLINE putV #-}
-    putV b = putRegisters flagV b
+    putV b = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; liftIO $ st word8r p (p' & bitAt 6 .~ b) }
     {-# INLINE getV #-}
-    getV = useRegisters (flagV)
+    getV = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; return (p' ^. bitAt 6) }
     {-# INLINE putN #-}
-    putN b = putRegisters flagN b
+    putN b = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; liftIO $ st word8r p (p' & bitAt 7 .~ b) }
     {-# INLINE getN #-}
-    getN = useRegisters (flagN)
+    getN = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; return (p' ^. bitAt 7) }
     {-# INLINE getA #-}
-    getA = useRegisters (a)
+    getA = do { word8r <- view word8Array; liftIO $ ld word8r a }
     {-# INLINE putA #-}
-    putA r = putRegisters a r
+    putA r = do { word8r <- view word8Array; liftIO $ st word8r a r }
     {-# INLINE getS #-}
-    getS = useRegisters (s)
+    getS = do { word8r <- view word8Array; liftIO $ ld word8r s }
     {-# INLINE putS #-}
-    putS r = putRegisters s r
+    putS r = do { word8r <- view word8Array; liftIO $ st word8r s r }
     {-# INLINE getX #-}
-    getX = useRegisters (x)
+    getX = do { word8r <- view word8Array; liftIO $ ld word8r x }
     {-# INLINE putX #-}
-    putX r = putRegisters x r
+    putX r = do { word8r <- view word8Array; liftIO $ st word8r x r }
     {-# INLINE getP #-}
-    getP = useRegisters (p)
+    getP = do { word8r <- view word8Array; liftIO $ ld word8r p }
     {-# INLINE putP #-}
-    putP r = putRegisters p r
+    putP r = do { word8r <- view word8Array; liftIO $ st word8r p r }
     {-# INLINE getY #-}
-    getY = useRegisters (y)
+    getY = do { word8r <- view word8Array; liftIO $ ld word8r y }
     {-# INLINE putY #-}
-    putY r = putRegisters y r
+    putY r = do { word8r <- view word8Array; liftIO $ st word8r y r }
     {-# INLINE putPC #-}
-    putPC r = putRegisters pc r
+    putPC r = do { word16r <- view word16Array; liftIO $ st word16r pc r }
     {-# INLINE addPC #-}
-    addPC n = modifyRegisters pc (+ fromIntegral n)
+    addPC n = do { word16r <- view word16Array; pc' <- liftIO $ ld word16r pc ; liftIO $ st word16r pc (pc' + fromIntegral n) }
 
     {-# INLINE debugStr #-}
     debugStr _ _ = return ()

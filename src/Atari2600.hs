@@ -14,14 +14,17 @@ module Atari2600(MonadAtari(..),
                  putStellaDebug,
                  modifyStellaDebug,
                  useMemory,
+                 word16Array,
                  word8Array,
                  intArray,
                  boolArray,
                  putMemory,
                  modifyMemory,
+                 {-
                  useRegisters,
                  putRegisters,
                  modifyRegisters,
+                 -}
                  useSprites,
                  putSprites,
                  modifySprites,
@@ -31,16 +34,13 @@ module Atari2600(MonadAtari(..),
                  useStellaClock,
                  putStellaClock,
                  modifyStellaClock,
-                 -- useIntervalTimer,
-                 -- putIntervalTimer,
-                 -- modifyIntervalTimer,
                  useGraphics,
                  putGraphics,
                  modifyGraphics,
                  getORegisters,
                  getIRegisters,
                  getBoolArray,
-                 getIntArray,
+                 --getIntArray,
                  getInt64Array,
                  getWord64Array,
                  stellaDebug,
@@ -49,25 +49,12 @@ module Atari2600(MonadAtari(..),
                  getFrontWindow,
                  debug,
                  clock,
-                 regs,
-                 pc,
-                 p,
-                 a,
-                 x,
-                 y,
-                 s,
                  memory,
                  stellaClock,
                  sprites,
-                 -- position,
-                 -- stellaSDL,
-                 {- pf, -}
                  oregisters,
                  iregisters,
-                 {- trigger1, -}
-                 --Hardware(..),
-                 Atari2600(..),
-                 Registers(..)) where
+                 Atari2600(..)) where
 
 import Data.Word
 import Data.Int
@@ -86,41 +73,33 @@ import Stella.IntervalTimer
 import Data.Array.IO
 import DebugState
 
-data Registers = R {
-    _pc :: !Word16,
-    _p :: !Word8,
-    _a :: !Word8,
-    _x :: !Word8,
-    _y :: !Word8,
-    _s :: !Word8
-}
-
 data Atari2600 = Atari2600 {
     _memory :: IORef Memory,
-    _ram :: IOUArray Int Word8,
-    _rom :: IOUArray Int Word8,
-    _stellaDebug :: IORef DebugState,
-    _regs :: IORef Registers,
     _clock :: IORef Int64,
     _debug :: IORef Int,
     _sprites :: IORef Sprites,
-    -- _intervalTimer :: IORef IntervalTimer,
     _graphics :: IORef Graphics,
     _stellaClock :: IORef Int64,
+    _stellaDebug :: IORef DebugState,
+
     _oregisters :: IOUArray OReg Word8,
     _iregisters :: IOUArray IReg Word8,
-    _sdlBackSurface :: Surface,
-    _sdlFrontSurface :: Surface,
-    _sdlFrontWindow :: Window,
+    _ram :: IOUArray Int Word8,
+    _rom :: IOUArray Int Word8,
     _boolArray :: Segment Bool,
     _intArray :: Segment Int,
     _int64Array :: Segment Int64,
     _word64Array :: Segment Word64,
-    _word8Array :: Segment Word8
+    _word16Array :: Segment Word16,
+    _word8Array :: Segment Word8,
+
+    _sdlBackSurface :: Surface,
+    _sdlFrontSurface :: Surface,
+    _sdlFrontWindow :: Window
 }
 
 $(makeLenses ''Atari2600)
-$(makeLenses ''Registers)
+-- $(makeLenses ''Registers)
 
 newtype MonadAtari a = M { unM :: ReaderT Atari2600 IO a }
       deriving (Functor, Applicative, Monad, MonadReader Atari2600, MonadIO)
@@ -160,33 +139,6 @@ putMemory lens value = do
 modifyMemory lens modifier = do
     atari <- ask
     liftIO $ modifyIORef' (atari ^. memory) (over lens modifier)
-
-{-# INLINE useRegisters #-}
-useRegisters :: Getting b Registers b -> MonadAtari b
-useRegisters lens = do
-    atari <- ask
-    registers' <- liftIO $ readIORef (atari ^. regs)
-    return $! registers' ^. lens
-
-{-# INLINE putRegisters #-}
-putRegisters :: ASetter Registers Registers a a -> a -> MonadAtari ()
-putRegisters lens value = do
-    atari <- ask
-    liftIO $ modifyIORef' (atari ^. regs) (set lens value)
-
-{-# INLINE modifyRegisters #-}
-modifyRegisters lens modifier = do
-    atari <- ask
-    liftIO $ modifyIORef' (atari ^. regs) (over lens modifier)
-
-{-# INLINE zoomRegisters #-}
-zoomRegisters :: StateT Registers IO a -> MonadAtari a
-zoomRegisters m = do
-    atari <- ask
-    registers' <- liftIO $ readIORef (atari ^. regs)
-    (a, registers'') <- liftIO $ runStateT m registers'
-    liftIO $ writeIORef (atari ^. regs) registers''
-    return a
 
 {-# INLINE useClock #-}
 useClock :: Getting b Int64 b -> MonadAtari b
@@ -292,11 +244,13 @@ getBoolArray = do
     atari <- ask
     return $ atari ^. boolArray
 
+{-
 {-# INLINE getIntArray #-}
 getIntArray :: MonadAtari (Segment Int)
 getIntArray = do
     atari <- ask
     return $ atari ^. intArray
+    -}
 
 {-# INLINE getInt64Array #-}
 getInt64Array :: MonadAtari (Segment Int64)
