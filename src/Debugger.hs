@@ -3,7 +3,7 @@ module Debugger(runDebugger) where
 import qualified Data.Map.Strict as Map
 
 import Atari2600
-import Control.Lens
+--import Control.Lens
 import Control.Monad
 import Control.Monad.State.Strict
 import Core
@@ -70,12 +70,10 @@ eval DebugCmd.Clock = do
     value <- useClock id
     return (EInt (fromIntegral value))
 eval Row = do
-    intr <- view intArray
-    value <- liftIO $ ld intr vpos
+    value <- load vpos
     return (EInt (fromIntegral value))
 eval Col = do
-    intr <- view intArray
-    value <- liftIO $ ld intr hpos
+    value <- load hpos
     return (EInt (fromIntegral value))
 
 eval (Var name) = do

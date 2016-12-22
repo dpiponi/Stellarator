@@ -7,22 +7,13 @@
 -- http://nesdev.com/6502_cpu.txt
 -- http://www.zimmers.net/anonftp/pub/cbm/documents/chipdata/64doc
 
-module Core(Emu6502(..), step, i8, i16, make16) where
+module Core(Emu6502(..), step, i8, i16, make16, irq, nmi) where
 --module Core where
 
-import Data.Array.IO
 import Data.Word
 import Control.Monad.State
-import Control.Lens
 import Data.Bits
-import Data.Bits.Lens
-import Data.ByteString as B hiding (putStr, putStrLn, getLine, length)
-import System.IO
-import Data.Binary.Get
-import Data.Binary
-import Data.Int
 import Numeric
-import qualified Data.ByteString.Internal as BS (c2w, w2c)
 
 class (Monad m, MonadIO m) => Emu6502 m where
     readMemory :: Word16 -> m Word8
@@ -106,7 +97,7 @@ dumpState = do
 
 {-# INLINE make16 #-}
 make16 :: Word8 -> Word8 -> Word16
-make16 lo hi = (i16 hi `shift` 8)+i16 lo
+make16 lo0 hi0 = (i16 hi0 `shift` 8)+i16 lo0
 
 {-# INLINE incPC #-}
 incPC :: Emu6502 m => m ()
@@ -115,34 +106,27 @@ incPC = addPC 1
 {-# INLINABLE read16 #-}
 read16 :: Emu6502 m => Word16 -> m Word16
 read16 addr = do
-    lo <- readMemory addr
-    hi <- readMemory (addr+1)
-    return $ make16 lo hi
+    lo0 <- readMemory addr
+    hi0 <- readMemory (addr+1)
+    return $ make16 lo0 hi0
 
 {-# INLINABLE read16tick #-}
 read16tick :: Emu6502 m => Word16 -> m Word16
 read16tick addr = do
     tick 1
-    lo <- readMemory addr
+    lo0 <- readMemory addr
     tick 1
-    hi <- readMemory (addr+1)
-    return $ make16 lo hi
-
-{-# INLINABLE read16zp #-}
-read16zp :: Emu6502 m => Word8 -> m Word16
-read16zp addr = do
-    lo <- readMemory (i16 addr)
-    hi <- readMemory (i16 addr+1)
-    return $ make16 lo hi
+    hi0 <- readMemory (addr+1)
+    return $ make16 lo0 hi0
 
 {-# INLINABLE read16zpTick #-}
 read16zpTick :: Emu6502 m => Word8 -> m Word16
 read16zpTick addr = do
     tick 1
-    lo <- readMemory (i16 addr)
+    lo0 <- readMemory (i16 addr)
     tick 1
-    hi <- readMemory (i16 addr+1)
-    return $ make16 lo hi
+    hi0 <- readMemory (i16 addr+1)
+    return $ make16 lo0 hi0
 
 -- http://www.emulator101.com/6502-addressing-modes.html
 
@@ -284,16 +268,16 @@ readIndirectX :: Emu6502 m => m Word8
 readIndirectX = do
     tick 1
     index <- getX
-    addr <- getPC >>= readMemory
+    addr0 <- getPC >>= readMemory
 
     tick 1
-    discard $ readMemory (i16 addr)
+    discard $ readMemory (i16 addr0)
 
-    addr <- read16zpTick (addr+index)
+    addr1 <- read16zpTick (addr0+index)
 
     tick 1
     incPC
-    readMemory addr
+    readMemory addr1
 
 -- 3 clock cycles
 {-# INLINABLE readZeroPage #-}
@@ -461,11 +445,6 @@ ins_nop = do
 ins_jmp :: Emu6502 m => m ()
 ins_jmp = getPC >>= read16tick >>= putPC
 
-{-# INLINE nonwhite #-}
-nonwhite :: Word8 -> String
-nonwhite ra | ra < 32 = "()"
-nonwhite ra = "'" ++ [BS.w2c ra] ++ "'"
-
 -- 5 clock cycles
 -- NB address wraps around in page XXX
 -- Not correct here.
@@ -477,7 +456,7 @@ ins_jmp_indirect = do
     getPC >>= read16tick >>= read16tick >>= putPC
 
 {-# INLINABLE uselessly #-}
-uselessly :: Emu6502 m => m () -> m ()
+uselessly :: m () -> m ()
 uselessly = id
 
 -- 5 clock cycles
@@ -626,6 +605,7 @@ getData01 bbb = do
         0b101 -> readZeroPageX
         0b110 -> readAbsoluteY
         0b111 -> readAbsoluteX
+        _ -> error "Impossible"
 
 {-# INLINABLE getData02 #-}
 getData02 :: Emu6502 m =>
@@ -644,7 +624,7 @@ getData02 bbb useY op = case bbb of
             then readAbsoluteY >>= op
             else readAbsoluteX >>= op
 
-    otherwise -> error "Unknown addressing mode"
+    _ -> error "Unknown addressing mode"
 
 -- Need to separate W and (RW/R) XXX XXX XXX
 {-# INLINABLE withData02 #-}
@@ -660,7 +640,7 @@ withData02 bbb useY op = case bbb of
     0b101 -> if useY then withZeroPageY op else withZeroPageX op
     0b111 -> if useY then withAbsoluteY op else withAbsoluteX op
 
-    otherwise -> error "Unknown addressing mode"
+    _ -> error "Unknown addressing mode"
 
 {-# INLINABLE putData02 #-}
 putData02 :: Emu6502 m => Word8 -> Bool -> Word8 -> m ()
@@ -672,7 +652,7 @@ putData02 bbb useY src = case bbb of
     0b101 -> if useY then writeZeroPageY src else writeZeroPageX src
     0b111 -> if useY then writeAbsoluteY src else writeAbsoluteX src
 
-    otherwise -> error "Unknown addressing mode"
+    _ -> error "Unknown addressing mode"
 
 {-# INLINABLE putData01 #-}
 putData01 :: Emu6502 m => Word8 -> Word8 -> m ()
@@ -687,6 +667,7 @@ putData01 bbb src = do
         0b101 -> writeZeroPageX src
         0b110 -> writeAbsoluteY src
         0b111 -> writeAbsoluteX src
+        _     -> error "Impossible"
 
 {-# INLINABLE setN #-}
 setN :: Emu6502 m => Word8 -> m ()
@@ -769,7 +750,7 @@ op_sbc bbb = do
     oldA <- getA
     carry <- getC
     let newA = fromIntegral oldA-fromIntegral src-if carry then 0 else 1 :: Word16
-    setNZ $ i8 newA
+    discard $ setNZ $ i8 newA
     putV $ (((i16 oldA `xor` i16 src) .&. 0x80) /= 0) && (((i16 oldA `xor` newA) .&. 0x80) /= 0)
     decimal <- getD
     if decimal
@@ -809,7 +790,6 @@ op_rol bbb = withData02 bbb False $ \src -> do
     putC $ src .&. 0x80 > 0
     let new = (src `shift` 1) + if fc then 1 else 0
     setNZ new
-    return new
 
 {-# INLINABLE op_lsr #-}
 op_lsr :: Emu6502 m => Word8 -> m ()
@@ -869,7 +849,7 @@ op_cpx :: Emu6502 m => Word8 -> m ()
 op_cpx bbb = getData02 bbb False $ \src -> do
     rx <- getX
     let new = i16 rx-i16 src
-    setNZ $ i8 new
+    discard $ setNZ $ i8 new
     putC $ new < 0x100
 
 {-# INLINABLE op_cpy #-}
@@ -906,7 +886,7 @@ ins_incr getReg putReg = do
     discard $ getPC >>= readMemory
     v0 <- getReg
     let v1 = v0+1
-    setNZ v1
+    discard $ setNZ v1
     putReg v1
 
 -- 2 clock cycles
@@ -917,7 +897,7 @@ ins_decr getReg putReg = do
     discard $ getPC >>= readMemory
     v0 <- getReg
     let v1 = v0-1
-    setNZ v1
+    discard $ setNZ v1
     putReg v1
 
 discard :: Emu6502 m => m Word8 -> m ()
@@ -931,12 +911,12 @@ ins_brk = do
     incPC
     discard $ readMemory p0
 
-    p0 <- getPC
+    p1 <- getPC
     incPC
-    push $ hi p0
+    push $ hi p1
 
     incPC
-    push $ lo p0
+    push $ lo p1
 
     putB True
     incPC
@@ -1147,7 +1127,7 @@ step = do
         0xf0 -> ins_bra getZ True
         0xf8 -> ins_set putD True
 
-        otherwise -> do
+        _ -> do
             let cc = i .&. 0b11
             case cc of
                 0b00 -> do
@@ -1162,7 +1142,7 @@ step = do
                         0b110 -> op_cpy bbb
                         0b111 -> op_cpx bbb
 
-                        otherwise -> illegal i
+                        _ -> illegal i
 
                 0b01 -> do
                     let aaa = (i `shift` (-5)) .&. 0b111
@@ -1178,7 +1158,7 @@ step = do
                         0b110 -> op_cmp bbb
                         0b111 -> op_sbc bbb
 
-                        otherwise -> illegal i
+                        _ -> error "Impossible"
                 0b10 -> do
                     let aaa = (i `shift` (-5)) .&. 0b111
                     let bbb = (i `shift` (-2)) .&. 0b111
@@ -1193,6 +1173,8 @@ step = do
                         0b110 -> op_dec bbb
                         0b111 -> op_inc bbb
 
-                otherwise -> illegal i
+                        _ -> error "Impossible"
+
+                _ -> illegal i
     dumpState
     return ()

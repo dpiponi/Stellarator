@@ -13,15 +13,11 @@ import Control.Monad.Trans
 import Data.Int
 import Prelude hiding (mod)
 import Data.Array.Unboxed
-import Data.Array.IO
 import Stella.TIARegisters
 import DebugState
-import Data.IORef
 import Foreign.Ptr
 import Foreign.Storable
-import SDL.Video.Renderer
 import TIAColors
-import Stella.SDLState
 import Metrics
 
 {-# INLINABLE updatePos #-}
@@ -35,8 +31,8 @@ updatePos (hpos0, vpos0) =
 
 {-# INLINE flipIf #-}
 flipIf :: Bool -> Int -> Int
-flipIf True x = x
-flipIf False x = 7-x
+flipIf True idx = idx
+flipIf False idx = 7-idx
 
 {- INLINE stretchPlayer' -}
 stretchPlayer' :: Bool -> Word8 -> Int -> Word8 -> Bool
@@ -48,6 +44,7 @@ stretchPlayer' reflect 0b100 o bitmap = (o < 8 || o >= 64) && testBit bitmap (fl
 stretchPlayer' reflect 0b101 o bitmap = o < 16 && testBit bitmap (flipIf reflect $ fromIntegral ((o `shift` (-1)) .&. 7))
 stretchPlayer' reflect 0b110 o bitmap = (o < 8 || o >= 32 && o < 40 || o >= 64) && testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
 stretchPlayer' reflect 0b111 o bitmap = o < 32 && testBit bitmap (flipIf reflect $ (fromIntegral ((o `shift` (-2)) .&. 7)))
+stretchPlayer' _       _     _ _      = error "Impossible"
 
 {- INLINE stretchPlayer -}
 stretchPlayer :: Bool -> Word8 -> Int -> Word8 -> Bool
@@ -68,22 +65,22 @@ missile :: Word8 -> Word8 -> Int -> Word8 -> Bool
 missile _       _      o _       | o < 0                  = False
 missile _       _      _ resmp0' | testBit resmp0' 1      = False
 missile _       enam0' _ _       | not (testBit enam0' 1) = False
-missile nusiz0' enam0' o resmp0'                          = o < missileSize nusiz0'
+missile nusiz0' _      o _                         = o < missileSize nusiz0'
 
 -- Atari2600 programmer's guide p.40
 {- INLINE player0 -}
-player0 :: Segment Word8 -> Bool -> Word8 -> Int -> MonadAtari Bool
-player0 _ _ _ o | o < 0 = return False
-player0 word8r delayP0' nusiz0' o = do
+player0 :: Bool -> Word8 -> Int -> MonadAtari Bool
+player0 _ _ o | o < 0 = return False
+player0 delayP0' nusiz0' o = do
     let sizeCopies = 0b111 .&. nusiz0'
     grp0' <- if delayP0' then load oldGrp0 else load newGrp0
     refp0' <- load refp0
     return $ stretchPlayer (testBit refp0' 3) sizeCopies o grp0'
 
 {- INLINE player1 -}
-player1 :: Segment Word8 -> Bool -> Word8 -> Int -> MonadAtari Bool
-player1 _ _ _ o | o < 0 = return False
-player1 word8r delayP1' nusiz1' o = do
+player1 :: Bool -> Word8 -> Int -> MonadAtari Bool
+player1 _ _ o | o < 0 = return False
+player1 delayP1' nusiz1' o = do
     let sizeCopies = 0b111 .&. nusiz1'
     grp1' <- if delayP1' then load oldGrp1 else load newGrp1
     refp1' <- load refp1
@@ -96,17 +93,9 @@ ball delayBall' oldBall' newBall' ctrlpf' o = do
     let enabl' = if delayBall' then oldBall' else newBall'
     if enabl'
         then do
-            let ballSize = 1 `shift` (fromIntegral ((ctrlpf' `shift` (fromIntegral $ -4)) .&. 0b11))
+            let ballSize = 1 `shift` (fromIntegral ((ctrlpf' `shift` (-4)) .&. 0b11))
             o >= 0 && o < ballSize
         else False
-
-{- INLINE playfield -}
-playfield :: Segment Word8 -> Word8 -> Int -> IO Bool
-playfield word8r ctrlpf' i | i >= 0  && i < 4  = flip testBit (i+4)  <$> ld word8r pf0
-                      | i >=4   && i < 12 = flip testBit (11-i) <$> ld word8r pf1
-                      | i >= 12 && i < 20 = flip testBit (i-12) <$> ld word8r pf2
-playfield r ctrlpf' i | i >= 20 && i < 40 = playfield r ctrlpf' $ if testBit ctrlpf' 0 then 39-i else i-20
-playfield _ _ _ = return $ False -- ???
 
 missileSize :: Word8 -> Int
 missileSize nusiz = 1 `shift` (fromIntegral ((nusiz `shift` (-4)) .&. 0b11))
@@ -133,8 +122,8 @@ chooseColour False _     False False False False False False _       = colubk
 bit :: Int -> Bool -> Word8
 bit n t = if t then 1 `shift` n else 0
 
-doCollisions :: Segment Word8 -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> MonadAtari ()
-doCollisions word8r lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1 = do
+doCollisions :: Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> MonadAtari ()
+doCollisions lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1 = do
     let playball = bit 7 lplayfield .|. bit 6 lball
     when lmissile0 $ do
         modify cxm0p (.|. (bit 7 lplayer1 .|. bit 6 lplayer0))
@@ -150,8 +139,8 @@ doCollisions word8r lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1 = do
     when lball $ modify cxblpf (.|. bit 7 lplayfield)
 
 {- INLINE compositeAndCollide -}
-compositeAndCollide :: Segment Word8 -> Segment Int -> Segment Word64 -> Segment Bool -> Int -> Int -> MonadAtari Word8
-compositeAndCollide word8r intr word64r boolr pixelx hpos' = do
+compositeAndCollide :: Int -> Int -> MonadAtari Word8
+compositeAndCollide pixelx hpos' = do
     ppos0' <- load s_ppos0
     ppos1' <- load s_ppos1
     mpos0' <- load s_mpos0
@@ -174,13 +163,13 @@ compositeAndCollide word8r intr word64r boolr pixelx hpos' = do
 
     let lmissile0 = missile nusiz0' enam0' (hpos'-mpos0') resmp0'
     let lmissile1 = missile nusiz1' enam1' (hpos'-mpos1') resmp1'
-    lplayer0 <- player0 word8r delayP0' nusiz0' (hpos'-ppos0')
-    lplayer1 <- player1 word8r delayP1' nusiz1' (hpos'-ppos1')
+    lplayer0 <- player0 delayP0' nusiz0' (hpos'-ppos0')
+    lplayer1 <- player1 delayP1' nusiz1' (hpos'-ppos1')
     let lball = ball delayBall' oldBall' newBall' ctrlpf' (hpos'-bpos')
     let playfieldx = fromIntegral (pixelx `shift` (-2))
     let lplayfield = playfieldx >= 0 && playfieldx < 40 && testBit pf' playfieldx
 
-    doCollisions word8r lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1
+    doCollisions lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1
 
     load $ chooseColour (testBit ctrlpf' 2)
                                       (testBit ctrlpf' 1)
@@ -188,9 +177,9 @@ compositeAndCollide word8r intr word64r boolr pixelx hpos' = do
                                       lmissile0 lmissile1
                                       lplayer0 lplayer1 pixelx
 
-stellaTick :: Int -> Segment Word8 -> Segment Word64 -> Segment Int -> Segment Bool -> DebugState -> Ptr Word32 -> MonadAtari DebugState
-stellaTick n _ _ _ _ debugState' _ | n <= 0 = return debugState'
-stellaTick n word8r word64r intr boolr stellaDebug'@(DebugState { _posbreak = posbreak'@(xbreak', ybreak')}) ptr' = do
+stellaTick :: Int -> DebugState -> Ptr Word32 -> MonadAtari DebugState
+stellaTick n debugState' _ | n <= 0 = return debugState'
+stellaTick n stellaDebug'@(DebugState { _posbreak = posbreak'@(xbreak', ybreak')}) ptr' = do
     hpos' <- load hpos
     vpos' <- load vpos
     let posbreak'' = if (hpos', vpos') == (xbreak', ybreak') then (-1, -1) else posbreak'
@@ -206,11 +195,11 @@ stellaTick n word8r word64r intr boolr stellaDebug'@(DebugState { _posbreak = po
             if testBit blank 1
                 then liftIO $ pokeElemOff ptr' pixelAddr 0x404040
                 else do
-                    final <- compositeAndCollide word8r intr word64r boolr pixelx hpos'
+                    final <- compositeAndCollide pixelx hpos'
                     let rgb = lut!(final `shift` (-1))
                     liftIO $ pokeElemOff ptr' pixelAddr rgb
 
     let (hpos'', vpos'') = updatePos (hpos', vpos')
     store hpos hpos''
     store vpos vpos''
-    stellaTick (n-1) word8r word64r intr boolr stellaDebug' { _posbreak = posbreak'' } ptr'
+    stellaTick (n-1) stellaDebug' { _posbreak = posbreak'' } ptr'

@@ -2,21 +2,12 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module Stella.TIARegisters where
---module Stella.TIARegisters(OReg, IReg, fastGetORegister, fastModifyIRegister, fastOrIRegister) where
 
 import Data.Word
 import Data.Array.IO
 import Data.Array.Base
---import Data.Int
-import Data.Bits
 
 newtype TypedIndex t = TO { unTyped :: Int } deriving (Ord, Ix, Eq, Num)
-
--- Could be Int instead of Word16
--- newtype OReg = OReg Word16 deriving (Ord, Ix, Eq, Num)
--- newtype IReg = IReg Word16 deriving (Ord, Ix, Eq, Num)
--- newtype IntReg = IntReg Int deriving (Ord, Ix, Eq, Num)
--- newtype BoolReg = BoolReg Int deriving (Ord, Ix, Eq, Num)
 
 intim, p, a, x, y, s, oldGrp0, newGrp0, oldGrp1, newGrp1 :: TypedIndex Word8
 intim = 0
@@ -99,11 +90,6 @@ pc, bankOffset :: TypedIndex Word16
 pc = 0
 bankOffset = 1
 
--- type ORegArray = IOUArray OReg Word8
--- type IRegArray = IOUArray IReg Word8
---type IntRegArray = IOUArray IntReg Int
---type BoolRegArray = IOUArray BoolReg Bool
-
 {-# INLINE ld #-}
 ld :: MArray IOUArray a IO => IOUArray (TypedIndex a) a -> TypedIndex a -> IO a
 ld arr idx = unsafeRead arr (unTyped idx)
@@ -117,29 +103,3 @@ mod :: MArray IOUArray a IO => IOUArray (TypedIndex a) a -> TypedIndex a -> (a -
 mod arr idx f = do { value <- unsafeRead arr (unTyped idx); unsafeWrite arr (unTyped idx) (f value) }
 
 type Segment a = IOUArray (TypedIndex a) a
-
-{-
-{-# INLINE fastGetORegister #-}
-fastGetORegister :: IOUArray OReg Word8 -> OReg -> IO Word8
-fastGetORegister = readArray
-
-{-# INLINE fastGetIRegister #-}
-fastGetIRegister :: IOUArray IReg Word8 -> IReg -> IO Word8
-fastGetIRegister = readArray
-
-{-# INLINE fastPutORegister #-}
-fastPutORegister :: IOUArray OReg Word8 -> OReg -> Word8 -> IO ()
-fastPutORegister = writeArray
-
-{-# INLINE fastPutIRegister #-}
-fastPutIRegister :: IOUArray IReg Word8 -> IReg -> Word8 -> IO ()
-fastPutIRegister = writeArray
-
-{-# INLINE fastModifyIRegister #-}
-fastModifyIRegister :: IOUArray IReg Word8 -> IReg -> (Word8 -> Word8) -> IO ()
-fastModifyIRegister r i f = readArray r i >>= writeArray r i . f
-
-{-# INLINE fastOrIRegister #-}
-fastOrIRegister :: IOUArray IReg Word8 -> IReg -> Word8 -> IO ()
-fastOrIRegister r i v = fastModifyIRegister r i (v .|.)
--}

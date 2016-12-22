@@ -7,8 +7,6 @@ import Data.Word
 import Data.Bits
 import Data.Data
 import Control.Lens
-import Data.Array.IO
-import Data.Array.Unboxed
 
 --
 -- Decision tree for type of memory

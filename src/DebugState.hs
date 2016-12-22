@@ -2,7 +2,6 @@
 
 module DebugState where
 
-import Foreign.C.Types
 import qualified Data.Map.Strict as Map
 import Control.Lens
 import DebugCmd

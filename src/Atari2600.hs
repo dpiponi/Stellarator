@@ -6,38 +6,27 @@
 {-# LANGUAGE ApplicativeDo #-}
 
 module Atari2600(
-                 Atari2600(..),
                  MonadAtari(..),
-                 boolArray,
-                 clock,
-                 debug,
-                 getBackSurface,
-                 getBoolArray,
-                 getFrontSurface,
-                 getFrontWindow,
-                 getWord64Array,
-                 intArray,
+                 Atari2600(..),
                  load,
-                 memory,
+                 store,
                  modify,
+                 useStellaDebug,
                  modifyClock,
-                 modifyMemory,
-                 modifyStellaClock,
-                 modifyStellaDebug,
-                 putClock,
-                 putStellaClock,
-                 putStellaDebug,
+                 useStellaClock,
+                 getBackSurface,
                  ram,
                  rom,
-                 stellaClock,
-                 stellaDebug,
-                 store,
-                 useClock,
                  useMemory,
-                 useStellaClock,
-                 useStellaDebug,
-                 word16Array,
-                 word8Array
+                 useClock,
+                 putStellaDebug,
+                 getFrontSurface,
+                 getFrontWindow,
+                 modifyStellaClock,
+                 stellaDebug,
+                 clock,
+                 stellaClock,
+                 modifyStellaDebug
                  ) where
 
 import Control.Lens
@@ -133,7 +122,6 @@ instance Reg Bool MonadAtari where
     store r v = do
         value <- view boolArray
         liftIO $ unsafeWrite value (unTyped r) v
-
 {-# INLINE useStellaDebug #-}
 useStellaDebug :: Getting b DebugState b -> MonadAtari b
 useStellaDebug lens' = do
@@ -160,11 +148,6 @@ useMemory lens' = do
     memory' <- liftIO $ readIORef (atari ^. memory)
     return $! memory' ^. lens'
 
-{-# INLINE modifyMemory #-}
-modifyMemory lens' modifier = do
-    atari <- ask
-    liftIO $ modifyIORef' (atari ^. memory) (over lens' modifier)
-
 {-# INLINE useClock #-}
 useClock :: Getting b Int64 b -> MonadAtari b
 useClock lens' = do
@@ -172,13 +155,8 @@ useClock lens' = do
     clock' <- liftIO $ readIORef (atari ^. clock)
     return $! clock' ^. lens'
 
-{-# INLINE putClock #-}
-putClock :: ASetter Int64 Int64 a a -> a -> MonadAtari ()
-putClock lens' value = do
-    atari <- ask
-    liftIO $ modifyIORef' (atari ^. clock) (set lens' value)
-
 {-# INLINE modifyClock #-}
+modifyClock :: ASetter Int64 Int64 a b -> (a -> b) -> MonadAtari ()
 modifyClock lens' modifier = do
     atari <- ask
     liftIO $ modifyIORef' (atari ^. clock) (over lens' modifier)
@@ -190,44 +168,11 @@ useStellaClock lens' = do
     stellaClock' <- liftIO $ readIORef (atari ^. stellaClock)
     return $! stellaClock' ^. lens'
 
-{-# INLINE putStellaClock #-}
-putStellaClock :: ASetter Int64 Int64 a a -> a -> MonadAtari ()
-putStellaClock lens' value = do
-    atari <- ask
-    liftIO $ modifyIORef' (atari ^. stellaClock) (set lens' value)
-
 {-# INLINE modifyStellaClock #-}
+modifyStellaClock :: ASetter Int64 Int64 a b -> (a -> b) -> MonadAtari ()
 modifyStellaClock lens' modifier = do
     atari <- ask
     liftIO $ modifyIORef' (atari ^. stellaClock) (over lens' modifier)
-
-{-
-{-# INLINE getORegisters #-}
-getORegisters :: MonadAtari ORegArray
-getORegisters = do
-    atari <- ask
-    return $ atari ^. oregisters
--}
-
-{-# INLINE getBoolArray #-}
-getBoolArray :: MonadAtari (Segment Bool)
-getBoolArray = do
-    atari <- ask
-    return $ atari ^. boolArray
-
-{-# INLINE getWord64Array #-}
-getWord64Array :: MonadAtari (Segment Word64)
-getWord64Array = do
-    atari <- ask
-    return $ atari ^. word64Array
-
-{-
-{-# INLINE getIRegisters #-}
-getIRegisters :: MonadAtari IRegArray
-getIRegisters = do
-    atari <- ask
-    return $ atari ^. iregisters
-    -}
 
 {-# INLINE getBackSurface #-}
 getBackSurface :: MonadAtari Surface
