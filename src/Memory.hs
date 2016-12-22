@@ -51,8 +51,8 @@ isROM a = testBit a 12
 data BankMode = UnBanked | F6 | F8 deriving (Show, Data, Typeable)
 
 data Memory = Memory {
-    _bankMode :: !BankMode,
-    _bankOffset :: !Word16
+    _bankMode :: !BankMode
+--    _bankOffset :: !Word16
 }
 
 $(makeLenses ''Memory)
