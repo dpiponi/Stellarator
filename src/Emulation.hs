@@ -13,7 +13,6 @@ module Emulation(stellaDebug,
                  clock,
                  stellaClock,
                  initState,
-                 load,
                  trigger1,
                  load) where
 
@@ -23,56 +22,41 @@ import Control.Lens
 import Control.Monad.Reader
 import Core
 import Data.Array.IO
-import Data.Array.Unboxed
 import Data.Bits hiding (bit)
 import Data.Bits.Lens
-import Data.Data
 import Data.IORef
 import Data.Int
 import Data.Word
 import DebugState
 import Disasm
-import Foreign.C.Types
 import Foreign.Ptr
-import Foreign.Storable
 import Memory
 import Metrics
 import Numeric
 import Prelude hiding (last)
 import SDL.Vect
 import SDL.Video
-import SDL.Video.Renderer
 import Stella.TIARegisters
-import TIAColors
 import VideoOps
 import qualified SDL
 
 timerTick' :: Word8 -> Int -> Int -> (Word8, Int, Int)
-timerTick' 0      0         interval' = ((-1), (3*1-1), 1)
+timerTick' 0      0         _         = ((-1), (3*1-1), 1)
 timerTick' intim' 0         interval' = ((intim'-1), (3*interval'-1), interval')
 timerTick' intim' subtimer' interval' = (intim', (subtimer'-1), interval')
 
-timerTick :: Segment Int -> Segment Word8 -> IO ()
-timerTick intr word8r = do
-    intim' <- ld word8r intim
-    subtimer' <- ld intr subtimer
-    interval' <- ld intr interval
-    let (intim'', subtimer'', interval'') = timerTick' intim' subtimer' interval'
-    st word8r intim intim''
-    st intr subtimer subtimer''
-    st intr interval interval''
+timerTick :: MonadAtari ()
+timerTick = do
+    (intim'', subtimer'', interval'') <- timerTick' <$> load intim <*> load subtimer <*> load interval
+    store intim intim''
+    store subtimer subtimer''
+    store interval interval''
 
-startIntervalTimer :: Segment Int -> Segment Word8 -> IO ()
-startIntervalTimer intr word8r = do
-    st word8r intim 0
-    st intr subtimer 0
-    st intr interval 0
-
-startIntervalTimerN :: Segment Int -> Segment Word8 -> Int -> Word8 -> IO ()
-startIntervalTimerN intr word8r n v = do
-    st intr interval n
-    st intr subtimer (3*n-1)
-    st word8r intim v
+startIntervalTimerN :: Int -> Word8 -> MonadAtari ()
+startIntervalTimerN n v = do
+    store interval n
+    store subtimer (3*n-1)
+    store intim v
 
 initState :: IOUArray Int Word8 ->
              BankMode ->
@@ -82,12 +66,10 @@ initState :: IOUArray Int Word8 ->
              SDL.Window -> IO Atari2600
 initState ram' mode rom' initialPC
           helloWorld screenSurface window = do
-          memory' <- newIORef $ Memory {
-                  _bankMode = mode
-              }
+          memory' <- newIORef $ Memory { _bankMode = mode }
           stellaDebug' <- newIORef DebugState.start
           clock' <- newIORef 0
-          debug' <- newIORef 8
+          -- debug' <- newIORef 8
           stellaClock' <- newIORef 0
           boolArray' <- newArray (0, 127) False -- Overkill
           intArray' <- newArray (0, 127) 0      -- Overkill
@@ -95,7 +77,6 @@ initState ram' mode rom' initialPC
           word16Array' <- newArray (0, 127) 0      -- Overkill
           word8Array' <- newArray (0, 0x3ff) 0      -- Overkill
           liftIO $ st word16Array' pc initialPC
-          startIntervalTimer intArray' word8Array'
           return $ Atari2600 {
               _rom = rom',
               _ram = ram',
@@ -141,6 +122,7 @@ stellaHmove = do
     boffset <- load hmbl
     modify s_bpos $ \bpos' -> wrap160 (bpos'-clockMove boffset)
 
+{-
 -- Are these needed?
 {- INLINE stellaResmp0 -}
 stellaResmp0 :: MonadAtari ()
@@ -153,6 +135,7 @@ stellaResmp1 :: MonadAtari ()
 stellaResmp1 = do
     playerPosition <- load s_ppos1
     store s_mpos1 (playerPosition :: Int)
+-}
 
 inBinary :: (Bits a) => Int -> a -> String
 inBinary 0 _ = ""
@@ -257,14 +240,7 @@ Overscan        sta WSYNC
 stellaVblank :: Word8 -> MonadAtari ()
 stellaVblank v = do
     trigger1' <- load trigger1
-    if not trigger1'
-        then do
-            i <- load inpt4 -- XXX write modifyIRegister
-            store inpt4 (setBit i 7)
-        else do
-            i <- load inpt4 -- XXX write modifyIRegister
-            store inpt4 (clearBit i 7)
-
+    modify inpt4 $ bitAt 7 .~ not trigger1'
     store vblank v
 
 makePlayfield :: MonadAtari ()
@@ -274,8 +250,7 @@ makePlayfield = do
     pf2' <- load pf2
     ctrlpf' <- load ctrlpf
     let pf' = assemblePlayfield (testBit ctrlpf' 0) pf0' pf1' pf2'
-    word64r <- getWord64Array
-    liftIO $ st word64r pf pf'
+    store pf pf'
 
 {- INLINABLE readStella -}
 readStella :: Word16 -> MonadAtari Word8
@@ -333,16 +308,14 @@ stellaVsync :: Word8 -> MonadAtari ()
 stellaVsync v = do
     oldv <- load vsync
     when (testBit oldv 1 && not (testBit v 1)) $ do
-        intr <- view intArray
-        liftIO $ st intr hpos 0
-        liftIO $ st intr vpos 0
+        store hpos 0
+        store vpos 0
     store vsync v
     renderDisplay
 
 {- INLINE stellaWsync -}
 stellaWsync :: MonadAtari ()
 stellaWsync = do
-    intr <- view intArray
     hpos' <- load hpos
     when (hpos' > 2) $ do
         modifyClock id (+ 1)
@@ -360,11 +333,7 @@ stellaTickUntil n = do
         -- Batch together items that don't need to be
         -- carried out on individual ticks
         modifyStellaClock id (+ diff)
-        intr <- view intArray
-        word64r <- getWord64Array
-        boolr <- getBoolArray
-        word8r <- view word8Array
-        liftIO $ replicateM_ (fromIntegral diff) $ timerTick intr word8r
+        replicateM_ (fromIntegral diff) $ timerTick
         resmp0' <- load resmp0
         resmp1' <- load resmp1
         clampMissiles resmp0' resmp1'
@@ -374,7 +343,7 @@ stellaTickUntil n = do
         ptr <- liftIO $ surfacePixels surface -- <-- XXX I think it's OK but not sure
         let ptr' = castPtr ptr :: Ptr Word32
         -- XXX Not sure stellaDebug actually changes here so may be some redundancy
-        stellaDebug'' <- stellaTick (fromIntegral diff) word8r word64r intr boolr stellaDebug' ptr'
+        stellaDebug'' <- stellaTick (fromIntegral diff) stellaDebug' ptr'
         putStellaDebug id stellaDebug'' -- XX Does this update sprites??? XXX
 
 {-# INLINE pureReadRom #-}
@@ -598,9 +567,6 @@ graphicsDelay n = do
 {- INLINABLE writeStella -}
 writeStella :: Word16 -> Word8 -> MonadAtari ()
 writeStella addr v = do
-    intr <- view intArray
-    boolr <- view boolArray
-    word8r <- view word8Array
     case addr of
        0x00 -> stellaVsync v             -- VSYNC
        0x01 -> stellaVblank v            -- VBLANK
@@ -631,7 +597,7 @@ writeStella addr v = do
                 load newBall >>= store oldBall
        0x1d -> store enam0 v                -- ENAM0
        0x1e -> store enam1 v                -- ENAM1
-       0x1f -> liftIO $ st boolr newBall $ testBit v 1   -- ENABL
+       0x1f -> store newBall $ testBit v 1   -- ENABL
        0x20 -> store hmp0 v                 -- HMP0
        0x21 -> store hmp1 v                 -- HMP1
        0x22 -> store hmm0 v                 -- HMM0
@@ -645,10 +611,10 @@ writeStella addr v = do
        0x2a -> stellaHmove               -- HMOVE
        0x2b -> stellaHmclr               -- HMCLR
        0x2c -> stellaCxclr               -- CXCLR
-       0x294 -> liftIO $ startIntervalTimerN intr word8r 1 v
-       0x295 -> liftIO $ startIntervalTimerN intr word8r 8 v
-       0x296 -> liftIO $ startIntervalTimerN intr word8r 64 v
-       0x297 -> liftIO $ startIntervalTimerN intr word8r 1024 v
+       0x294 -> startIntervalTimerN 1 v
+       0x295 -> startIntervalTimerN 8 v
+       0x296 -> startIntervalTimerN 64 v
+       0x297 -> startIntervalTimerN 1024 v
        _ -> return () -- liftIO $ putStrLn $ "writing TIA 0x" ++ showHex addr ""
 
 renderDisplay :: MonadAtari ()

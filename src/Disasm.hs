@@ -9,20 +9,12 @@
 
 module Disasm where
 
-import Data.Array.IO
 import Data.Word
 import Control.Monad.State
-import Control.Lens
 import Data.Bits
-import Data.Bits.Lens
-import Data.ByteString as B hiding (putStr, putStrLn, getLine, length, take)
-import System.IO
-import Data.Binary.Get
-import Data.Binary
 import Text.Printf
 import Data.Int
 import Numeric
-import qualified Data.ByteString.Internal as BS (c2w, w2c)
 import Memory
 
 inHex8 :: Word8 -> String
@@ -47,7 +39,7 @@ address8 x =
            0x09 -> "; COLUBK"
            0x0a -> "; CTRLPF"
            0x0b -> "; REFP0"
-           0x0e -> "; REFP1"
+           0x0c -> "; REFP1"
            0x0d -> "; PF0"
            0x0e -> "; PF1"
            0x0f -> "; PF2"
@@ -74,7 +66,7 @@ address8 x =
            0x2A -> "; HMOVE"
            0x2B -> "; HMCLR"
            0x2C -> "; CXCLR"
-           otherwise -> ""
+           _ -> ""
         else inHex8 x
 
 make16 :: Word8 -> Word8 -> Word16
@@ -144,8 +136,9 @@ withData02 bbb useY mne bs = case bbb of
             then absoluteY mne bs
             else absoluteX mne bs 
 
-    otherwise -> error "Unknown addressing mode"
+    _ -> error "Unknown addressing mode"
 
+dis_illegal :: Word8 -> [Word8] -> (Int, String, [Word8])
 dis_illegal b bs = (0, "error", bs)
 
 disasm :: Word16 -> [Word8] -> (Int, String, [Word8])
@@ -186,7 +179,7 @@ disasm pc (b : bs) =
         0xf0 -> branch pc "beq" bs
         0xf8 -> (1, "sed", bs)
 
-        otherwise -> do
+        _ -> do
             let cc = b .&. 0b11
             case cc of
                 0b00 -> do
@@ -201,7 +194,7 @@ disasm pc (b : bs) =
                         0b110 -> withData02 bbb False "cpy" bs
                         0b111 -> withData02 bbb False "cpx" bs
 
-                        otherwise -> dis_illegal b bs
+                        _ -> dis_illegal b bs
 
                 0b01 -> do
                     let aaa = (b `shift` (-5)) .&. 0b111
@@ -217,7 +210,7 @@ disasm pc (b : bs) =
                         0b110 -> withData01 bbb "cmp" bs
                         0b111 -> withData01 bbb "sbc" bs
 
-                        otherwise -> dis_illegal b bs
+                        _ -> dis_illegal b bs
                 0b10 -> do
                     let aaa = (b `shift` (-5)) .&. 0b111
                     let bbb = (b `shift` (-2)) .&. 0b111
@@ -232,7 +225,7 @@ disasm pc (b : bs) =
                         0b110 -> withData02 bbb False "dec" bs
                         0b111 -> withData02 bbb False "inc" bs
 
-                otherwise -> dis_illegal b bs
+                _ -> dis_illegal b bs
 
 dis :: Int -> Word16 -> [Word8] -> IO ()
 dis 0 _ _ = return ()

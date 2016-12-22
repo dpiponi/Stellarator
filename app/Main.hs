@@ -111,8 +111,7 @@ handleKey motion sym = do
         SDL.ScancodeSpace ->  do
             vblank' <- load vblank
             -- putHardware trigger1 pressed
-            boolr <- getBoolArray
-            liftIO $ st boolr trigger1 pressed
+            store trigger1 pressed
             let latch = testBit vblank' 6
             case (latch, pressed) of
                 (False, _) -> do

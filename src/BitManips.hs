@@ -4,9 +4,6 @@ module BitManips where
 import Data.Word
 import Data.Bits
 import Data.Array.Unboxed
-import Numeric
-import Data.Char
-import Control.Monad
 
 slowReverse :: Word8 -> Word8
 slowReverse n = ((n .&. 0b1) `shift` 7) .|.
@@ -41,6 +38,7 @@ assemblePlayfield :: Bool -> Word8 -> Word8 -> Word8 -> Word64
 assemblePlayfield False = assemblePlayFieldFwd
 assemblePlayfield True = assemblePlayFieldRev
 
+{-
 test = do
     forM_ [4..7] $ \i ->
         putStrLn $ showIntAtBase 2 intToDigit (assemblePlayFieldRev (1 `shift` i) 0 0) ""
@@ -54,3 +52,4 @@ test = do
         putStrLn $ showIntAtBase 2 intToDigit (assemblePlayFieldRev 0 (1 `shift` i) 0) ""
     forM_ [0..7] $ \i ->
         putStrLn $ showIntAtBase 2 intToDigit (assemblePlayFieldRev 0 0 (1 `shift` i)) ""
+-}
