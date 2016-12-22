@@ -7,8 +7,6 @@
 
 module Emulation(stellaDebug,
                  dumpStella,
-                 --hpos,
-                 --vpos,
                  dumpRegisters,
                  dumpState,
                  setBreak,
@@ -17,51 +15,41 @@ module Emulation(stellaDebug,
                  initState,
                  getIRegister,
                  putIRegister,
-                 {-
-                 getIntRegister,
-                 putBoolRegister,
-                 getBoolRegister,
-                 -}
-                 word8Array,
                  trigger1,
                  modifyIRegister,
                  getORegister) where
 
---import Data.Monoid
---import Debug.Trace
+import Atari2600
+import BitManips
 import Control.Lens
-import Control.Monad.State.Strict
+import Control.Monad.Reader
 import Core
-import Data.Data
 import Data.Array.IO
 import Data.Array.Unboxed
-import Metrics
-import Control.Monad.Reader
 import Data.Bits hiding (bit)
 import Data.Bits.Lens
-import Memory
+import Data.Data
 import Data.IORef
 import Data.Int
-import VideoOps
-import Atari2600
 import Data.Word
 import DebugState
 import Disasm
 import Foreign.C.Types
 import Foreign.Ptr
 import Foreign.Storable
+import Memory
+import Metrics
 import Numeric
 import Prelude hiding (last)
 import SDL.Vect
 import SDL.Video
 import SDL.Video.Renderer
 import Stella.Graphics
-import Stella.IntervalTimer
 import Stella.SDLState
 import Stella.Sprites
 import Stella.TIARegisters
 import TIAColors
-import BitManips
+import VideoOps
 import qualified SDL
 
 timerTick' :: Word8 -> Int -> Int -> (Word8, Int, Int)
@@ -107,10 +95,8 @@ initState ram' mode rom' oregs iregs initialPC
               }
           sprites' <- newIORef Stella.Sprites.start
           stellaDebug' <- newIORef DebugState.start
-          -- regs' <- newIORef $ R initialPC 0 0 0 0 0xff
           clock' <- newIORef 0
           debug' <- newIORef 8
-          --intervalTimer' <- newIORef Stella.IntervalTimer.start
           graphics' <- newIORef Stella.Graphics.start
           stellaClock' <- newIORef 0
           boolArray' <- newArray (0, 127) False -- Overkill
@@ -144,36 +130,6 @@ initState ram' mode rom' oregs iregs initialPC
               _word8Array = word8Array'
           }
 
-{-
-{-# INLINE flagC #-}
-flagC :: Lens' Registers Bool
-flagC = p . bitAt 0
-
-{-# INLINE flagZ #-}
-flagZ :: Lens' Registers Bool
-flagZ = p . bitAt 1
-
-{-# INLINE flagI #-}
-flagI :: Lens' Registers Bool
-flagI = p . bitAt 2
-
-{-# INLINE flagD #-}
-flagD :: Lens' Registers Bool
-flagD = p . bitAt 3
-
-{-# INLINE flagB #-}
-flagB :: Lens' Registers Bool
-flagB = p . bitAt 4
-
-{-# INLINE flagV #-}
-flagV :: Lens' Registers Bool
-flagV = p . bitAt 6
-
-{-# INLINE flagN #-}
-flagN :: Lens' Registers Bool
-flagN = p . bitAt 7
--}
-
 {-# INLINE putORegister #-}
 putORegister :: OReg -> Word8 -> MonadAtari ()
 putORegister i v = do
@@ -192,20 +148,6 @@ putIRegister i v = do
     r <- getIRegisters
     liftIO $ writeArray r i v
 
-{-
-{-# INLINE putBoolRegister #-}
-putBoolRegister :: BoolReg -> Bool -> MonadAtari ()
-putBoolRegister i v = do
-    r <- getBoolArray
-    liftIO $ writeArray r i v
-
-{-# INLINE getBoolRegister #-}
-getBoolRegister :: BoolReg -> MonadAtari Bool
-getBoolRegister i = do
-    r <- getBoolArray
-    liftIO $ readArray r i
--}
-
 {-# INLINE modifyIRegister #-}
 modifyIRegister :: IReg -> (Word8 -> Word8) -> MonadAtari ()
 modifyIRegister i f = do
@@ -217,18 +159,6 @@ getIRegister :: IReg -> MonadAtari Word8
 getIRegister i = do
     r <- getIRegisters
     liftIO $ readArray r i
-
-{-
-{-# INLINE getIntRegister #-}
-getIntRegister :: IntReg -> MonadAtari Int
-getIntRegister i = do
-    r <- getIntArray
-    liftIO $ readArray r i
-
-{-# INLINE orIRegister #-}
-orIRegister :: IReg -> Word8 -> MonadAtari ()
-orIRegister i v = modifyIRegister i (v .|.)
--}
 
 {- INLINE stellaHmclr -}
 stellaHmclr :: MonadAtari ()
@@ -276,6 +206,7 @@ stellaHmove = do
         _s_bpos = bpos''
     }
 
+-- Are these needed?
 {- INLINE stellaResmp0 -}
 stellaResmp0 :: MonadAtari ()
 stellaResmp0 = do
@@ -332,14 +263,6 @@ wrap160 i = i
 {-# INLINE clockMove #-}
 clockMove :: Word8 -> Int
 clockMove i = fromIntegral ((fromIntegral i :: Int8) `shift` (-4))
-
-{-# INLINE i8 #-}
-i8 :: Integral a => a -> Word8
-i8 = fromIntegral
-
-{-# INLINE i16 #-}
-i16 :: Integral a => a -> Word16
-i16 = fromIntegral
 
 {-# INLINE iz #-}
 iz :: Word16 -> Int -- or NUM
@@ -401,8 +324,8 @@ stellaVblank v = do
     ir <- getIRegisters
     or <- getORegisters
     boolr <- getBoolArray
-    trigger1 <- liftIO $ ld boolr trigger1
-    if not trigger1
+    trigger1' <- load trigger1
+    if not trigger1'
         then do
             i <- liftIO $ fastGetIRegister ir inpt4 -- XXX write modifyIRegister
             liftIO $ fastPutIRegister ir inpt4 (setBit i 7)
@@ -411,26 +334,6 @@ stellaVblank v = do
             liftIO $ fastPutIRegister ir inpt4 (clearBit i 7)
 
     liftIO $ fastPutORegister or vblank v
-
-{-
-{-# INLINE hpos #-}
-{-# INLINE vpos #-}
-hpos, vpos :: Lens' Atari2600 Int
-hpos = hardware . position . _1
-vpos = hardware . position . _2
-
-{-# INLINE ppos0 #-}
-{-# INLINE ppos1 #-}
-{-# INLINE mpos0 #-}
-{-# INLINE mpos1 #-}
-{-# INLINE bpos #-}
-ppos0, ppos1, mpos0, mpos1, bpos :: Lens' Atari2600 Int
-ppos0 = hardware . sprites . s_ppos0
-ppos1 = hardware . sprites . s_ppos1
-mpos0 = hardware . sprites . s_mpos0
-mpos1 = hardware . sprites . s_mpos1
-bpos = hardware . sprites . s_bpos
--}
 
 makePlayfield :: MonadAtari ()
 makePlayfield = do
@@ -489,9 +392,9 @@ readStella addr =
         0x3d -> getIRegister inpt5
         0x280 -> getIRegister swcha
         0x282 -> getIRegister swchb
-        0x284 -> do
+        0x284 -> load intim {-do
             word8r <- view word8Array
-            liftIO $ ld word8r intim
+            liftIO $ ld word8r intim-}
         _ -> return 0 -- (liftIO $ putStrLn $ "reading TIA 0x" ++ showHex addr "") >> return 0
 
 {- INLINE stellaVsync -}
@@ -511,7 +414,7 @@ stellaVsync v = do
 stellaWsync :: MonadAtari ()
 stellaWsync = do
     intr <- view intArray
-    hpos' <- liftIO $ ld intr hpos
+    hpos' <- load hpos
     when (hpos' > 2) $ do
         modifyClock id (+ 1)
         clock' <- useClock id
@@ -519,10 +422,6 @@ stellaWsync = do
         stellaWsync
 
 -- http://atariage.com/forums/topic/107527-atari-2600-vsyncvblank/
-
-{-# INLINE church #-}
-church 0 f x = x
-church n f x = church (n-1) f (f x)
 
 stellaTickUntil :: Int64 -> MonadAtari ()
 stellaTickUntil n = do
@@ -613,64 +512,64 @@ instance Emu6502 MonadAtari where
         modifyMemory bankOffset $ bankSwitch bankType addr
 
     {-# INLINE getPC #-}
-    getPC = do { int16r <- view word16Array; liftIO $ ld int16r pc }
+    getPC = load pc
     {-# INLINE tick #-}
     tick n = do
         modifyClock id (+ fromIntegral n)
         c <- useClock id
         stellaTickUntil (3*c)
     {-# INLINE putC #-}
-    putC b = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; liftIO $ st word8r p (p' & bitAt 0 .~ b) }
+    putC b = do { p' <- load p; store p (p' & bitAt 0 .~ b) }
     {-# INLINE getC #-}
-    getC = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; return (p' ^. bitAt 0) }
+    getC = do { p' <- load p; return (p' ^. bitAt 0) }
     {-# INLINE putZ #-}
-    putZ b = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; liftIO $ st word8r p (p' & bitAt 1 .~ b) }
+    putZ b = do { p' <- load p; store p (p' & bitAt 1 .~ b) }
     {-# INLINE getZ #-}
-    getZ = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; return (p' ^. bitAt 1) }
+    getZ = do { p' <- load p; return (p' ^. bitAt 1) }
     {-# INLINE putI #-}
-    putI b = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; liftIO $ st word8r p (p' & bitAt 2 .~ b) }
+    putI b = do { p' <- load p; store p (p' & bitAt 2 .~ b) }
     {-# INLINE getI #-}
-    getI = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; return (p' ^. bitAt 2) }
+    getI = do { p' <- load p; return (p' ^. bitAt 2) }
     {-# INLINE putD #-}
-    putD b = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; liftIO $ st word8r p (p' & bitAt 3 .~ b) }
+    putD b = do { p' <- load p; store p (p' & bitAt 3 .~ b) }
     {-# INLINE getD #-}
-    getD = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; return (p' ^. bitAt 3) }
+    getD = do { p' <- load p; return (p' ^. bitAt 3) }
     {-# INLINE putB #-}
-    putB b = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; liftIO $ st word8r p (p' & bitAt 4 .~ b) }
+    putB b = do { p' <- load p; store p (p' & bitAt 4 .~ b) }
     {-# INLINE getB #-}
-    getB = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; return (p' ^. bitAt 4) }
+    getB = do { p' <- load p; return (p' ^. bitAt 4) }
     {-# INLINE putV #-}
-    putV b = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; liftIO $ st word8r p (p' & bitAt 6 .~ b) }
+    putV b = do { p' <- load p; store p (p' & bitAt 6 .~ b) }
     {-# INLINE getV #-}
-    getV = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; return (p' ^. bitAt 6) }
+    getV = do { p' <- load p; return (p' ^. bitAt 6) }
     {-# INLINE putN #-}
-    putN b = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; liftIO $ st word8r p (p' & bitAt 7 .~ b) }
+    putN b = do { p' <- load p; store p (p' & bitAt 7 .~ b) }
     {-# INLINE getN #-}
-    getN = do { word8r <- view word8Array; p' <- liftIO $ ld word8r p; return (p' ^. bitAt 7) }
+    getN = do { p' <- load p; return (p' ^. bitAt 7) }
     {-# INLINE getA #-}
-    getA = do { word8r <- view word8Array; liftIO $ ld word8r a }
+    getA = load a
     {-# INLINE putA #-}
-    putA r = do { word8r <- view word8Array; liftIO $ st word8r a r }
+    putA r = store a r
     {-# INLINE getS #-}
-    getS = do { word8r <- view word8Array; liftIO $ ld word8r s }
+    getS = load s
     {-# INLINE putS #-}
-    putS r = do { word8r <- view word8Array; liftIO $ st word8r s r }
+    putS r = store s r
     {-# INLINE getX #-}
-    getX = do { word8r <- view word8Array; liftIO $ ld word8r x }
+    getX = load x
     {-# INLINE putX #-}
-    putX r = do { word8r <- view word8Array; liftIO $ st word8r x r }
+    putX r = store x r 
     {-# INLINE getP #-}
-    getP = do { word8r <- view word8Array; liftIO $ ld word8r p }
+    getP = load p
     {-# INLINE putP #-}
-    putP r = do { word8r <- view word8Array; liftIO $ st word8r p r }
+    putP r = store p r 
     {-# INLINE getY #-}
-    getY = do { word8r <- view word8Array; liftIO $ ld word8r y }
+    getY = load y
     {-# INLINE putY #-}
-    putY r = do { word8r <- view word8Array; liftIO $ st word8r y r }
+    putY r = store y r
     {-# INLINE putPC #-}
-    putPC r = do { word16r <- view word16Array; liftIO $ st word16r pc r }
+    putPC r = store pc r
     {-# INLINE addPC #-}
-    addPC n = do { word16r <- view word16Array; pc' <- liftIO $ ld word16r pc ; liftIO $ st word16r pc (pc' + fromIntegral n) }
+    addPC n = modify pc (+ fromIntegral n)
 
     {-# INLINE debugStr #-}
     debugStr _ _ = return ()
@@ -765,14 +664,15 @@ dumpRegisters = do
     regPC <- getPC
     liftIO $ putStr $ " pc = " ++ showHex regPC ""
     regP <- getP
-    liftIO $ putStr $ " flags = " ++ showHex regP ""
-    liftIO $ putStr $ "(N=" ++ showHex ((regP `shift` (-7)) .&. 1) ""
-    liftIO $ putStr $ ",V=" ++ showHex ((regP `shift` (-6)) .&. 1) ""
-    liftIO $ putStr $ ",B=" ++ showHex (regP `shift` ((-4)) .&. 1) ""
-    liftIO $ putStr $ ",D=" ++ showHex (regP `shift` ((-3)) .&. 1) ""
-    liftIO $ putStr $ ",I=" ++ showHex (regP `shift` ((-2)) .&. 1) ""
-    liftIO $ putStr $ ",Z=" ++ showHex (regP `shift` ((-1)) .&. 1) ""
-    liftIO $ putStr $ ",C=" ++ showHex (regP .&. 1) ""
+    liftIO $ do
+        putStr $ " flags = " ++ showHex regP ""
+        putStr $ "(N=" ++ showHex ((regP `shift` (-7)) .&. 1) ""
+        putStr $ ",V=" ++ showHex ((regP `shift` (-6)) .&. 1) ""
+        putStr $ ",B=" ++ showHex (regP `shift` ((-4)) .&. 1) ""
+        putStr $ ",D=" ++ showHex (regP `shift` ((-3)) .&. 1) ""
+        putStr $ ",I=" ++ showHex (regP `shift` ((-2)) .&. 1) ""
+        putStr $ ",Z=" ++ showHex (regP `shift` ((-1)) .&. 1) ""
+        putStr $ ",C=" ++ showHex (regP .&. 1) ""
     regA <- getA 
     liftIO $ putStr $ ") A = " ++ showHex regA ""
     regX <- getX
@@ -819,18 +719,18 @@ writeStella addr v = do
        0x0d -> graphicsDelay 4 >> putORegister pf0 v >> makePlayfield                  -- PF0
        0x0e -> graphicsDelay 4 >> putORegister pf1 v >> makePlayfield                  -- PF1
        0x0f -> graphicsDelay 4 >> putORegister pf2 v >> makePlayfield                  -- PF2
-       0x10 -> graphicsDelay 5 >> liftIO (ld intr hpos) >>= putSprites s_ppos0 -- RESP0
-       0x11 -> graphicsDelay 5 >> liftIO (ld intr hpos) >>= putSprites s_ppos1 -- RESP1
-       0x12 -> graphicsDelay 4 >> liftIO (ld intr hpos) >>= putSprites s_mpos0 -- RESM0
-       0x13 -> graphicsDelay 4 >> liftIO (ld intr hpos) >>= putSprites s_mpos1 -- RESM1
-       0x14 -> graphicsDelay 4 >> liftIO (ld intr hpos) >>= putSprites s_bpos  -- RESBL
+       0x10 -> graphicsDelay 5 >> load hpos >>= putSprites s_ppos0 -- RESP0
+       0x11 -> graphicsDelay 5 >> load hpos >>= putSprites s_ppos1 -- RESP1
+       0x12 -> graphicsDelay 4 >> load hpos >>= putSprites s_mpos0 -- RESM0
+       0x13 -> graphicsDelay 4 >> load hpos >>= putSprites s_mpos1 -- RESM1
+       0x14 -> graphicsDelay 4 >> load hpos >>= putSprites s_bpos  -- RESBL
        0x1b -> do -- GRP0
-                putGraphics (newGrp0) v
-                useGraphics (newGrp1) >>= putGraphics oldGrp1
+                putGraphics newGrp0 v
+                useGraphics newGrp1 >>= putGraphics oldGrp1
        0x1c -> do -- GRP1
-                putGraphics (newGrp1) v
-                useGraphics (newGrp0) >>= putGraphics (oldGrp0)
-                liftIO $ ld boolr newBall >>= st boolr oldBall
+                putGraphics newGrp1 v
+                useGraphics newGrp0 >>= putGraphics oldGrp0
+                load newBall >>= store oldBall
        0x1d -> putORegister enam0 v                -- ENAM0
        0x1e -> putORegister enam1 v                -- ENAM1
        0x1f -> liftIO $ st boolr newBall $ testBit v 1   -- ENABL

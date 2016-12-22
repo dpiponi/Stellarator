@@ -2,34 +2,34 @@ module Debugger(runDebugger) where
 
 import qualified Data.Map.Strict as Map
 
-import Core
 import Atari2600
-import Emulation
-import Disasm
-import DebugCmd
-import Data.Bits
-import DebugState
-import Control.Monad
-import Text.Parsec
-import Control.Monad.State.Strict
 import Control.Lens
-import System.Console.Haskeline
+import Control.Monad
+import Control.Monad.State.Strict
+import Core
+import Data.Bits
+import DebugCmd
+import DebugState
+import Disasm
+import Emulation
 import Stella.TIARegisters
+import System.Console.Haskeline
+import Text.Parsec
 
 comparison :: (Int -> Int -> Bool) -> Expr -> Expr -> MonadAtari Value
 comparison operator expr0 expr1 = do
         value0 <- eval expr0
         value1 <- eval expr1
         case (value0, value1) of
-            (EInt x, EInt y) -> return $ EBool (x `operator` y)
+            (EInt operand0, EInt operand1) -> return $ EBool (operand0 `operator` operand1)
             _ -> return EFail
 
 arith :: (Int -> Int -> Int) -> Expr -> Expr -> MonadAtari Value
 arith operator expr0 expr1 = do
-        x' <- eval expr0
-        y' <- eval expr1
-        case (x', y') of
-            (EInt x, EInt y) -> return $ EInt (x `operator` y)
+        value0 <- eval expr0
+        value1 <- eval expr1
+        case (value0, value1) of
+            (EInt operand0, EInt operand1) -> return $ EInt (operand0 `operator` operand1)
             _ -> return EFail
 
 eval :: Expr -> MonadAtari Value
@@ -78,70 +78,70 @@ eval Col = do
     value <- liftIO $ ld intr hpos
     return (EInt (fromIntegral value))
 
-eval (Var s) = do
+eval (Var name) = do
     v <- useStellaDebug variables
-    case Map.lookup s v of
+    case Map.lookup name v of
         Nothing -> return EFail
-        Just x -> return x
+        Just value -> return value
 
-eval (Or x y) = do
-        x' <- eval x
-        y' <- eval y
-        case (x', y') of
-            (EInt x, EInt y) -> return $ EInt (x .|. y)
-            (EBool x, EBool y) -> return $ EBool (x || y)
+eval (Or expr0 expr1) = do
+        value0 <- eval expr0
+        value1 <- eval expr1
+        case (value0, value1) of
+            (EInt operand0, EInt operand1) -> return $ EInt (operand0 .|. operand1)
+            (EBool operand0, EBool operand1) -> return $ EBool (operand0 || operand1)
             _ -> return EFail
 
 eval (And expr0 expr1) = do
         value0 <- eval expr0
         value1 <- eval expr1
         case (value0, value1) of
-            (EInt x, EInt y) -> return $ EInt (x .&. y)
-            (EBool x, EBool y) -> return $ EBool (x && y)
+            (EInt operand0, EInt operand1) -> return $ EInt (operand0 .&. operand1)
+            (EBool operand0, EBool operand1) -> return $ EBool (operand0 && operand1)
             _ -> return EFail
 
-eval (Gt x y) = comparison (>) x y
-eval (Ge x y) = comparison (>=) x y
-eval (Le x y) = comparison (<=) x y
-eval (Eq x y) = comparison (==) x y
-eval (Ne x y) = comparison (/=) x y
-eval (Lt x y) = comparison (<) x y
-eval (Plus x y) = arith (+) x y
-eval (Times x y) = arith (*) x y
-eval (Div x y) = arith div x y
-eval (Minus x y) = arith (-) x y
-eval (LeftShift x y) = arith (shift) x y
-eval (RightShift x y) = arith (shift . negate) x y
+eval (Gt value0 value1) = comparison (>) value0 value1
+eval (Ge value0 value1) = comparison (>=) value0 value1
+eval (Le value0 value1) = comparison (<=) value0 value1
+eval (Eq value0 value1) = comparison (==) value0 value1
+eval (Ne value0 value1) = comparison (/=) value0 value1
+eval (Lt value0 value1) = comparison (<) value0 value1
+eval (Plus value0 value1) = arith (+) value0 value1
+eval (Times value0 value1) = arith (*) value0 value1
+eval (Div value0 value1) = arith div value0 value1
+eval (Minus value0 value1) = arith (-) value0 value1
+eval (LeftShift value0 value1) = arith (shift) value0 value1
+eval (RightShift value0 value1) = arith (shift . negate) value0 value1
 
 eval (PeekByte expr) = do
         value <- eval expr
         case value of
-            EInt x -> do
-                y <- readMemory (fromIntegral x)
-                return (EInt $ fromIntegral y)
+            EInt addr -> do
+                byte <- readMemory (fromIntegral addr)
+                return (EInt $ fromIntegral byte)
             _ -> return EFail
 
 eval (PeekWord expr) = do
         value <- eval expr
         case value of
-            EInt x -> do
-                lo <- readMemory (fromIntegral x)
-                hi <- readMemory (fromIntegral x+1)
+            EInt addr -> do
+                lo <- readMemory (fromIntegral addr)
+                hi <- readMemory (fromIntegral addr+1)
                 return (EInt $ fromIntegral $ Core.make16 lo hi)
             _ -> return EFail
 
 eval (Not expr) = do
     value <- eval expr
     case value of
-        EBool x -> return $ EBool (not x)
-        EInt x -> return $ EInt (-1-x)
+        EBool operand -> return $ EBool (not operand)
+        EInt operand -> return $ EInt (-1-operand)
         _ -> return EFail
 
-eval (EConst x) = return (EInt x)
-eval (EConstString s) = return (EString s)
+eval (EConst number) = return (EInt number)
+eval (EConstString text) = return (EString text)
 
-eval x = do
-    liftIO $ print x
+eval expr = do
+    liftIO $ print expr
     return EFail
 
 disassemble :: Maybe Expr -> Maybe Expr -> MonadAtari ()

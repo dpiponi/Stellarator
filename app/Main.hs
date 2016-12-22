@@ -53,7 +53,7 @@ import Core
 import Disasm
 import System.Console.Haskeline
 import Control.Concurrent
-import Stella.IntervalTimer
+--import Stella.IntervalTimer
 import Stella.TIARegisters
 import Stella.SDLState
 
