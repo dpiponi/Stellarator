@@ -81,8 +81,9 @@ s_mpos0 = 6
 s_mpos1 = 7
 s_bpos = 8
 
-pc :: TypedIndex Word16
+pc, bankOffset :: TypedIndex Word16
 pc = 0
+bankOffset = 1
 
 intim, p, a, x, y, s, oldGrp0, newGrp0, oldGrp1, newGrp1 :: TypedIndex Word8
 intim = 0

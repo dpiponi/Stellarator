@@ -87,8 +87,7 @@ initState :: IOUArray Int Word8 ->
 initState ram' mode rom' oregs iregs initialPC
           helloWorld screenSurface window = do
           memory' <- newIORef $ Memory {
-                  _bankMode = mode,
-                  _bankOffset = 0
+                  _bankMode = mode
               }
           --sprites' <- newIORef Stella.Sprites.start
           stellaDebug' <- newIORef DebugState.start
@@ -446,7 +445,7 @@ pureReadRom :: Word16 -> MonadAtari Word8
 pureReadRom addr = do
     atari <- ask
     let m = atari ^. rom
-    offset <- useMemory bankOffset
+    offset <- load bankOffset
     byte <- liftIO $ readArray m ((iz addr .&. 0xfff)+fromIntegral offset)
     return byte
 
@@ -488,7 +487,7 @@ instance Emu6502 MonadAtari where
         let addr = addr' .&. 0x1fff -- 6507
         byte <- pureReadMemory (memoryType addr) addr
         bankType <- useMemory bankMode
-        modifyMemory bankOffset $ bankSwitch bankType addr
+        modify bankOffset $ bankSwitch bankType addr
         return byte
 
     {-# INLINE writeMemory #-}
@@ -496,7 +495,7 @@ instance Emu6502 MonadAtari where
         let addr = addr' .&. 0x1fff -- 6507
         pureWriteMemory (memoryType addr) addr v
         bankType <- useMemory bankMode
-        modifyMemory bankOffset $ bankSwitch bankType addr
+        modify bankOffset $ bankSwitch bankType addr
 
     {-# INLINE getPC #-}
     getPC = load pc
