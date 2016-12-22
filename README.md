@@ -36,7 +36,7 @@ Command line options
                         There are other styles that I haven't implemented yet
                         and a 16K+ cartridge, or one with RAM in it,
                         has no chance of working.
-                        If you want to try a 2K cartridge make a 4K file
+                        If you want to try a 2K cartridge (e.g. Combat) make a 4K file
                         from 2 copies of the 2K file and use that.
                         (Will automate this eventually...)
 
