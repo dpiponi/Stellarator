@@ -15,11 +15,11 @@ module Atari2600(
                  getBoolArray,
                  getFrontSurface,
                  getFrontWindow,
-                 getIRegisters,
-                 getORegisters,
+                 --getIRegisters,
+                 --getORegisters,
                  getWord64Array,
                  intArray,
-                 iregisters,
+                 --iregisters,
                  load,
                  memory,
                  modify,
@@ -27,7 +27,7 @@ module Atari2600(
                  modifyMemory,
                  modifyStellaClock,
                  modifyStellaDebug,
-                 oregisters,
+                 --oregisters,
                  putClock,
                  putStellaClock,
                  putStellaDebug,
@@ -62,8 +62,8 @@ data Atari2600 = Atari2600 {
     _stellaClock :: IORef Int64,
     _stellaDebug :: IORef DebugState,
 
-    _oregisters :: IOUArray OReg Word8,
-    _iregisters :: IOUArray IReg Word8,
+    -- _oregisters :: IOUArray OReg Word8,
+    -- _iregisters :: IOUArray IReg Word8,
     _ram :: IOUArray Int Word8,
     _rom :: IOUArray Int Word8,
     _boolArray :: Segment Bool,
@@ -195,11 +195,13 @@ modifyStellaClock lens' modifier = do
     atari <- ask
     liftIO $ modifyIORef' (atari ^. stellaClock) (over lens' modifier)
 
+{-
 {-# INLINE getORegisters #-}
 getORegisters :: MonadAtari ORegArray
 getORegisters = do
     atari <- ask
     return $ atari ^. oregisters
+-}
 
 {-# INLINE getBoolArray #-}
 getBoolArray :: MonadAtari (Segment Bool)
@@ -213,11 +215,13 @@ getWord64Array = do
     atari <- ask
     return $ atari ^. word64Array
 
+{-
 {-# INLINE getIRegisters #-}
 getIRegisters :: MonadAtari IRegArray
 getIRegisters = do
     atari <- ask
     return $ atari ^. iregisters
+    -}
 
 {-# INLINE getBackSurface #-}
 getBackSurface :: MonadAtari Surface
