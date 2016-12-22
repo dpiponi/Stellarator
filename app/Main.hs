@@ -8,62 +8,57 @@
 
 module Main where
 
+import Atari2600
 import Binary
-import qualified Data.Map.Strict as Map
 import Control.Applicative
+import Control.Concurrent
 import Control.Concurrent (threadDelay)
-import Emulation
 import Control.Lens hiding (_last)
 import Control.Monad
 import Control.Monad.Reader
-import Text.Parsec
 import Control.Monad.State.Strict
-import Metrics
+import Core
 import Data.Array.IO
-import DebugState
 import Data.Array.Unboxed
 import Data.Binary hiding (get)
-import System.Exit
 import Data.Binary.Get
 import Data.Bits hiding (bit)
 import Data.Bits.Lens
 import Data.ByteString as B hiding (last, putStr, putStrLn, getLine, length, elem, map, reverse)
 import Data.Char
-import VideoOps
 import Data.Int
 import Data.Monoid
 import Data.Word
+import Debug.Trace
+import DebugCmd
+import DebugState
+import DebugState
+import Debugger
+import Disasm
+import Emulation
 import Foreign.C.Types
 import Foreign.Ptr
-import System.Random
 import Foreign.Storable
+import Memory
+import Metrics
 import Numeric
+import Prelude hiding (last)
 import SDL.Event
 import SDL.Input.Keyboard
 import SDL.Vect
 import SDL.Video.Renderer
-import System.Console.CmdArgs hiding ((+=))
-import System.IO
-import TIAColors
-import qualified Data.ByteString.Internal as BS (c2w, w2c)
-import qualified SDL
-import Debug.Trace
-import Prelude hiding (last)
-import Core
-import Disasm
-import System.Console.Haskeline
-import Control.Concurrent
---import Stella.IntervalTimer
 import Stella.TIARegisters
-import Stella.SDLState
-
-import DebugCmd
-import Memory
-import Stella.Graphics
-import Stella.Sprites
-import DebugState
-import Atari2600
-import Debugger
+import System.Console.CmdArgs hiding ((+=))
+import System.Console.Haskeline
+import System.Exit
+import System.IO
+import System.Random
+import TIAColors
+import Text.Parsec
+import VideoOps
+import qualified Data.ByteString.Internal as BS (c2w, w2c)
+import qualified Data.Map.Strict as Map
+import qualified SDL
 
 
 --  XXX Do this If reset occurs during horizontal blank, the object will appear at the left side of the television screen

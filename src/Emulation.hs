@@ -44,9 +44,6 @@ import Prelude hiding (last)
 import SDL.Vect
 import SDL.Video
 import SDL.Video.Renderer
-import Stella.Graphics
-import Stella.SDLState
---import Stella.Sprites
 import Stella.TIARegisters
 import TIAColors
 import VideoOps
@@ -97,7 +94,7 @@ initState ram' mode rom' oregs iregs initialPC
           stellaDebug' <- newIORef DebugState.start
           clock' <- newIORef 0
           debug' <- newIORef 8
-          graphics' <- newIORef Stella.Graphics.start
+          --graphics' <- newIORef Stella.Graphics.start
           stellaClock' <- newIORef 0
           boolArray' <- newArray (0, 127) False -- Overkill
           intArray' <- newArray (0, 127) 0      -- Overkill
@@ -116,7 +113,7 @@ initState ram' mode rom' oregs iregs initialPC
               _debug = debug',
               --_sprites = sprites',
               --_intervalTimer = intervalTimer',
-              _graphics = graphics',
+              --_graphics = graphics',
               _stellaClock = stellaClock',
               _oregisters = oregs,
               _iregisters = iregs,
@@ -435,13 +432,13 @@ stellaTickUntil n = do
         clampMissiles resmp0' resmp1'
 
         stellaDebug' <- useStellaDebug id
-        graphics' <- useGraphics id
+        -- graphics' <- useGraphics id
         surface <- getBackSurface
         ptr <- liftIO $ surfacePixels surface -- <-- XXX I think it's OK but not sure
         let ptr' = castPtr ptr :: Ptr Word32
         -- sprites' <- useSprites id
         -- XXX Not sure stellaDebug actually changes here so may be some redundancy
-        stellaDebug'' <- liftIO $ stellaTick (fromIntegral diff) word64r intr boolr ir r stellaDebug' graphics' {-sprites' -} ptr'
+        stellaDebug'' <- liftIO $ stellaTick (fromIntegral diff) word8r word64r intr boolr ir r stellaDebug' ptr'
         putStellaDebug id stellaDebug'' -- XX Does this update sprites??? XXX
 
 {-# INLINE pureReadRom #-}
@@ -591,10 +588,10 @@ dumpStella = do
     hpos' <- load hpos
     vpos' <- load vpos
     liftIO $ putStrLn $ "hpos = " ++ show hpos' ++ " (" ++ show (hpos'-picx) ++ ") vpos = " ++ show vpos' ++ " (" ++ show (vpos'-picy) ++ ")"
-    graphics' <- view graphics
-    graphics'' <- liftIO $ readIORef graphics'
-    let grp0' = graphics'' ^. oldGrp0
-    let grp1' = graphics'' ^. oldGrp1
+    --graphics' <- view graphics
+    --graphics'' <- liftIO $ readIORef graphics'
+    grp0' <- load oldGrp0
+    grp1' <- load oldGrp1
     liftIO $ putStrLn $ "GRP0 = " ++ showHex grp0' "" ++ "(" ++ inBinary 8 grp0' ++ ")"
     liftIO $ putStrLn $ "GRP1 = " ++ showHex grp1' "" ++ "(" ++ inBinary 8 grp1' ++ ")"
     pf0' <- getORegister pf0
@@ -715,11 +712,11 @@ writeStella addr v = do
        0x13 -> graphicsDelay 4 >> load hpos >>= store s_mpos1 -- RESM1
        0x14 -> graphicsDelay 4 >> load hpos >>= store s_bpos  -- RESBL
        0x1b -> do -- GRP0
-                putGraphics newGrp0 v
-                useGraphics newGrp1 >>= putGraphics oldGrp1
+                store newGrp0 v
+                load newGrp1 >>= store oldGrp1
        0x1c -> do -- GRP1
-                putGraphics newGrp1 v
-                useGraphics newGrp0 >>= putGraphics oldGrp0
+                store newGrp1 v
+                load newGrp0 >>= store oldGrp0
                 load newBall >>= store oldBall
        0x1d -> putORegister enam0 v                -- ENAM0
        0x1e -> putORegister enam1 v                -- ENAM1
@@ -729,9 +726,9 @@ writeStella addr v = do
        0x22 -> putORegister hmm0 v                 -- HMM0
        0x23 -> putORegister hmm1 v                 -- HMM1
        0x24 -> putORegister hmbl v                 -- HMBL
-       0x25 -> liftIO $ st boolr delayP0 $ testBit v 0   -- VDELP0
-       0x26 -> liftIO $ st boolr delayP1 $ testBit v 0   -- VDELP1
-       0x27 -> liftIO $ st boolr delayBall $ testBit v 0   -- VDELBL
+       0x25 -> store delayP0 $ testBit v 0   -- VDELP0
+       0x26 -> store delayP1 $ testBit v 0   -- VDELP1
+       0x27 -> store delayBall $ testBit v 0   -- VDELBL
        0x28 -> putORegister resmp0 v
        0x29 -> putORegister resmp1 v
        0x2a -> stellaHmove               -- HMOVE
