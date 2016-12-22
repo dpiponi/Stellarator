@@ -83,7 +83,7 @@ player0 _ _ _ _ o | o < 0 = return False
 player0 word8r r delayP0' nusiz0' o = do
     let sizeCopies = 0b111 .&. nusiz0'
     grp0' <- if delayP0' then ld word8r oldGrp0 else ld word8r newGrp0
-    refp0' <- fastGetORegister r refp0
+    refp0' <- ld word8r refp0
     return $ stretchPlayer (testBit refp0' 3) sizeCopies o grp0'
 
 {- INLINE player1 -}
@@ -92,7 +92,7 @@ player1 _ _ _ _ o | o < 0 = return False
 player1 word8r r delayP1' nusiz1' o = do
     let sizeCopies = 0b111 .&. nusiz1'
     grp1' <- if delayP1' then ld word8r oldGrp1 else ld word8r newGrp1
-    refp1' <- fastGetORegister r refp1
+    refp1' <- ld word8r refp1
     return $ stretchPlayer (testBit refp1' 3) sizeCopies o grp1'
 
 {- INLINE ball -}
@@ -107,17 +107,17 @@ ball delayBall' oldBall' newBall' ctrlpf' o = do
         else False
 
 {- INLINE playfield -}
-playfield :: IOUArray OReg Word8 -> Word8 -> Int -> IO Bool
-playfield r ctrlpf' i | i >= 0  && i < 4  = flip testBit (i+4)  <$> fastGetORegister r pf0
-                      | i >=4   && i < 12 = flip testBit (11-i) <$> fastGetORegister r pf1
-                      | i >= 12 && i < 20 = flip testBit (i-12) <$> fastGetORegister r pf2
+playfield :: Segment Word8 -> Word8 -> Int -> IO Bool
+playfield word8r ctrlpf' i | i >= 0  && i < 4  = flip testBit (i+4)  <$> ld word8r pf0
+                      | i >=4   && i < 12 = flip testBit (11-i) <$> ld word8r pf1
+                      | i >= 12 && i < 20 = flip testBit (i-12) <$> ld word8r pf2
 playfield r ctrlpf' i | i >= 20 && i < 40 = playfield r ctrlpf' $ if testBit ctrlpf' 0 then 39-i else i-20
 playfield _ _ _ = return $ False -- ???
 
 missileSize :: Word8 -> Int
 missileSize nusiz = 1 `shift` (fromIntegral ((nusiz `shift` (-4)) .&. 0b11))
 
-chooseColour :: Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Int -> OReg
+chooseColour :: Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Int -> TypedIndex Word8
 chooseColour True   _    _     True  _     _     _     _     _       = colupf
 chooseColour True  True  True  False _     _     _     _     pixelx = if pixelx < 80 then colup0 else colup1
 chooseColour True  False True  False _     _     _     _     _       = colupf
@@ -139,21 +139,21 @@ chooseColour False _     False False False False False False _       = colubk
 bit :: Int -> Bool -> Word8
 bit n t = if t then 1 `shift` n else 0
 
-doCollisions :: IOUArray IReg Word8 -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> IO ()
-doCollisions ir lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1 = do
+doCollisions :: Segment Word8 -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> IO ()
+doCollisions word8r lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1 = do
     let playball = bit 7 lplayfield .|. bit 6 lball
     when lmissile0 $ do
-        fastOrIRegister ir cxm0p $ bit 7 lplayer1 .|. bit 6 lplayer0
-        fastOrIRegister ir cxm0fb playball
-        fastOrIRegister ir cxppmm $ bit 6 lmissile1
+        modify cxm0p $ (.|. bit 7 lplayer1 .|. bit 6 lplayer0)
+        fastOrIRegister word8r cxm0fb playball
+        fastOrIRegister word8r cxppmm $ bit 6 lmissile1
     when lmissile1 $ do
-        fastOrIRegister ir cxm1p $ bit 7 lplayer0 .|. bit 6 lplayer1
-        fastOrIRegister ir cxm1fb playball
+        fastOrIRegister word8r cxm1p $ bit 7 lplayer0 .|. bit 6 lplayer1
+        fastOrIRegister word8r cxm1fb playball
     when lplayer0 $ do
-        fastOrIRegister ir cxp0fb playball
-        fastOrIRegister ir cxppmm $ bit 7 lplayer1
-    when lplayer1 $ fastOrIRegister ir cxp1fb playball
-    when lball $ fastOrIRegister ir cxblpf $ bit 7 lplayfield
+        fastOrIRegister word8r cxp0fb playball
+        fastOrIRegister word8r cxppmm $ bit 7 lplayer1
+    when lplayer1 $ fastOrIRegister word8r cxp1fb playball
+    when lball $ fastOrIRegister word8r cxblpf $ bit 7 lplayfield
 
 {- INLINE compositeAndCollide -}
 compositeAndCollide :: Segment Word8 -> Segment Int -> Segment Word64 -> Segment Bool -> IRegArray -> Int -> Int -> ORegArray -> IO Word8

@@ -97,7 +97,7 @@ initState ram' mode rom' oregs iregs initialPC
           intArray' <- newArray (0, 127) 0      -- Overkill
           word64Array' <- newArray (0, 127) 0      -- Overkill
           word16Array' <- newArray (0, 127) 0      -- Overkill
-          word8Array' <- newArray (0, 127) 0      -- Overkill
+          word8Array' <- newArray (0, 0x3ff) 0      -- Overkill
           liftIO $ st word16Array' pc initialPC
           startIntervalTimer intArray' word8Array'
           return $ Atari2600 {
