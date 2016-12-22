@@ -10,8 +10,9 @@ stack build && stack exec Stellarator-exe -- -f adventure.rom
 
 ![Pitfall screenshot](docs/pitfall.gif?raw=true "Pitfall Screenshot")
 
-As you can see, there are visual artifacts and the aspect ratio isn't right yet.
-I've made no attempt to get timing right yet.
+Therere are visual artifacts and, more importantly,
+*I've made no attempt to get timing right yet.*
+There is no audio either.
 
 Use cursor keys to simulate the joystick and the space bar to fire the trigger.
 
