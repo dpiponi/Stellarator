@@ -89,11 +89,9 @@ initState ram' mode rom' oregs iregs initialPC
           memory' <- newIORef $ Memory {
                   _bankMode = mode
               }
-          --sprites' <- newIORef Stella.Sprites.start
           stellaDebug' <- newIORef DebugState.start
           clock' <- newIORef 0
           debug' <- newIORef 8
-          --graphics' <- newIORef Stella.Graphics.start
           stellaClock' <- newIORef 0
           boolArray' <- newArray (0, 127) False -- Overkill
           intArray' <- newArray (0, 127) 0      -- Overkill
@@ -107,12 +105,7 @@ initState ram' mode rom' oregs iregs initialPC
               _ram = ram',
               _stellaDebug = stellaDebug',
               _memory = memory',
-              -- _regs = regs',
               _clock = clock',
-              -- _debug = debug',
-              --_sprites = sprites',
-              --_intervalTimer = intervalTimer',
-              --_graphics = graphics',
               _stellaClock = stellaClock',
               _oregisters = oregs,
               _iregisters = iregs,
@@ -381,7 +374,7 @@ readStella addr =
         0x284 -> load intim {-do
             word8r <- view word8Array
             liftIO $ ld word8r intim-}
-        _ -> return 0 -- (liftIO $ putStrLn $ "reading TIA 0x" ++ showHex addr "") >> return 0
+        _ -> return 0 
 
 {- INLINE stellaVsync -}
 stellaVsync :: Word8 -> MonadAtari ()
@@ -393,7 +386,6 @@ stellaVsync v = do
         liftIO $ st intr hpos 0
         liftIO $ st intr vpos 0
     liftIO $ fastPutORegister or vsync v
-    -- sdlState <- useHardware stellaSDL
     renderDisplay
 
 {- INLINE stellaWsync -}
@@ -423,19 +415,15 @@ stellaTickUntil n = do
         word64r <- getWord64Array
         boolr <- getBoolArray
         word8r <- view word8Array
-        -- it <- useIntervalTimer id
-        -- putIntervalTimer id (church diff timerTick it)
         liftIO $ replicateM_ (fromIntegral diff) $ timerTick intr word8r
         resmp0' <- liftIO $ fastGetORegister r resmp0
         resmp1' <- liftIO $ fastGetORegister r resmp1
         clampMissiles resmp0' resmp1'
 
         stellaDebug' <- useStellaDebug id
-        -- graphics' <- useGraphics id
         surface <- getBackSurface
         ptr <- liftIO $ surfacePixels surface -- <-- XXX I think it's OK but not sure
         let ptr' = castPtr ptr :: Ptr Word32
-        -- sprites' <- useSprites id
         -- XXX Not sure stellaDebug actually changes here so may be some redundancy
         stellaDebug'' <- liftIO $ stellaTick (fromIntegral diff) word8r word64r intr boolr ir r stellaDebug' ptr'
         putStellaDebug id stellaDebug'' -- XX Does this update sprites??? XXX
@@ -587,8 +575,6 @@ dumpStella = do
     hpos' <- load hpos
     vpos' <- load vpos
     liftIO $ putStrLn $ "hpos = " ++ show hpos' ++ " (" ++ show (hpos'-picx) ++ ") vpos = " ++ show vpos' ++ " (" ++ show (vpos'-picy) ++ ")"
-    --graphics' <- view graphics
-    --graphics'' <- liftIO $ readIORef graphics'
     grp0' <- load oldGrp0
     grp1' <- load oldGrp1
     liftIO $ putStrLn $ "GRP0 = " ++ showHex grp0' "" ++ "(" ++ inBinary 8 grp0' ++ ")"
@@ -610,10 +596,6 @@ dumpStella = do
     liftIO $ putStr $ "ENAM0 = " ++ show (testBit enam0' 1)
     liftIO $ putStr $ " ENAM1 = " ++ show (testBit enam1' 1)
     liftIO $ putStrLn $ " ENABL = " ++ show (enablOld, enablNew)
-    -- sprites' <- view sprites
-    -- sprites'' <- liftIO $ readIORef sprites'
-    --let mpos0' = sprites'' ^. s_mpos0
-    --let mpos1' = sprites'' ^. s_mpos1
     mpos0' <- load s_mpos0
     mpos1' <- load s_mpos1
     hmm0' <- getORegister hmm0
@@ -644,9 +626,6 @@ dumpMemory = do
 {-# INLINABLE dumpRegisters #-}
 dumpRegisters :: MonadAtari ()
 dumpRegisters = do
-    -- XXX bring clock back
-    --tClock <- view clock
-    --putStr 9 $ "clock = " ++ show tClock
     regPC <- getPC
     liftIO $ putStr $ " pc = " ++ showHex regPC ""
     regP <- getP
