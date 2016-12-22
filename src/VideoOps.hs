@@ -21,17 +21,13 @@ import TIAColors
 import Metrics
 
 {-# INLINABLE updatePos #-}
-updatePos :: (Int, Int) -> (Int, Int)
-updatePos (hpos0, vpos0) =
-    let hpos' = hpos0+1
-    in if hpos' < picx+160
-        then (hpos', vpos0)
-        else let vpos' = vpos0+1
-             in (0, vpos')
+updatePos :: Int -> Int -> (Int, Int)
+updatePos hpos0 vpos0 | hpos0 < picx+159 = (hpos0+1, vpos0)
+updatePos _     vpos0                    = (0,       vpos0+1)
 
 {-# INLINE flipIf #-}
 flipIf :: Bool -> Int -> Int
-flipIf True idx = idx
+flipIf True  idx = idx
 flipIf False idx = 7-idx
 
 {- INLINE stretchPlayer' -}
@@ -48,15 +44,13 @@ stretchPlayer' _       _     _ _      = error "Impossible"
 
 {- INLINE stretchPlayer -}
 stretchPlayer :: Bool -> Word8 -> Int -> Word8 -> Bool
-stretchPlayer reflect sizeCopies o bitmap =
-    if o < 0 || o >= 72
-        then False
-        else stretchPlayer' reflect sizeCopies o bitmap
+stretchPlayer _       _          o _      | o < 0 || o >= 72 = False
+stretchPlayer reflect sizeCopies o bitmap = stretchPlayer' reflect sizeCopies o bitmap
 
 clampMissiles :: Word8 -> Word8 -> MonadAtari ()
 clampMissiles resmp0' resmp1' = do
-    when (testBit resmp0' 1) $ do { ppos0' <- load s_ppos0; store s_mpos0 ppos0' }
-    when (testBit resmp1' 1) $ do { ppos1' <- load s_ppos1; store s_mpos1 ppos1' }
+    when (testBit resmp0' 1) $ load s_ppos0 >>= store s_mpos0
+    when (testBit resmp1' 1) $ load s_ppos1 >>= store s_mpos1
 
 -- Atari2600 programmer's guide p.22
 {- INLINE missile0 -}
@@ -65,7 +59,7 @@ missile :: Word8 -> Word8 -> Int -> Word8 -> Bool
 missile _       _      o _       | o < 0                  = False
 missile _       _      _ resmp0' | testBit resmp0' 1      = False
 missile _       enam0' _ _       | not (testBit enam0' 1) = False
-missile nusiz0' _      o _                         = o < missileSize nusiz0'
+missile nusiz0' _      o _                                = o < missileSize nusiz0'
 
 -- Atari2600 programmer's guide p.40
 {- INLINE player0 -}
@@ -92,9 +86,8 @@ ball _ _ _ _ o | o < 0 = False
 ball delayBall' oldBall' newBall' ctrlpf' o = do
     let enabl' = if delayBall' then oldBall' else newBall'
     if enabl'
-        then do
-            let ballSize = 1 `shift` (fromIntegral ((ctrlpf' `shift` (-4)) .&. 0b11))
-            o >= 0 && o < ballSize
+        then let ballSize = 1 `shift` (fromIntegral ((ctrlpf' `shift` (-4)) .&. 0b11))
+             in o >= 0 && o < ballSize
         else False
 
 missileSize :: Word8 -> Int
@@ -102,7 +95,7 @@ missileSize nusiz = 1 `shift` (fromIntegral ((nusiz `shift` (-4)) .&. 0b11))
 
 chooseColour :: Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Int -> TypedIndex Word8
 chooseColour True   _    _     True  _     _     _     _     _       = colupf
-chooseColour True  True  True  False _     _     _     _     pixelx = if pixelx < 80 then colup0 else colup1
+chooseColour True  True  True  False _     _     _     _     pixelx  = if pixelx < 80 then colup0 else colup1
 chooseColour True  False True  False _     _     _     _     _       = colupf
 chooseColour True  _     False False True  _     _     _     _       = colup0
 chooseColour True  _     False False _     _     True  _     _       = colup0
@@ -113,30 +106,36 @@ chooseColour False _     _     _     True  _     _     _     _       = colup0
 chooseColour False _     _     _     _     _     True  _     _       = colup0
 chooseColour False _     _     _     False True  False _     _       = colup1
 chooseColour False _     _     _     False _     False True  _       = colup1
-chooseColour False True  True  _     False False False False pixelx = if pixelx < 80 then colup0 else colup1
+chooseColour False True  True  _     False False False False pixelx  = if pixelx < 80 then colup0 else colup1
 chooseColour False False True  _     False False False False _       = colupf
 chooseColour False _     False True  False False False False _       = colupf
 chooseColour False _     False False False False False False _       = colubk
 
 {-# INLINE bit #-}
 bit :: Int -> Bool -> Word8
-bit n t = if t then 1 `shift` n else 0
+bit _ False = 0
+bit n True  = 1 `shift` n
 
+{-
+ - Build matrix of 6C2 possible collisions between 6 sprites
+ -}
 doCollisions :: Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> MonadAtari ()
 doCollisions lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1 = do
     let playball = bit 7 lplayfield .|. bit 6 lball
     when lmissile0 $ do
-        modify cxm0p (.|. (bit 7 lplayer1 .|. bit 6 lplayer0))
+        modify cxm0p  (.|. (bit 7 lplayer1 .|. bit 6 lplayer0))
         modify cxm0fb (.|. playball)
         modify cxppmm (.|. (bit 6 lmissile1))
     when lmissile1 $ do
-        modify cxm1p (.|. (bit 7 lplayer0 .|. bit 6 lplayer1))
+        modify cxm1p  (.|. (bit 7 lplayer0 .|. bit 6 lplayer1))
         modify cxm1fb (.|. playball)
     when lplayer0 $ do
         modify cxp0fb (.|. playball)
         modify cxppmm (.|. bit 7 lplayer1)
-    when lplayer1 $ modify cxp1fb (.|. playball)
-    when lball $ modify cxblpf (.|. bit 7 lplayfield)
+    when lplayer1 $
+        modify cxp1fb (.|. playball)
+    when lball $
+        modify cxblpf (.|. bit 7 lplayfield)
 
 {- INLINE compositeAndCollide -}
 compositeAndCollide :: Int -> Int -> MonadAtari Word8
@@ -192,14 +191,14 @@ stellaTick n stellaDebug'@(DebugState { _posbreak = posbreak'@(xbreak', ybreak')
 
         do
             blank <- load vblank
-            if testBit blank 1
-                then liftIO $ pokeElemOff ptr' pixelAddr 0x404040
+            pixel <- if testBit blank 1
+                then return 0x404040
                 else do
                     final <- compositeAndCollide pixelx hpos'
-                    let rgb = lut!(final `shift` (-1))
-                    liftIO $ pokeElemOff ptr' pixelAddr rgb
+                    return $ lut!(final `shift` (-1))
+            liftIO $ pokeElemOff ptr' pixelAddr pixel
 
-    let (hpos'', vpos'') = updatePos (hpos', vpos')
+    let (hpos'', vpos'') = updatePos hpos' vpos'
     store hpos hpos''
     store vpos vpos''
     stellaTick (n-1) stellaDebug' { _posbreak = posbreak'' } ptr'

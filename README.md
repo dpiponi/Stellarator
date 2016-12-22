@@ -23,3 +23,18 @@ V - Reset
 Don't press any other keys unless you want to quit.
 
 Use mouse click to get info about graphics registers for the selected pixel.
+
+Debugger
+--------
+Hitting escape while running the emulator drops you into the debugger.
+Use q to quit.
+
+I'll document the commands eventually but here's an example:
+
+    {u(row==160){s};u(row>160){s;l}}
+
+It single steps until the VCS is on row 160 of the screen.
+It then single steps through the entire row showing each instruction.
+Useful when you're trying to decode how an individual scanline is
+being rendered.
+The debug command history is kept in the file .stellarator
