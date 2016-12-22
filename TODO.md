@@ -9,6 +9,7 @@ TODO
 14. Guess ROM type
 15. E0 bank switching segments
 16. Compare Stella clock to real world clock
+17. Why do combat and xevious fail? Is it a timer issue?
 
 Done
 ----

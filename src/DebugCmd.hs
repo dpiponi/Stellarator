@@ -53,73 +53,77 @@ fromHex = fst . head . readHex
 hexWord :: Stream s m Char => ParsecT s u m Word16
 hexWord = fromHex <$> many1 hexDigit
 
---parseCommand :: Stream s m Char => ParsecT s u m Command
+parseCommand :: ParsecT String u Identity Command
 parseCommand =
         Block <$> (braces lexer $ sepBy1 parseCommand (semi lexer))
     <|> (char 'c' >> many (char ' ') >> return Cont)
     <|> (char 'g' >> many (char ' ') >> return DumpGraphics)
     <|> (char 's' >> many (char ' ') >> return Step)
     <|> (do
-        char 'r'
-        many (char ' ')
+        _ <- char 'r'
+        _ <- many (char ' ')
         n <- parseExpr
         c <- parseCommand
         return $ Repeat n c)
     <|> (do
-        char 'l'
-        many (char ' ')
+        _ <- char 'l'
+        _ <- many (char ' ')
         addr <- optionMaybe parseExpr
         n <- optionMaybe parseExpr
         return (List addr n))
     <|> (do
-            char 'p'
-            many (char ' ')
+            _ <- char 'p'
+            _ <- many (char ' ')
             exprs <- sepBy1 parseExpr (comma lexer)
             return $ Print exprs)
     <|> (do
-            char 'u'
-            many (char ' ')
+            _ <- char 'u'
+            _ <- many (char ' ')
             expr <- parseExpr
-            many (char ' ')
+            _ <- many (char ' ')
             cmd <- parseCommand
             return $ Until expr cmd)
     <|> (do
             s <- identifier lexer
-            many (char ' ')
-            char '='
-            many (char ' ')
+            _ <- many (char ' ')
+            _ <- char '='
+            _ <- many (char ' ')
             e <- parseExpr
             return $ Let s e)
 
+lexer :: GenTokenParser String u Identity
 lexer = makeTokenParser haskellStyle
 
+parseExpr :: ParsecT String u Identity Expr
 parseExpr    = buildExpressionParser table term
         <?> "expression"
 
+term :: ParsecT String u Identity Expr
 term    =  parens lexer parseExpr 
-	<|> try (symbol lexer "t" >> return Clock)
-	<|> try (symbol lexer "col" >> return Col)
-	<|> try (symbol lexer "row" >> return Row)
-	<|> try (symbol lexer "eq" >> return EQ)
-	<|> try (symbol lexer "ne" >> return NE)
-	<|> try (symbol lexer "cc" >> return CC)
-	<|> try (symbol lexer "cs" >> return CS)
-	<|> try (symbol lexer "pl" >> return PL)
-	<|> try (symbol lexer "pc" >> return PC)
-	<|> try (symbol lexer "mi" >> return MI)
-	<|> (symbol lexer "a" >> return A)
-	<|> (symbol lexer "x" >> return X)
-	<|> (symbol lexer "y" >> return Y)
-	<|> (symbol lexer "s" >> return S)
+        <|> try (symbol lexer "t" >> return Clock)
+        <|> try (symbol lexer "col" >> return Col)
+        <|> try (symbol lexer "row" >> return Row)
+        <|> try (symbol lexer "eq" >> return EQ)
+        <|> try (symbol lexer "ne" >> return NE)
+        <|> try (symbol lexer "cc" >> return CC)
+        <|> try (symbol lexer "cs" >> return CS)
+        <|> try (symbol lexer "pl" >> return PL)
+        <|> try (symbol lexer "pc" >> return PC)
+        <|> try (symbol lexer "mi" >> return MI)
+        <|> (symbol lexer "a" >> return A)
+        <|> (symbol lexer "x" >> return X)
+        <|> (symbol lexer "y" >> return Y)
+        <|> (symbol lexer "s" >> return S)
         <|> do { n <- natural lexer; return (EConst (fromIntegral n)) }
         <|> do { s <- identifier lexer ; return (Var s) }
         <|> do { s <- stringLiteral lexer ; return (EConstString s) }
         <?> "simple expression"
 
+table :: [[Operator String u Identity Expr]]
 table   = [ [prefix "-" Neg, prefix "+" id,
              prefix "!" PeekWord, prefix "?" PeekByte],
 
-	    [prefix "~" Not],
+            [prefix "~" Not],
 
             [binary "*" Times AssocLeft,
              binary "/" Div AssocLeft ],
@@ -137,11 +141,12 @@ table   = [ [prefix "-" Neg, prefix "+" id,
              binary "!=" Ne AssocLeft,
              binary "==" Eq AssocLeft],
 
-	    [binary "&" And AssocLeft], 
+            [binary "&" And AssocLeft], 
 
-	    [binary "|" Or AssocLeft]
+            [binary "|" Or AssocLeft]
           ]
         
+binary :: String -> (a -> a -> a) -> Assoc -> Operator String u Identity a
 binary  name fun assoc = Infix (do{ reservedOp lexer name; return fun }) assoc
 prefix :: String -> (a -> a) -> Operator String u Data.Functor.Identity.Identity a
 prefix  name fun       = Prefix (do{ reservedOp lexer name; return fun })

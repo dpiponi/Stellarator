@@ -9,7 +9,7 @@ import Data.Array.IO
 import Data.Int
 import Data.Bits
 
-newtype TypedIndex t = TO Int deriving (Ord, Ix, Eq, Num)
+newtype TypedIndex t = TO { unTyped :: Int } deriving (Ord, Ix, Eq, Num)
 
 -- Could be Int instead of Word16
 newtype OReg = OReg Word16 deriving (Ord, Ix, Eq, Num)
