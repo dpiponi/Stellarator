@@ -7,16 +7,16 @@ module Stella.TIARegisters where
 import Data.Word
 import Data.Array.IO
 import Data.Array.Base
-import Data.Int
+--import Data.Int
 import Data.Bits
 
 newtype TypedIndex t = TO { unTyped :: Int } deriving (Ord, Ix, Eq, Num)
 
 -- Could be Int instead of Word16
-newtype OReg = OReg Word16 deriving (Ord, Ix, Eq, Num)
-newtype IReg = IReg Word16 deriving (Ord, Ix, Eq, Num)
-newtype IntReg = IntReg Int deriving (Ord, Ix, Eq, Num)
-newtype BoolReg = BoolReg Int deriving (Ord, Ix, Eq, Num)
+-- newtype OReg = OReg Word16 deriving (Ord, Ix, Eq, Num)
+-- newtype IReg = IReg Word16 deriving (Ord, Ix, Eq, Num)
+-- newtype IntReg = IntReg Int deriving (Ord, Ix, Eq, Num)
+-- newtype BoolReg = BoolReg Int deriving (Ord, Ix, Eq, Num)
 
 intim, p, a, x, y, s, oldGrp0, newGrp0, oldGrp1, newGrp1 :: TypedIndex Word8
 intim = 0
@@ -99,8 +99,8 @@ pc, bankOffset :: TypedIndex Word16
 pc = 0
 bankOffset = 1
 
-type ORegArray = IOUArray OReg Word8
-type IRegArray = IOUArray IReg Word8
+-- type ORegArray = IOUArray OReg Word8
+-- type IRegArray = IOUArray IReg Word8
 --type IntRegArray = IOUArray IntReg Int
 --type BoolRegArray = IOUArray BoolReg Bool
 
@@ -118,6 +118,7 @@ mod arr idx f = do { value <- unsafeRead arr (unTyped idx); unsafeWrite arr (unT
 
 type Segment a = IOUArray (TypedIndex a) a
 
+{-
 {-# INLINE fastGetORegister #-}
 fastGetORegister :: IOUArray OReg Word8 -> OReg -> IO Word8
 fastGetORegister = readArray
@@ -141,3 +142,4 @@ fastModifyIRegister r i f = readArray r i >>= writeArray r i . f
 {-# INLINE fastOrIRegister #-}
 fastOrIRegister :: IOUArray IReg Word8 -> IReg -> Word8 -> IO ()
 fastOrIRegister r i v = fastModifyIRegister r i (v .|.)
+-}

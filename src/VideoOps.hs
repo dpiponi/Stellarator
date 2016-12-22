@@ -9,7 +9,6 @@ module VideoOps(compositeAndCollide,
 import Data.Word
 import Data.Bits hiding (bit) -- XXX check this
 import Atari2600
---import Stella.Sprites
 import Control.Monad
 import Control.Monad.Trans
 import Data.Int
@@ -17,8 +16,6 @@ import Prelude hiding (mod)
 import Data.Array.Unboxed
 import Data.Array.IO
 import Stella.TIARegisters
--- import Control.Lens
---import Stella.Graphics
 import DebugState
 import Data.IORef
 import Foreign.Ptr
@@ -35,10 +32,7 @@ updatePos (hpos0, vpos0) =
     in if hpos' < picx+160
         then (hpos', vpos0)
         else let vpos' = vpos0+1
-             in (0, vpos') -- if vpos' < picy+screenScanLines
-                -- then (0, vpos')
-                -- else (0, 0)
-                --
+             in (0, vpos')
 
 {-# INLINE flipIf #-}
 flipIf :: Bool -> Int -> Int
@@ -195,31 +189,29 @@ compositeAndCollide word8r intr word64r boolr pixelx hpos' = do
                                       lmissile0 lmissile1
                                       lplayer0 lplayer1 pixelx
 
-stellaTick :: Int -> Segment Word8 -> Segment Word64 -> Segment Int -> Segment Bool -> DebugState -> Ptr Word32 -> IO DebugState
+stellaTick :: Int -> Segment Word8 -> Segment Word64 -> Segment Int -> Segment Bool -> DebugState -> Ptr Word32 -> MonadAtari DebugState
 stellaTick n _ _ _ _ debugState' _ | n <= 0 = return debugState'
 stellaTick n word8r word64r intr boolr stellaDebug'@(DebugState { _posbreak = posbreak'@(xbreak', ybreak')}) ptr' = do
-    hpos' <- ld intr hpos
-    vpos' <- ld intr vpos
+    hpos' <- load hpos
+    vpos' <- load vpos
     let posbreak'' = if (hpos', vpos') == (xbreak', ybreak') then (-1, -1) else posbreak'
 
     when (vpos' >= picy && vpos' < picy+screenScanLines && hpos' >= picx) $ do
-        -- ptr <- liftIO $ surfacePixels surface
-        -- let ptr' = castPtr ptr :: Ptr Word32
         let pixelx = hpos'-picx
         let pixely = vpos'-picy
 
         let pixelAddr = fromIntegral (screenWidth*pixely+pixelx)
 
-        liftIO $ do
-            blank <- ld word8r vblank
+        do
+            blank <- load vblank
             if testBit blank 1
-                then pokeElemOff ptr' pixelAddr 0x404040
+                then liftIO $ pokeElemOff ptr' pixelAddr 0x404040
                 else do
-                    final <- compositeAndCollide word8r intr word64r boolr pixelx hpos'
+                    final <- liftIO $ compositeAndCollide word8r intr word64r boolr pixelx hpos'
                     let rgb = lut!(final `shift` (-1))
-                    pokeElemOff ptr' pixelAddr rgb
+                    liftIO $ pokeElemOff ptr' pixelAddr rgb
 
     let (hpos'', vpos'') = updatePos (hpos', vpos')
-    st intr hpos hpos''
-    st intr vpos vpos''
+    store hpos hpos''
+    store vpos vpos''
     stellaTick (n-1) word8r word64r intr boolr stellaDebug' { _posbreak = posbreak'' } ptr'
