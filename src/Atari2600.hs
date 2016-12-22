@@ -18,7 +18,6 @@ module Atari2600(
                  getIRegisters,
                  getORegisters,
                  getWord64Array,
-                 --graphics,
                  intArray,
                  iregisters,
                  load,
@@ -26,23 +25,19 @@ module Atari2600(
                  modify,
                  modifyClock,
                  modifyMemory,
-                 --modifySprites,
                  modifyStellaClock,
                  modifyStellaDebug,
                  oregisters,
                  putClock,
-                 --putSprites,
                  putStellaClock,
                  putStellaDebug,
                  ram,
                  rom,
-                 --sprites,
                  stellaClock,
                  stellaDebug,
                  store,
                  useClock,
                  useMemory,
-                 --useSprites,
                  useStellaClock,
                  useStellaDebug,
                  word16Array,
@@ -64,7 +59,6 @@ import Stella.TIARegisters
 data Atari2600 = Atari2600 {
     _memory :: IORef Memory,
     _clock :: IORef Int64,
-    -- _debug :: IORef Int,
     _stellaClock :: IORef Int64,
     _stellaDebug :: IORef DebugState,
 
@@ -74,9 +68,9 @@ data Atari2600 = Atari2600 {
     _rom :: IOUArray Int Word8,
     _boolArray :: Segment Bool,
     _intArray :: Segment Int,
-    _word64Array :: Segment Word64,
-    _word16Array :: Segment Word16,
     _word8Array :: Segment Word8,
+    _word16Array :: Segment Word16,
+    _word64Array :: Segment Word64,
 
     _sdlBackSurface :: Surface,
     _sdlFrontSurface :: Surface,
@@ -182,41 +176,6 @@ putClock lens' value = do
 modifyClock lens' modifier = do
     atari <- ask
     liftIO $ modifyIORef' (atari ^. clock) (over lens' modifier)
-
-{-
-{-# INLINE useSprites #-}
-useSprites :: Getting b Sprites b -> MonadAtari b
-useSprites lens' = do
-    atari <- ask
-    sprites' <- liftIO $ readIORef (atari ^. sprites)
-    return $! sprites' ^. lens'
-
-{-# INLINE putSprites #-}
-putSprites :: ASetter Sprites Sprites a a -> a -> MonadAtari ()
-putSprites lens' value = do
-    atari <- ask
-    liftIO $ modifyIORef' (atari ^. sprites) (set lens' value)
-
-{-# INLINE modifySprites #-}
-modifySprites lens' modifier = do
-    atari <- ask
-    liftIO $ modifyIORef' (atari ^. sprites) (over lens' modifier)
-    -}
-
-{-
-{-# INLINE useGraphics #-}
-useGraphics :: Getting b Graphics b -> MonadAtari b
-useGraphics lens' = do
-    atari <- ask
-    graphics' <- liftIO $ readIORef (atari ^. graphics)
-    return $! graphics' ^. lens'
-
-{-# INLINE putGraphics #-}
-putGraphics :: ASetter Graphics Graphics a a -> a -> MonadAtari ()
-putGraphics lens' value = do
-    atari <- ask
-    liftIO $ modifyIORef' (atari ^. graphics) (set lens' value)
-    -}
 
 {-# INLINE useStellaClock #-}
 useStellaClock :: Getting b Int64 b -> MonadAtari b
