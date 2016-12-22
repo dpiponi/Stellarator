@@ -70,7 +70,7 @@ newBall = 5
 pf :: TypedIndex Word64
 pf = 0
 
-hpos, vpos, subtimer, interval, s_ppos0, s_ppos1, s_mpos0, s_mpos1, s_bpos :: TypedIndex Int
+hpos, vpos, subtimer, interval, s_ppos0, s_ppos1, s_mpos0, s_mpos1, s_bpos, debug :: TypedIndex Int
 hpos = 0
 vpos = 1
 subtimer = 2
@@ -80,6 +80,7 @@ s_ppos1 = 5
 s_mpos0 = 6
 s_mpos1 = 7
 s_bpos = 8
+debug = 9
 
 pc, bankOffset :: TypedIndex Word16
 pc = 0
@@ -111,24 +112,6 @@ st :: MArray IOUArray a IO => IOUArray (TypedIndex a) a -> TypedIndex a -> a -> 
 st = writeArray
 
 type Segment a = IOUArray (TypedIndex a) a
-
-{-
-{-# INLINE fastGetBoolRegister #-}
-fastGetBoolRegister :: BoolRegArray -> BoolReg -> IO Bool
-fastGetBoolRegister = readArray
-
-{-# INLINE fastPutBoolRegister #-}
-fastPutBoolRegister :: BoolRegArray -> BoolReg -> Bool -> IO ()
-fastPutBoolRegister = writeArray
-
-{-# INLINE fastGetIntRegister #-}
-fastGetIntRegister :: IntRegArray -> IntReg -> IO Int
-fastGetIntRegister = readArray
-
-{-# INLINE fastPutIntRegister #-}
-fastPutIntRegister :: IntRegArray -> IntReg -> Int -> IO ()
-fastPutIntRegister = writeArray
--}
 
 {-# INLINE fastGetORegister #-}
 fastGetORegister :: IOUArray OReg Word8 -> OReg -> IO Word8

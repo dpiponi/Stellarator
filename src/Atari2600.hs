@@ -64,7 +64,7 @@ import Stella.TIARegisters
 data Atari2600 = Atari2600 {
     _memory :: IORef Memory,
     _clock :: IORef Int64,
-    _debug :: IORef Int,
+    -- _debug :: IORef Int,
     _stellaClock :: IORef Int64,
     _stellaDebug :: IORef DebugState,
 
