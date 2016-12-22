@@ -595,19 +595,16 @@ instance Emu6502 MonadAtari where
     {- INLINE illegal -}
     illegal i = error $ "Illegal opcode 0x" ++ showHex i ""
 
--- XXX Fix this
-dumpStella :: MonadAtari ()
-dumpStella = return ()
-
-{-
 dumpStella :: MonadAtari ()
 dumpStella = do
     liftIO $ putStrLn "--------"
-    hpos' <- view hpos
-    vpos' <- view vpos
+    hpos' <- load hpos
+    vpos' <- load vpos
     liftIO $ putStrLn $ "hpos = " ++ show hpos' ++ " (" ++ show (hpos'-picx) ++ ") vpos = " ++ show vpos' ++ " (" ++ show (vpos'-picy) ++ ")"
-    grp0' <- useHardware (graphics . oldGrp0) -- XXX
-    grp1' <- useHardware (graphics . oldGrp1) -- XXX
+    graphics' <- view graphics
+    graphics'' <- liftIO $ readIORef graphics'
+    let grp0' = graphics'' ^. oldGrp0
+    let grp1' = graphics'' ^. oldGrp1
     liftIO $ putStrLn $ "GRP0 = " ++ showHex grp0' "" ++ "(" ++ inBinary 8 grp0' ++ ")"
     liftIO $ putStrLn $ "GRP1 = " ++ showHex grp1' "" ++ "(" ++ inBinary 8 grp1' ++ ")"
     pf0' <- getORegister pf0
@@ -622,24 +619,25 @@ dumpStella = do
                         ") NUSIZ1 = " ++ showHex nusiz1' "" ++ "(" ++ explainNusiz nusiz1' ++ ")"
     enam0' <- getORegister enam0
     enam1' <- getORegister enam1
-    enablOld <- useHardware (graphics . oldBall)
-    enablNew <- useHardware (graphics . newBall)
+    enablOld <- load oldBall
+    enablNew <- load newBall
     liftIO $ putStr $ "ENAM0 = " ++ show (testBit enam0' 1)
     liftIO $ putStr $ " ENAM1 = " ++ show (testBit enam1' 1)
     liftIO $ putStrLn $ " ENABL = " ++ show (enablOld, enablNew)
-    mpos0' <- view mpos0
-    mpos1' <- view mpos1
+    sprites' <- view sprites
+    sprites'' <- liftIO $ readIORef sprites'
+    let mpos0' = sprites'' ^. s_mpos0
+    let mpos1' = sprites'' ^. s_mpos1
     hmm0' <- getORegister hmm0
     hmm1' <- getORegister hmm1
     liftIO $ putStr $ "missile0 @ " ++ show mpos0' ++ "(" ++ show (clockMove hmm0') ++ ")"
     liftIO $ putStrLn $ " missile1 @ " ++ show mpos1' ++ "(" ++ show (clockMove hmm1') ++ ")"
-    vdelp0' <- useHardware (graphics . delayP0)
-    vdelp1' <- useHardware (graphics . delayP1)
-    vdelbl' <- useHardware (graphics . delayBall)
+    vdelp0' <- load delayP0
+    vdelp1' <- load delayP1
+    vdelbl' <- load delayBall
     liftIO $ putStrLn $ "VDELP0 = " ++ show vdelp0' ++ " " ++
                         "VDELP1 = " ++ show vdelp1' ++ " " ++
                         "VDELBL = " ++ show vdelbl'
-                        -}
 
 {-# INLINABLE dumpMemory #-}
 dumpMemory :: MonadAtari ()
