@@ -1,8 +1,7 @@
 {-# LANGUAGE BinaryLiterals #-}
 {-# LANGUAGE ApplicativeDo #-}
 
-module VideoOps(compositeAndCollide,
-                clampMissiles,
+module VideoOps(clampMissiles,
                 stellaTick,
                 bit) where
 
@@ -73,21 +72,21 @@ missile nusiz0' enam0' o resmp0'                          = o < missileSize nusi
 
 -- Atari2600 programmer's guide p.40
 {- INLINE player0 -}
-player0 :: Segment Word8 -> Bool -> Word8 -> Int -> IO Bool
+player0 :: Segment Word8 -> Bool -> Word8 -> Int -> MonadAtari Bool
 player0 _ _ _ o | o < 0 = return False
 player0 word8r delayP0' nusiz0' o = do
     let sizeCopies = 0b111 .&. nusiz0'
-    grp0' <- if delayP0' then ld word8r oldGrp0 else ld word8r newGrp0
-    refp0' <- ld word8r refp0
+    grp0' <- if delayP0' then load oldGrp0 else load newGrp0
+    refp0' <- load refp0
     return $ stretchPlayer (testBit refp0' 3) sizeCopies o grp0'
 
 {- INLINE player1 -}
-player1 :: Segment Word8 -> Bool -> Word8 -> Int -> IO Bool
+player1 :: Segment Word8 -> Bool -> Word8 -> Int -> MonadAtari Bool
 player1 _ _ _ o | o < 0 = return False
 player1 word8r delayP1' nusiz1' o = do
     let sizeCopies = 0b111 .&. nusiz1'
-    grp1' <- if delayP1' then ld word8r oldGrp1 else ld word8r newGrp1
-    refp1' <- ld word8r refp1
+    grp1' <- if delayP1' then load oldGrp1 else load newGrp1
+    refp1' <- load refp1
     return $ stretchPlayer (testBit refp1' 3) sizeCopies o grp1'
 
 {- INLINE ball -}
@@ -134,44 +133,44 @@ chooseColour False _     False False False False False False _       = colubk
 bit :: Int -> Bool -> Word8
 bit n t = if t then 1 `shift` n else 0
 
-doCollisions :: Segment Word8 -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> IO ()
+doCollisions :: Segment Word8 -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> MonadAtari ()
 doCollisions word8r lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1 = do
     let playball = bit 7 lplayfield .|. bit 6 lball
     when lmissile0 $ do
-        mod word8r cxm0p (.|. (bit 7 lplayer1 .|. bit 6 lplayer0))
-        mod word8r cxm0fb (.|. playball)
-        mod word8r cxppmm (.|. (bit 6 lmissile1))
+        modify cxm0p (.|. (bit 7 lplayer1 .|. bit 6 lplayer0))
+        modify cxm0fb (.|. playball)
+        modify cxppmm (.|. (bit 6 lmissile1))
     when lmissile1 $ do
-        mod word8r cxm1p (.|. (bit 7 lplayer0 .|. bit 6 lplayer1))
-        mod word8r cxm1fb (.|. playball)
+        modify cxm1p (.|. (bit 7 lplayer0 .|. bit 6 lplayer1))
+        modify cxm1fb (.|. playball)
     when lplayer0 $ do
-        mod word8r cxp0fb (.|. playball)
-        mod word8r cxppmm (.|. bit 7 lplayer1)
-    when lplayer1 $ mod word8r cxp1fb (.|. playball)
-    when lball $ mod word8r cxblpf (.|. bit 7 lplayfield)
+        modify cxp0fb (.|. playball)
+        modify cxppmm (.|. bit 7 lplayer1)
+    when lplayer1 $ modify cxp1fb (.|. playball)
+    when lball $ modify cxblpf (.|. bit 7 lplayfield)
 
 {- INLINE compositeAndCollide -}
-compositeAndCollide :: Segment Word8 -> Segment Int -> Segment Word64 -> Segment Bool -> Int -> Int -> IO Word8
+compositeAndCollide :: Segment Word8 -> Segment Int -> Segment Word64 -> Segment Bool -> Int -> Int -> MonadAtari Word8
 compositeAndCollide word8r intr word64r boolr pixelx hpos' = do
-    ppos0' <- ld intr s_ppos0
-    ppos1' <- ld intr s_ppos1
-    mpos0' <- ld intr s_mpos0
-    mpos1' <- ld intr s_mpos1
-    bpos' <- ld intr s_bpos
+    ppos0' <- load s_ppos0
+    ppos1' <- load s_ppos1
+    mpos0' <- load s_mpos0
+    mpos1' <- load s_mpos1
+    bpos' <- load s_bpos
 
-    resmp0' <- ld word8r resmp0
-    resmp1' <- ld word8r resmp1
-    ctrlpf' <- ld word8r ctrlpf
-    enam0' <- ld word8r enam0
-    enam1' <- ld word8r enam1
-    nusiz0' <- ld word8r nusiz0
-    nusiz1' <- ld word8r nusiz1
-    delayP0' <- ld boolr delayP0
-    delayP1' <- ld boolr delayP1
-    delayBall' <- ld boolr delayBall
-    oldBall' <- ld boolr oldBall
-    newBall' <- ld boolr newBall
-    pf' <- ld word64r pf
+    resmp0' <- load resmp0
+    resmp1' <- load resmp1
+    ctrlpf' <- load ctrlpf
+    enam0' <- load enam0
+    enam1' <- load enam1
+    nusiz0' <- load nusiz0
+    nusiz1' <- load nusiz1
+    delayP0' <- load delayP0
+    delayP1' <- load delayP1
+    delayBall' <- load delayBall
+    oldBall' <- load oldBall
+    newBall' <- load newBall
+    pf' <- load pf
 
     let lmissile0 = missile nusiz0' enam0' (hpos'-mpos0') resmp0'
     let lmissile1 = missile nusiz1' enam1' (hpos'-mpos1') resmp1'
@@ -183,7 +182,7 @@ compositeAndCollide word8r intr word64r boolr pixelx hpos' = do
 
     doCollisions word8r lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1
 
-    ld word8r $ chooseColour (testBit ctrlpf' 2)
+    load $ chooseColour (testBit ctrlpf' 2)
                                       (testBit ctrlpf' 1)
                                       lplayfield lball
                                       lmissile0 lmissile1
@@ -207,7 +206,7 @@ stellaTick n word8r word64r intr boolr stellaDebug'@(DebugState { _posbreak = po
             if testBit blank 1
                 then liftIO $ pokeElemOff ptr' pixelAddr 0x404040
                 else do
-                    final <- liftIO $ compositeAndCollide word8r intr word64r boolr pixelx hpos'
+                    final <- compositeAndCollide word8r intr word64r boolr pixelx hpos'
                     let rgb = lut!(final `shift` (-1))
                     liftIO $ pokeElemOff ptr' pixelAddr rgb
 

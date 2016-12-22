@@ -114,6 +114,16 @@ instance Reg Word16 MonadAtari where
         value <- view word16Array
         liftIO $ unsafeWrite value (unTyped r) v
 
+instance Reg Word64 MonadAtari where
+    {-# INLINE load #-}
+    load r = do
+        value <- view word64Array
+        liftIO $ unsafeRead value (unTyped r)
+    {-# INLINE store #-}
+    store r v = do
+        value <- view word64Array
+        liftIO $ unsafeWrite value (unTyped r) v
+
 instance Reg Bool MonadAtari where
     {-# INLINE load #-}
     load r = do
