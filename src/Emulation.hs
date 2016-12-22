@@ -109,7 +109,7 @@ initState ram' mode rom' oregs iregs initialPC
               _memory = memory',
               -- _regs = regs',
               _clock = clock',
-              _debug = debug',
+              -- _debug = debug',
               --_sprites = sprites',
               --_intervalTimer = intervalTimer',
               --_graphics = graphics',
