@@ -25,6 +25,16 @@ Don't press any other keys unless you want to quit.
 
 Use mouse click to get info about graphics registers for the selected pixel.
 
+Note that although 99% of the video functionality is in place, many games
+make use of precise timing of the video circuitry including delays as
+signals propagate through it. I only have only implemented delays on
+a small part of the hardware and that likely explains most of the quirks
+you see.
+
+Some games don't function at all, even with the correct rom bank switching.
+For example the baddies don't seem to appear in Millipede.
+And there's lots of screen horribleness in Asteroids though it is playable.
+
 Command line options
 --------------------
 
