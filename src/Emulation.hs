@@ -13,11 +13,9 @@ module Emulation(stellaDebug,
                  clock,
                  stellaClock,
                  initState,
-                 getIRegister,
-                 putIRegister,
+                 load,
                  trigger1,
-                 modifyIRegister,
-                 getORegister) where
+                 load) where
 
 import Atari2600
 import BitManips
@@ -107,8 +105,8 @@ initState ram' mode rom' oregs iregs initialPC
               _memory = memory',
               _clock = clock',
               _stellaClock = stellaClock',
-              _oregisters = oregs,
-              _iregisters = iregs,
+              --_oregisters = oregs,
+              --_iregisters = iregs,
               _sdlBackSurface = helloWorld,
               _sdlFrontSurface = screenSurface,
               _sdlFrontWindow = window,
@@ -119,15 +117,16 @@ initState ram' mode rom' oregs iregs initialPC
               _word8Array = word8Array'
           }
 
-{-# INLINE putORegister #-}
-putORegister :: OReg -> Word8 -> MonadAtari ()
-putORegister i v = do
+{-
+{-# INLINE store #-}
+store :: OReg -> Word8 -> MonadAtari ()
+store i v = do
     r <- getORegisters
     liftIO $ writeArray r i v
 
-{-# INLINE getORegister #-}
-getORegister :: OReg -> MonadAtari Word8
-getORegister i = do
+{-# INLINE load #-}
+load :: OReg -> MonadAtari Word8
+load i = do
     r <- getORegisters
     liftIO $ readArray r i
 
@@ -143,46 +142,39 @@ modifyIRegister i f = do
     r <- getIRegisters
     liftIO $ (readArray r i >>= writeArray r i . f)
 
-{-# INLINE getIRegister #-}
-getIRegister :: IReg -> MonadAtari Word8
-getIRegister i = do
+{-# INLINE load #-}
+load :: IReg -> MonadAtari Word8
+load i = do
     r <- getIRegisters
     liftIO $ readArray r i
+    -}
 
 {- INLINE stellaHmclr -}
 stellaHmclr :: MonadAtari ()
-stellaHmclr = do
-    r <- getORegisters
-    liftIO $ mapM_ (flip (fastPutORegister r) 0) [hmp0, hmp1,
-                                                  hmm0, hmm1, hmbl]
+stellaHmclr =
+    mapM_ (flip store 0) [hmp0, hmp1, hmm0, hmm1, hmbl]
 
 {- INLINE stellaCxclr -}
 stellaCxclr :: MonadAtari ()
-stellaCxclr = do
-    r <- getIRegisters
-    liftIO $ mapM_ (flip (fastPutIRegister r) 0) [cxm0p, cxm1p, cxm0fb,
-                                                  cxm1fb, cxp0fb, cxp1fb,
-                                                  cxblpf, cxppmm]
+stellaCxclr =
+    mapM_ (flip store 0) [cxm0p, cxm1p, cxm0fb, cxm1fb, cxp0fb, cxp1fb, cxblpf, cxppmm]
 
 {- INLINE stellaHmove -}
 stellaHmove :: MonadAtari ()
 stellaHmove = do
-    r <- getORegisters
-    let getOReg reg = liftIO $ fastGetORegister r reg
-
-    poffset0 <- getOReg hmp0
+    poffset0 <- load hmp0
     modify s_ppos0 $ \ppos0' ->  wrap160 (ppos0'-clockMove poffset0)
 
-    poffset1 <- getOReg hmp1
+    poffset1 <- load hmp1
     modify s_ppos1 $ \ppos1' ->  wrap160 (ppos1'-clockMove poffset1)
 
-    moffset0 <- getOReg hmm0
+    moffset0 <- load hmm0
     modify s_mpos0 $ \mpos0' ->  wrap160 (mpos0'-clockMove moffset0)
 
-    moffset1 <- getOReg hmm1
+    moffset1 <- load hmm1
     modify s_mpos1 $ \mpos1' ->  wrap160 (mpos1'-clockMove moffset1)
 
-    boffset <- getOReg hmbl
+    boffset <- load hmbl
     modify s_bpos $ \bpos' -> wrap160 (bpos'-clockMove boffset)
 
 -- Are these needed?
@@ -300,27 +292,26 @@ Overscan        sta WSYNC
 {- INLINE stellaVblank -}
 stellaVblank :: Word8 -> MonadAtari ()
 stellaVblank v = do
-    ir <- getIRegisters
-    or <- getORegisters
-    boolr <- getBoolArray
+    --ir <- getIRegisters
+    --or <- getORegisters
+    --boolr <- getBoolArray
     trigger1' <- load trigger1
     if not trigger1'
         then do
-            i <- liftIO $ fastGetIRegister ir inpt4 -- XXX write modifyIRegister
-            liftIO $ fastPutIRegister ir inpt4 (setBit i 7)
+            i <- load inpt4 -- XXX write modifyIRegister
+            store inpt4 (setBit i 7)
         else do
-            i <- liftIO $ fastGetIRegister ir inpt4 -- XXX write modifyIRegister
-            liftIO $ fastPutIRegister ir inpt4 (clearBit i 7)
+            i <- load inpt4 -- XXX write modifyIRegister
+            store inpt4 (clearBit i 7)
 
-    liftIO $ fastPutORegister or vblank v
+    store vblank v
 
 makePlayfield :: MonadAtari ()
 makePlayfield = do
-    r <- getORegisters
-    pf0' <- liftIO $ fastGetORegister r pf0
-    pf1' <- liftIO $ fastGetORegister r pf1
-    pf2' <- liftIO $ fastGetORegister r pf2
-    ctrlpf' <- liftIO $ fastGetORegister r ctrlpf
+    pf0' <- load pf0
+    pf1' <- load pf1
+    pf2' <- load pf2
+    ctrlpf' <- load ctrlpf
     let pf' = assemblePlayfield (testBit ctrlpf' 0) pf0' pf1' pf2'
     word64r <- getWord64Array
     liftIO $ st word64r pf pf'
@@ -329,48 +320,48 @@ makePlayfield = do
 readStella :: Word16 -> MonadAtari Word8
 readStella addr = 
     case addr of
-        0x00 -> getIRegister cxm0p
-        0x01 -> getIRegister cxm1p
-        0x02 -> getIRegister cxp0fb
-        0x03 -> getIRegister cxp1fb
-        0x04 -> getIRegister cxm0fb
-        0x05 -> getIRegister cxm1fb
-        0x06 -> getIRegister cxblpf
-        0x07 -> getIRegister cxppmm
-        0x0c -> getIRegister inpt4
-        0x0d -> getIRegister inpt5
-        0x10 -> getIRegister cxm0p
-        0x11 -> getIRegister cxm1p
-        0x12 -> getIRegister cxp0fb
-        0x13 -> getIRegister cxp1fb
-        0x14 -> getIRegister cxm0fb
-        0x15 -> getIRegister cxm1fb
-        0x16 -> getIRegister cxblpf
-        0x17 -> getIRegister cxppmm
-        0x1c -> getIRegister inpt4
-        0x1d -> getIRegister inpt5
-        0x20 -> getIRegister cxm0p
-        0x21 -> getIRegister cxm1p
-        0x22 -> getIRegister cxp0fb
-        0x23 -> getIRegister cxp1fb
-        0x24 -> getIRegister cxm0fb
-        0x25 -> getIRegister cxm1fb
-        0x26 -> getIRegister cxblpf
-        0x27 -> getIRegister cxppmm
-        0x2c -> getIRegister inpt4
-        0x2d -> getIRegister inpt5
-        0x30 -> getIRegister cxm0p
-        0x31 -> getIRegister cxm1p
-        0x32 -> getIRegister cxp0fb
-        0x33 -> getIRegister cxp1fb
-        0x34 -> getIRegister cxm0fb
-        0x35 -> getIRegister cxm1fb
-        0x36 -> getIRegister cxblpf
-        0x37 -> getIRegister cxppmm
-        0x3c -> getIRegister inpt4
-        0x3d -> getIRegister inpt5
-        0x280 -> getIRegister swcha
-        0x282 -> getIRegister swchb
+        0x00 -> load cxm0p
+        0x01 -> load cxm1p
+        0x02 -> load cxp0fb
+        0x03 -> load cxp1fb
+        0x04 -> load cxm0fb
+        0x05 -> load cxm1fb
+        0x06 -> load cxblpf
+        0x07 -> load cxppmm
+        0x0c -> load inpt4
+        0x0d -> load inpt5
+        0x10 -> load cxm0p
+        0x11 -> load cxm1p
+        0x12 -> load cxp0fb
+        0x13 -> load cxp1fb
+        0x14 -> load cxm0fb
+        0x15 -> load cxm1fb
+        0x16 -> load cxblpf
+        0x17 -> load cxppmm
+        0x1c -> load inpt4
+        0x1d -> load inpt5
+        0x20 -> load cxm0p
+        0x21 -> load cxm1p
+        0x22 -> load cxp0fb
+        0x23 -> load cxp1fb
+        0x24 -> load cxm0fb
+        0x25 -> load cxm1fb
+        0x26 -> load cxblpf
+        0x27 -> load cxppmm
+        0x2c -> load inpt4
+        0x2d -> load inpt5
+        0x30 -> load cxm0p
+        0x31 -> load cxm1p
+        0x32 -> load cxp0fb
+        0x33 -> load cxp1fb
+        0x34 -> load cxm0fb
+        0x35 -> load cxm1fb
+        0x36 -> load cxblpf
+        0x37 -> load cxppmm
+        0x3c -> load inpt4
+        0x3d -> load inpt5
+        0x280 -> load swcha
+        0x282 -> load swchb
         0x284 -> load intim {-do
             word8r <- view word8Array
             liftIO $ ld word8r intim-}
@@ -379,13 +370,12 @@ readStella addr =
 {- INLINE stellaVsync -}
 stellaVsync :: Word8 -> MonadAtari ()
 stellaVsync v = do
-    or <- getORegisters
-    oldv <- liftIO $ fastGetORegister or vsync
+    oldv <- load vsync
     when (testBit oldv 1 && not (testBit v 1)) $ do
         intr <- view intArray
         liftIO $ st intr hpos 0
         liftIO $ st intr vpos 0
-    liftIO $ fastPutORegister or vsync v
+    store vsync v
     renderDisplay
 
 {- INLINE stellaWsync -}
@@ -409,15 +399,13 @@ stellaTickUntil n = do
         -- Batch together items that don't need to be
         -- carried out on individual ticks
         modifyStellaClock id (+ diff)
-        r <- getORegisters
-        ir <- getIRegisters
         intr <- view intArray
         word64r <- getWord64Array
         boolr <- getBoolArray
         word8r <- view word8Array
         liftIO $ replicateM_ (fromIntegral diff) $ timerTick intr word8r
-        resmp0' <- liftIO $ fastGetORegister r resmp0
-        resmp1' <- liftIO $ fastGetORegister r resmp1
+        resmp0' <- load resmp0
+        resmp1' <- load resmp1
         clampMissiles resmp0' resmp1'
 
         stellaDebug' <- useStellaDebug id
@@ -425,7 +413,7 @@ stellaTickUntil n = do
         ptr <- liftIO $ surfacePixels surface -- <-- XXX I think it's OK but not sure
         let ptr' = castPtr ptr :: Ptr Word32
         -- XXX Not sure stellaDebug actually changes here so may be some redundancy
-        stellaDebug'' <- liftIO $ stellaTick (fromIntegral diff) word8r word64r intr boolr ir r stellaDebug' ptr'
+        stellaDebug'' <- liftIO $ stellaTick (fromIntegral diff) word8r word64r intr boolr stellaDebug' ptr'
         putStellaDebug id stellaDebug'' -- XX Does this update sprites??? XXX
 
 {-# INLINE pureReadRom #-}
@@ -579,18 +567,18 @@ dumpStella = do
     grp1' <- load oldGrp1
     liftIO $ putStrLn $ "GRP0 = " ++ showHex grp0' "" ++ "(" ++ inBinary 8 grp0' ++ ")"
     liftIO $ putStrLn $ "GRP1 = " ++ showHex grp1' "" ++ "(" ++ inBinary 8 grp1' ++ ")"
-    pf0' <- getORegister pf0
-    pf1' <- getORegister pf1
-    pf2' <- getORegister pf2
+    pf0' <- load pf0
+    pf1' <- load pf1
+    pf2' <- load pf2
     liftIO $ putStrLn $ "PF = " ++ reverse (inBinary 4 (pf0' `shift` (-4)))
                                 ++ inBinary 8 pf1'
                                 ++ reverse (inBinary 8 pf2')
-    nusiz0' <- getORegister nusiz0
-    nusiz1' <- getORegister nusiz1
+    nusiz0' <- load nusiz0
+    nusiz1' <- load nusiz1
     liftIO $ putStrLn $ "NUSIZ0 = " ++ showHex nusiz0' "" ++ "(" ++ explainNusiz nusiz0' ++
                         ") NUSIZ1 = " ++ showHex nusiz1' "" ++ "(" ++ explainNusiz nusiz1' ++ ")"
-    enam0' <- getORegister enam0
-    enam1' <- getORegister enam1
+    enam0' <- load enam0
+    enam1' <- load enam1
     enablOld <- load oldBall
     enablNew <- load newBall
     liftIO $ putStr $ "ENAM0 = " ++ show (testBit enam0' 1)
@@ -598,8 +586,8 @@ dumpStella = do
     liftIO $ putStrLn $ " ENABL = " ++ show (enablOld, enablNew)
     mpos0' <- load s_mpos0
     mpos1' <- load s_mpos1
-    hmm0' <- getORegister hmm0
-    hmm1' <- getORegister hmm1
+    hmm0' <- load hmm0
+    hmm1' <- load hmm1
     liftIO $ putStr $ "missile0 @ " ++ show mpos0' ++ "(" ++ show (clockMove hmm0') ++ ")"
     liftIO $ putStrLn $ " missile1 @ " ++ show mpos1' ++ "(" ++ show (clockMove hmm1') ++ ")"
     vdelp0' <- load delayP0
@@ -672,18 +660,18 @@ writeStella addr v = do
        0x00 -> stellaVsync v             -- VSYNC
        0x01 -> stellaVblank v            -- VBLANK
        0x02 -> stellaWsync               -- WSYNC
-       0x04 -> putORegister nusiz0 v        -- NUSIZ0
-       0x05 -> putORegister nusiz1 v        -- NUSIZ1
-       0x06 -> putORegister colup0 v               -- COLUP0
-       0x07 -> putORegister colup1 v               -- COLUP1
-       0x08 -> putORegister colupf v               -- COLUPF
-       0x09 -> putORegister colubk v               -- COLUBK
-       0x0a -> putORegister ctrlpf v >> makePlayfield               -- COLUPF
-       0x0b -> putORegister refp0 v               -- REFP0
-       0x0c -> putORegister refp1 v               -- REFP1
-       0x0d -> graphicsDelay 4 >> putORegister pf0 v >> makePlayfield                  -- PF0
-       0x0e -> graphicsDelay 4 >> putORegister pf1 v >> makePlayfield                  -- PF1
-       0x0f -> graphicsDelay 4 >> putORegister pf2 v >> makePlayfield                  -- PF2
+       0x04 -> store nusiz0 v        -- NUSIZ0
+       0x05 -> store nusiz1 v        -- NUSIZ1
+       0x06 -> store colup0 v               -- COLUP0
+       0x07 -> store colup1 v               -- COLUP1
+       0x08 -> store colupf v               -- COLUPF
+       0x09 -> store colubk v               -- COLUBK
+       0x0a -> store ctrlpf v >> makePlayfield               -- COLUPF
+       0x0b -> store refp0 v               -- REFP0
+       0x0c -> store refp1 v               -- REFP1
+       0x0d -> graphicsDelay 4 >> store pf0 v >> makePlayfield                  -- PF0
+       0x0e -> graphicsDelay 4 >> store pf1 v >> makePlayfield                  -- PF1
+       0x0f -> graphicsDelay 4 >> store pf2 v >> makePlayfield                  -- PF2
        0x10 -> graphicsDelay 5 >> load hpos >>= store s_ppos0 -- RESP0
        0x11 -> graphicsDelay 5 >> load hpos >>= store s_ppos1 -- RESP1
        0x12 -> graphicsDelay 4 >> load hpos >>= store s_mpos0 -- RESM0
@@ -696,19 +684,19 @@ writeStella addr v = do
                 store newGrp1 v
                 load newGrp0 >>= store oldGrp0
                 load newBall >>= store oldBall
-       0x1d -> putORegister enam0 v                -- ENAM0
-       0x1e -> putORegister enam1 v                -- ENAM1
+       0x1d -> store enam0 v                -- ENAM0
+       0x1e -> store enam1 v                -- ENAM1
        0x1f -> liftIO $ st boolr newBall $ testBit v 1   -- ENABL
-       0x20 -> putORegister hmp0 v                 -- HMP0
-       0x21 -> putORegister hmp1 v                 -- HMP1
-       0x22 -> putORegister hmm0 v                 -- HMM0
-       0x23 -> putORegister hmm1 v                 -- HMM1
-       0x24 -> putORegister hmbl v                 -- HMBL
+       0x20 -> store hmp0 v                 -- HMP0
+       0x21 -> store hmp1 v                 -- HMP1
+       0x22 -> store hmm0 v                 -- HMM0
+       0x23 -> store hmm1 v                 -- HMM1
+       0x24 -> store hmbl v                 -- HMBL
        0x25 -> store delayP0 $ testBit v 0   -- VDELP0
        0x26 -> store delayP1 $ testBit v 0   -- VDELP1
        0x27 -> store delayBall $ testBit v 0   -- VDELBL
-       0x28 -> putORegister resmp0 v
-       0x29 -> putORegister resmp1 v
+       0x28 -> store resmp0 v
+       0x29 -> store resmp1 v
        0x2a -> stellaHmove               -- HMOVE
        0x2b -> stellaHmclr               -- HMCLR
        0x2c -> stellaCxclr               -- CXCLR
