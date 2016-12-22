@@ -9,7 +9,6 @@ TODO
 14. Guess ROM type
 15. E0 bank switching segments
 16. Compare Stella clock to real world clock
-17. Why do combat and xevious fail? Is it a timer issue?
 
 Done
 ----
@@ -22,3 +21,5 @@ Done
 10. Mysterious "BYTE" in Millipede. 4a is LSR A
 12. Rework TV display to show all needed scan lines.
 11. Separate memory read and side-effecting (bank switching) memory read.
+17. Why do combat and xevious fail? Is it a timer issue?
+    They work fine.
