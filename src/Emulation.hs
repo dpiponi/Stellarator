@@ -77,12 +77,10 @@ startIntervalTimerN intr word8r n v = do
 initState :: IOUArray Int Word8 ->
              BankMode ->
              IOUArray Int Word8 ->
-             IOUArray OReg Word8 ->
-             IOUArray IReg Word8 ->
              Word16 ->
              SDL.Surface -> SDL.Surface ->
              SDL.Window -> IO Atari2600
-initState ram' mode rom' oregs iregs initialPC
+initState ram' mode rom' initialPC
           helloWorld screenSurface window = do
           memory' <- newIORef $ Memory {
                   _bankMode = mode
@@ -105,8 +103,6 @@ initState ram' mode rom' oregs iregs initialPC
               _memory = memory',
               _clock = clock',
               _stellaClock = stellaClock',
-              --_oregisters = oregs,
-              --_iregisters = iregs,
               _sdlBackSurface = helloWorld,
               _sdlFrontSurface = screenSurface,
               _sdlFrontWindow = window,
@@ -116,38 +112,6 @@ initState ram' mode rom' oregs iregs initialPC
               _word16Array = word16Array',
               _word8Array = word8Array'
           }
-
-{-
-{-# INLINE store #-}
-store :: OReg -> Word8 -> MonadAtari ()
-store i v = do
-    r <- getORegisters
-    liftIO $ writeArray r i v
-
-{-# INLINE load #-}
-load :: OReg -> MonadAtari Word8
-load i = do
-    r <- getORegisters
-    liftIO $ readArray r i
-
-{-# INLINE putIRegister #-}
-putIRegister :: IReg -> Word8 -> MonadAtari ()
-putIRegister i v = do
-    r <- getIRegisters
-    liftIO $ writeArray r i v
-
-{-# INLINE modifyIRegister #-}
-modifyIRegister :: IReg -> (Word8 -> Word8) -> MonadAtari ()
-modifyIRegister i f = do
-    r <- getIRegisters
-    liftIO $ (readArray r i >>= writeArray r i . f)
-
-{-# INLINE load #-}
-load :: IReg -> MonadAtari Word8
-load i = do
-    r <- getIRegisters
-    liftIO $ readArray r i
-    -}
 
 {- INLINE stellaHmclr -}
 stellaHmclr :: MonadAtari ()
@@ -292,9 +256,6 @@ Overscan        sta WSYNC
 {- INLINE stellaVblank -}
 stellaVblank :: Word8 -> MonadAtari ()
 stellaVblank v = do
-    --ir <- getIRegisters
-    --or <- getORegisters
-    --boolr <- getBoolArray
     trigger1' <- load trigger1
     if not trigger1'
         then do
@@ -413,7 +374,7 @@ stellaTickUntil n = do
         ptr <- liftIO $ surfacePixels surface -- <-- XXX I think it's OK but not sure
         let ptr' = castPtr ptr :: Ptr Word32
         -- XXX Not sure stellaDebug actually changes here so may be some redundancy
-        stellaDebug'' <- liftIO $ stellaTick (fromIntegral diff) word8r word64r intr boolr stellaDebug' ptr'
+        stellaDebug'' <- stellaTick (fromIntegral diff) word8r word64r intr boolr stellaDebug' ptr'
         putStellaDebug id stellaDebug'' -- XX Does this update sprites??? XXX
 
 {-# INLINE pureReadRom #-}
@@ -537,22 +498,6 @@ instance Emu6502 MonadAtari where
     debugStr _ _ = return ()
     {-# INLINE debugStrLn #-}
     debugStrLn _ _ = return ()
-
-{-
-    {- INLINE debugStr 9 -}
-    debugStr n str = do
-        d <- view debug
-        if n <= d
-            then liftIO $ putStr str
-            else return ()
-
-    {- INLINE debugStrLn 9 -}
-    debugStrLn n str = do
-        d <- view debug
-        if n <= d
-            then liftIO $ putStrLn str
-            else return ()
--}
 
     {- INLINE illegal -}
     illegal i = error $ "Illegal opcode 0x" ++ showHex i ""

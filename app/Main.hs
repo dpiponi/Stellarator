@@ -158,10 +158,8 @@ main = do
     pchi <- readArray rom 0x0ffd
     let initialPC = fromIntegral pclo+(fromIntegral pchi `shift` 8)
 
-    oregs <- newArray (0, 0x3f) 0
-    iregs <- newArray (0, 0x300) 0 -- XXX no need for that many really
     let style = bank args
-    state <- initState ram style rom oregs iregs
+    state <- initState ram style rom 
                           initialPC backSurface screenSurface window
 
     let loop = do
