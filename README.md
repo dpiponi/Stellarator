@@ -25,6 +25,21 @@ Don't press any other keys unless you want to quit.
 
 Use mouse click to get info about graphics registers for the selected pixel.
 
+Command line options
+--------------------
+
+    -f <filename> - Load rom from file
+    -b unbanked|f8|f6 - select rom bank switching style
+                        If it's a 4K cartridge use 'unbanked' (which is the default)
+                        If it's an 8K cartridge try f8
+                        If it's a 12K cartridge try f6
+                        There are other styles that I haven't implemented yet
+                        and a 16K+ cartridge, or one with RAM in it,
+                        has no chance of working.
+                        If you want to try a 2K cartridge make a 4K file
+                        from 2 copies of the 2K file and use that.
+                        (Will automate this eventually...)
+
 Debugger
 --------
 Hitting escape while running the emulator drops you into the debugger.
