@@ -13,6 +13,7 @@ import Atari2600
 import Control.Monad
 import Control.Monad.Trans
 import Data.Int
+import Prelude hiding (mod)
 import Data.Array.Unboxed
 import Data.Array.IO
 import Stella.TIARegisters
@@ -78,18 +79,18 @@ missile nusiz0' enam0' o resmp0'                          = o < missileSize nusi
 
 -- Atari2600 programmer's guide p.40
 {- INLINE player0 -}
-player0 :: Segment Word8 -> IOUArray OReg Word8 -> Bool -> Word8 -> Int -> IO Bool
-player0 _ _ _ _ o | o < 0 = return False
-player0 word8r r delayP0' nusiz0' o = do
+player0 :: Segment Word8 -> Bool -> Word8 -> Int -> IO Bool
+player0 _ _ _ o | o < 0 = return False
+player0 word8r delayP0' nusiz0' o = do
     let sizeCopies = 0b111 .&. nusiz0'
     grp0' <- if delayP0' then ld word8r oldGrp0 else ld word8r newGrp0
     refp0' <- ld word8r refp0
     return $ stretchPlayer (testBit refp0' 3) sizeCopies o grp0'
 
 {- INLINE player1 -}
-player1 :: Segment Word8 -> IOUArray OReg Word8 -> Bool -> Word8 -> Int -> IO Bool
-player1 _ _ _ _ o | o < 0 = return False
-player1 word8r r delayP1' nusiz1' o = do
+player1 :: Segment Word8 -> Bool -> Word8 -> Int -> IO Bool
+player1 _ _ _ o | o < 0 = return False
+player1 word8r delayP1' nusiz1' o = do
     let sizeCopies = 0b111 .&. nusiz1'
     grp1' <- if delayP1' then ld word8r oldGrp1 else ld word8r newGrp1
     refp1' <- ld word8r refp1
@@ -143,34 +144,34 @@ doCollisions :: Segment Word8 -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool ->
 doCollisions word8r lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1 = do
     let playball = bit 7 lplayfield .|. bit 6 lball
     when lmissile0 $ do
-        modify cxm0p $ (.|. bit 7 lplayer1 .|. bit 6 lplayer0)
-        fastOrIRegister word8r cxm0fb playball
-        fastOrIRegister word8r cxppmm $ bit 6 lmissile1
+        mod word8r cxm0p (.|. (bit 7 lplayer1 .|. bit 6 lplayer0))
+        mod word8r cxm0fb (.|. playball)
+        mod word8r cxppmm (.|. (bit 6 lmissile1))
     when lmissile1 $ do
-        fastOrIRegister word8r cxm1p $ bit 7 lplayer0 .|. bit 6 lplayer1
-        fastOrIRegister word8r cxm1fb playball
+        mod word8r cxm1p (.|. (bit 7 lplayer0 .|. bit 6 lplayer1))
+        mod word8r cxm1fb (.|. playball)
     when lplayer0 $ do
-        fastOrIRegister word8r cxp0fb playball
-        fastOrIRegister word8r cxppmm $ bit 7 lplayer1
-    when lplayer1 $ fastOrIRegister word8r cxp1fb playball
-    when lball $ fastOrIRegister word8r cxblpf $ bit 7 lplayfield
+        mod word8r cxp0fb (.|. playball)
+        mod word8r cxppmm (.|. bit 7 lplayer1)
+    when lplayer1 $ mod word8r cxp1fb (.|. playball)
+    when lball $ mod word8r cxblpf (.|. bit 7 lplayfield)
 
 {- INLINE compositeAndCollide -}
-compositeAndCollide :: Segment Word8 -> Segment Int -> Segment Word64 -> Segment Bool -> IRegArray -> Int -> Int -> ORegArray -> IO Word8
-compositeAndCollide word8r intr word64r boolr ir pixelx hpos' r = do
+compositeAndCollide :: Segment Word8 -> Segment Int -> Segment Word64 -> Segment Bool -> Int -> Int -> IO Word8
+compositeAndCollide word8r intr word64r boolr pixelx hpos' = do
     ppos0' <- ld intr s_ppos0
     ppos1' <- ld intr s_ppos1
     mpos0' <- ld intr s_mpos0
     mpos1' <- ld intr s_mpos1
     bpos' <- ld intr s_bpos
 
-    resmp0' <- fastGetORegister r resmp0
-    resmp1' <- fastGetORegister r resmp1
-    ctrlpf' <- fastGetORegister r ctrlpf
-    enam0' <- fastGetORegister r enam0
-    enam1' <- fastGetORegister r enam1
-    nusiz0' <- fastGetORegister r nusiz0
-    nusiz1' <- fastGetORegister r nusiz1
+    resmp0' <- ld word8r resmp0
+    resmp1' <- ld word8r resmp1
+    ctrlpf' <- ld word8r ctrlpf
+    enam0' <- ld word8r enam0
+    enam1' <- ld word8r enam1
+    nusiz0' <- ld word8r nusiz0
+    nusiz1' <- ld word8r nusiz1
     delayP0' <- ld boolr delayP0
     delayP1' <- ld boolr delayP1
     delayBall' <- ld boolr delayBall
@@ -180,23 +181,23 @@ compositeAndCollide word8r intr word64r boolr ir pixelx hpos' r = do
 
     let lmissile0 = missile nusiz0' enam0' (hpos'-mpos0') resmp0'
     let lmissile1 = missile nusiz1' enam1' (hpos'-mpos1') resmp1'
-    lplayer0 <- player0 word8r r delayP0' nusiz0' (hpos'-ppos0')
-    lplayer1 <- player1 word8r r delayP1' nusiz1' (hpos'-ppos1')
+    lplayer0 <- player0 word8r delayP0' nusiz0' (hpos'-ppos0')
+    lplayer1 <- player1 word8r delayP1' nusiz1' (hpos'-ppos1')
     let lball = ball delayBall' oldBall' newBall' ctrlpf' (hpos'-bpos')
     let playfieldx = fromIntegral (pixelx `shift` (-2))
     let lplayfield = playfieldx >= 0 && playfieldx < 40 && testBit pf' playfieldx
 
-    doCollisions ir lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1
+    doCollisions word8r lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1
 
-    fastGetORegister r $ chooseColour (testBit ctrlpf' 2)
+    ld word8r $ chooseColour (testBit ctrlpf' 2)
                                       (testBit ctrlpf' 1)
                                       lplayfield lball
                                       lmissile0 lmissile1
                                       lplayer0 lplayer1 pixelx
 
-stellaTick :: Int -> Segment Word8 -> Segment Word64 -> Segment Int -> Segment Bool -> IRegArray -> ORegArray -> DebugState -> Ptr Word32 -> IO DebugState
-stellaTick n _ _ _ _ _ _ debugState' _ | n <= 0 = return debugState'
-stellaTick n word8r word64r intr boolr ir or stellaDebug'@(DebugState { _posbreak = posbreak'@(xbreak', ybreak')}) ptr' = do
+stellaTick :: Int -> Segment Word8 -> Segment Word64 -> Segment Int -> Segment Bool -> DebugState -> Ptr Word32 -> IO DebugState
+stellaTick n _ _ _ _ debugState' _ | n <= 0 = return debugState'
+stellaTick n word8r word64r intr boolr stellaDebug'@(DebugState { _posbreak = posbreak'@(xbreak', ybreak')}) ptr' = do
     hpos' <- ld intr hpos
     vpos' <- ld intr vpos
     let posbreak'' = if (hpos', vpos') == (xbreak', ybreak') then (-1, -1) else posbreak'
@@ -210,15 +211,15 @@ stellaTick n word8r word64r intr boolr ir or stellaDebug'@(DebugState { _posbrea
         let pixelAddr = fromIntegral (screenWidth*pixely+pixelx)
 
         liftIO $ do
-            blank <- fastGetORegister or vblank
+            blank <- ld word8r vblank
             if testBit blank 1
                 then pokeElemOff ptr' pixelAddr 0x404040
                 else do
-                    final <- compositeAndCollide word8r intr word64r boolr ir pixelx hpos' or
+                    final <- compositeAndCollide word8r intr word64r boolr pixelx hpos'
                     let rgb = lut!(final `shift` (-1))
                     pokeElemOff ptr' pixelAddr rgb
 
     let (hpos'', vpos'') = updatePos (hpos', vpos')
     st intr hpos hpos''
     st intr vpos vpos''
-    stellaTick (n-1) word8r word64r intr boolr ir or stellaDebug' { _posbreak = posbreak'' } ptr'
+    stellaTick (n-1) word8r word64r intr boolr stellaDebug' { _posbreak = posbreak'' } ptr'

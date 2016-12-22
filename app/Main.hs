@@ -16,7 +16,7 @@ import Control.Concurrent (threadDelay)
 import Control.Lens hiding (_last)
 import Control.Monad
 import Control.Monad.Reader
-import Control.Monad.State.Strict
+--import Control.Monad.State.Strict
 import Core
 import Data.Array.IO
 import Data.Array.Unboxed
@@ -31,7 +31,6 @@ import Data.Monoid
 import Data.Word
 import Debug.Trace
 import DebugCmd
-import DebugState
 import DebugState
 import Debugger
 import Disasm
@@ -103,26 +102,26 @@ handleKey motion sym = do
     let pressed = isPressed motion
     case keysymScancode sym of
         SDL.Scancode1 -> dumpState
-        SDL.ScancodeUp -> modifyIRegister swcha (setBitTo 4 (not pressed))
-        SDL.ScancodeDown -> modifyIRegister swcha (setBitTo 5 (not pressed))
-        SDL.ScancodeLeft -> modifyIRegister swcha (setBitTo 6 (not pressed))
-        SDL.ScancodeRight -> modifyIRegister swcha (setBitTo 7 (not pressed))
-        SDL.ScancodeC -> modifyIRegister swchb (setBitTo 1 (not pressed))
-        SDL.ScancodeV -> modifyIRegister swchb (setBitTo 0 (not pressed))
+        SDL.ScancodeUp -> modify swcha (setBitTo 4 (not pressed))
+        SDL.ScancodeDown -> modify swcha (setBitTo 5 (not pressed))
+        SDL.ScancodeLeft -> modify swcha (setBitTo 6 (not pressed))
+        SDL.ScancodeRight -> modify swcha (setBitTo 7 (not pressed))
+        SDL.ScancodeC -> modify swchb (setBitTo 1 (not pressed))
+        SDL.ScancodeV -> modify swchb (setBitTo 0 (not pressed))
         SDL.ScancodeSpace ->  do
-            vblank' <- getORegister vblank
+            vblank' <- load vblank
             -- putHardware trigger1 pressed
             boolr <- getBoolArray
             liftIO $ st boolr trigger1 pressed
             let latch = testBit vblank' 6
             case (latch, pressed) of
                 (False, _) -> do
-                    inpt4' <- getIRegister inpt4
-                    putIRegister inpt4 ((clearBit inpt4' 7) .|. bit 7 (not pressed))
+                    inpt4' <- load inpt4
+                    store inpt4 ((clearBit inpt4' 7) .|. bit 7 (not pressed))
                 (True, False) -> return ()
                 (True, True) -> do
-                    inpt4' <- getIRegister inpt4
-                    putIRegister inpt4 (clearBit inpt4' 7)
+                    inpt4' <- load inpt4
+                    store inpt4 (clearBit inpt4' 7)
         SDL.ScancodeQ -> liftIO $ exitSuccess
         SDL.ScancodeEscape -> when pressed $ do
             t <- liftIO $ forkIO $ let spin = SDL.pollEvents >> spin in spin
@@ -177,10 +176,10 @@ main = do
 
     flip runReaderT state $ unM $ do
         -- Joystick buttons not pressed
-        putIRegister inpt4 0x80
-        putIRegister inpt5 0x80
-        putIRegister swcha 0b11111111
-        putIRegister swchb 0b00001011
+        store inpt4 0x80
+        store inpt5 0x80
+        store swcha 0b11111111
+        store swchb 0b00001011
         loop
 
     SDL.destroyWindow window
