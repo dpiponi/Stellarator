@@ -4,18 +4,20 @@ An Atari 2600 emulator.
 Work in progress...
 
 It'll run Adventure if you have the rom. Try:
-stack build && stack exec Stellarator-exe -- -f adventure.rom
-(You need to obtain adventure.rom from somewhere :-)
+stack build && stack exec Stellarator-exe -- -f ADVNTURE.BIN
+You need to obtain ADVNTURE.BIN from somewhere like
+https://www.atariage.com/system_items.html?SystemID=2600&ItemTypeID=ROM
 
 ![Adventure screenshot](docs/adventure.gif?raw=true "Adventure Screenshot")
 
 ![Pitfall screenshot](docs/pitfall.gif?raw=true "Pitfall Screenshot")
 
-Therere are visual artifacts and, more importantly,
+There are visual artifacts and, more importantly,
 *I've made no attempt to get timing right yet.*
 There is no audio either.
 
 Use cursor keys to simulate the joystick and the space bar to fire the trigger.
+Only player 1 for now.
 
 Also:
 
@@ -31,10 +33,15 @@ make use of precise timing of the video circuitry including delays as
 signals propagate through it. I only have only implemented delays on
 a small part of the hardware and that likely explains most of the quirks
 you see.
+It doesn't yet reproduce the artifacts I described here:
+https://plus.google.com/+DanPiponi/posts/NLUwTTKpV6i
 
 Some games don't function at all, even with the correct rom bank switching.
 For example the baddies don't seem to appear in Millipede.
 And there's lots of screen horribleness in Asteroids though it is playable.
+
+During a blanking period the "electron gun" renders gray not black.
+Useful for debugging.
 
 Command line options
 --------------------
@@ -54,7 +61,7 @@ Command line options
 Debugger
 --------
 Hitting escape while running the emulator drops you into the debugger.
-Use q to quit.
+Use q to quit debugging.
 
 I'll document the commands eventually but here's an example:
 
@@ -65,3 +72,6 @@ It then single steps through the entire row showing each instruction.
 Useful when you're trying to decode how an individual scanline is
 being rendered.
 The debug command history is kept in the file .stellarator
+
+UI events to the main window are ignored while single stepping though
+I'll probably fix that eventually.
