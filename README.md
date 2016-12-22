@@ -5,6 +5,7 @@ Work in progress...
 
 It'll run Adventure if you have the rom. Try:
 stack build && stack exec Stellarator-exe -- -f adventure.rom
+(You need to obtain adventure.rom from somewhere :-)
 
 ![Adventure screenshot](docs/adventure.gif?raw=true "Adventure Screenshot")
 
