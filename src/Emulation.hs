@@ -46,7 +46,7 @@ import SDL.Video
 import SDL.Video.Renderer
 import Stella.Graphics
 import Stella.SDLState
-import Stella.Sprites
+--import Stella.Sprites
 import Stella.TIARegisters
 import TIAColors
 import VideoOps
@@ -93,7 +93,7 @@ initState ram' mode rom' oregs iregs initialPC
                   _bankMode = mode,
                   _bankOffset = 0
               }
-          sprites' <- newIORef Stella.Sprites.start
+          --sprites' <- newIORef Stella.Sprites.start
           stellaDebug' <- newIORef DebugState.start
           clock' <- newIORef 0
           debug' <- newIORef 8
@@ -114,7 +114,7 @@ initState ram' mode rom' oregs iregs initialPC
               -- _regs = regs',
               _clock = clock',
               _debug = debug',
-              _sprites = sprites',
+              --_sprites = sprites',
               --_intervalTimer = intervalTimer',
               _graphics = graphics',
               _stellaClock = stellaClock',
@@ -178,46 +178,36 @@ stellaCxclr = do
 {- INLINE stellaHmove -}
 stellaHmove :: MonadAtari ()
 stellaHmove = do
-    Sprites ppos0' ppos1' mpos0' mpos1' bpos' <- useSprites id
-
     r <- getORegisters
     let getOReg reg = liftIO $ fastGetORegister r reg
 
     poffset0 <- getOReg hmp0
-    let ppos0'' = wrap160 (ppos0'-clockMove poffset0)
+    modify s_ppos0 $ \ppos0' ->  wrap160 (ppos0'-clockMove poffset0)
 
     poffset1 <- getOReg hmp1
-    let ppos1'' = wrap160 (ppos1'-clockMove poffset1)
+    modify s_ppos1 $ \ppos1' ->  wrap160 (ppos1'-clockMove poffset1)
 
     moffset0 <- getOReg hmm0
-    let mpos0'' = wrap160 (mpos0'-clockMove moffset0) -- XXX do rest
+    modify s_mpos0 $ \mpos0' ->  wrap160 (mpos0'-clockMove moffset0)
 
     moffset1 <- getOReg hmm1
-    let mpos1'' = wrap160 (mpos1'-clockMove moffset1) -- XXX do rest
+    modify s_mpos1 $ \mpos1' ->  wrap160 (mpos1'-clockMove moffset1)
 
     boffset <- getOReg hmbl
-    let bpos'' = wrap160 (bpos'-clockMove boffset)
-
-    putSprites id $ Sprites {
-        _s_ppos0 = ppos0'',
-        _s_ppos1 = ppos1'',
-        _s_mpos0 = mpos0'',
-        _s_mpos1 = mpos1'',
-        _s_bpos = bpos''
-    }
+    modify s_bpos $ \bpos' -> wrap160 (bpos'-clockMove boffset)
 
 -- Are these needed?
 {- INLINE stellaResmp0 -}
 stellaResmp0 :: MonadAtari ()
 stellaResmp0 = do
-    playerPosition <- useSprites s_ppos0
-    putSprites s_mpos0 (playerPosition :: Int)
+    playerPosition <- load s_ppos0
+    store s_mpos0 (playerPosition :: Int)
 
 {- INLINE stellaResmp1 -}
 stellaResmp1 :: MonadAtari ()
 stellaResmp1 = do
-    playerPosition <- useSprites s_ppos1
-    putSprites s_mpos1 (playerPosition :: Int)
+    playerPosition <- load s_ppos1
+    store s_mpos1 (playerPosition :: Int)
 
 inBinary :: (Bits a) => Int -> a -> String
 inBinary 0 _ = ""
@@ -442,16 +432,16 @@ stellaTickUntil n = do
         liftIO $ replicateM_ (fromIntegral diff) $ timerTick intr word8r
         resmp0' <- liftIO $ fastGetORegister r resmp0
         resmp1' <- liftIO $ fastGetORegister r resmp1
-        modifySprites id $ clampMissiles resmp0' resmp1'
+        clampMissiles resmp0' resmp1'
 
         stellaDebug' <- useStellaDebug id
         graphics' <- useGraphics id
         surface <- getBackSurface
         ptr <- liftIO $ surfacePixels surface -- <-- XXX I think it's OK but not sure
         let ptr' = castPtr ptr :: Ptr Word32
-        sprites' <- useSprites id
+        -- sprites' <- useSprites id
         -- XXX Not sure stellaDebug actually changes here so may be some redundancy
-        stellaDebug'' <- liftIO $ stellaTick (fromIntegral diff) word64r intr boolr ir r stellaDebug' graphics' sprites' ptr'
+        stellaDebug'' <- liftIO $ stellaTick (fromIntegral diff) word64r intr boolr ir r stellaDebug' graphics' {-sprites' -} ptr'
         putStellaDebug id stellaDebug'' -- XX Does this update sprites??? XXX
 
 {-# INLINE pureReadRom #-}
@@ -624,10 +614,12 @@ dumpStella = do
     liftIO $ putStr $ "ENAM0 = " ++ show (testBit enam0' 1)
     liftIO $ putStr $ " ENAM1 = " ++ show (testBit enam1' 1)
     liftIO $ putStrLn $ " ENABL = " ++ show (enablOld, enablNew)
-    sprites' <- view sprites
-    sprites'' <- liftIO $ readIORef sprites'
-    let mpos0' = sprites'' ^. s_mpos0
-    let mpos1' = sprites'' ^. s_mpos1
+    -- sprites' <- view sprites
+    -- sprites'' <- liftIO $ readIORef sprites'
+    --let mpos0' = sprites'' ^. s_mpos0
+    --let mpos1' = sprites'' ^. s_mpos1
+    mpos0' <- load s_mpos0
+    mpos1' <- load s_mpos1
     hmm0' <- getORegister hmm0
     hmm1' <- getORegister hmm1
     liftIO $ putStr $ "missile0 @ " ++ show mpos0' ++ "(" ++ show (clockMove hmm0') ++ ")"
@@ -717,11 +709,11 @@ writeStella addr v = do
        0x0d -> graphicsDelay 4 >> putORegister pf0 v >> makePlayfield                  -- PF0
        0x0e -> graphicsDelay 4 >> putORegister pf1 v >> makePlayfield                  -- PF1
        0x0f -> graphicsDelay 4 >> putORegister pf2 v >> makePlayfield                  -- PF2
-       0x10 -> graphicsDelay 5 >> load hpos >>= putSprites s_ppos0 -- RESP0
-       0x11 -> graphicsDelay 5 >> load hpos >>= putSprites s_ppos1 -- RESP1
-       0x12 -> graphicsDelay 4 >> load hpos >>= putSprites s_mpos0 -- RESM0
-       0x13 -> graphicsDelay 4 >> load hpos >>= putSprites s_mpos1 -- RESM1
-       0x14 -> graphicsDelay 4 >> load hpos >>= putSprites s_bpos  -- RESBL
+       0x10 -> graphicsDelay 5 >> load hpos >>= store s_ppos0 -- RESP0
+       0x11 -> graphicsDelay 5 >> load hpos >>= store s_ppos1 -- RESP1
+       0x12 -> graphicsDelay 4 >> load hpos >>= store s_mpos0 -- RESM0
+       0x13 -> graphicsDelay 4 >> load hpos >>= store s_mpos1 -- RESM1
+       0x14 -> graphicsDelay 4 >> load hpos >>= store s_bpos  -- RESBL
        0x1b -> do -- GRP0
                 putGraphics newGrp0 v
                 useGraphics newGrp1 >>= putGraphics oldGrp1
