@@ -9,7 +9,7 @@ module VideoOps(compositeAndCollide,
 import Data.Word
 import Data.Bits hiding (bit) -- XXX check this
 import Atari2600
-import Stella.Sprites
+--import Stella.Sprites
 import Control.Monad
 import Control.Monad.Trans
 import Data.Int
@@ -62,14 +62,10 @@ stretchPlayer reflect sizeCopies o bitmap =
         then False
         else stretchPlayer' reflect sizeCopies o bitmap
 
-clampMissiles :: Word8 -> Word8 -> Sprites -> Sprites
-clampMissiles resmp0' resmp1' (sprites'@Sprites { _s_ppos0 = ppos0',
-                                                  _s_ppos1 = ppos1',
-                                                  _s_mpos0 = mpos0',
-                                                  _s_mpos1 = mpos1' }) =
-    let mpos0'' =  if testBit resmp0' 1 then ppos0' else mpos0'
-        mpos1'' =  if testBit resmp1' 1 then ppos1' else mpos1'
-    in sprites' { _s_mpos0 = mpos0'', _s_mpos1 = mpos1'' }
+clampMissiles :: Word8 -> Word8 -> MonadAtari ()
+clampMissiles resmp0' resmp1' = do
+    when (testBit resmp0' 1) $ do { ppos0' <- load s_ppos0; store s_mpos0 ppos0' }
+    when (testBit resmp1' 1) $ do { ppos1' <- load s_ppos1; store s_mpos1 ppos1' }
 
 -- Atari2600 programmer's guide p.22
 {- INLINE missile0 -}
@@ -162,14 +158,21 @@ doCollisions ir lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1 = do
     when lball $ fastOrIRegister ir cxblpf $ bit 7 lplayfield
 
 {- INLINE compositeAndCollide -}
-compositeAndCollide :: Segment Word64 -> Segment Bool -> IRegArray -> Graphics -> Sprites -> Int -> Int -> ORegArray -> IO Word8
-compositeAndCollide word64r boolr ir graphics' sprites' pixelx hpos' r = do
+compositeAndCollide :: Segment Int -> Segment Word64 -> Segment Bool -> IRegArray -> Graphics -> Int -> Int -> ORegArray -> IO Word8
+compositeAndCollide intr word64r boolr ir graphics' pixelx hpos' r = do
+{-
     let Sprites { _s_mpos0 = mpos0',
               _s_mpos1 = mpos1',
               _s_ppos0 = ppos0',
               _s_ppos1 = ppos1',
               _s_bpos  = bpos'
             } = sprites'
+            -}
+    ppos0' <- ld intr s_ppos0
+    ppos1' <- ld intr s_ppos1
+    mpos0' <- ld intr s_mpos0
+    mpos1' <- ld intr s_mpos1
+    bpos' <- ld intr s_bpos
     -- let pf' = hardware' ^. pf
     -- let ir = hardware' ^. iregisters
 
@@ -203,9 +206,9 @@ compositeAndCollide word64r boolr ir graphics' sprites' pixelx hpos' r = do
                                       lmissile0 lmissile1
                                       lplayer0 lplayer1 pixelx
 
-stellaTick :: Int -> Segment Word64 -> Segment Int -> Segment Bool -> IRegArray -> ORegArray -> DebugState -> Graphics -> Sprites -> Ptr Word32 -> IO DebugState
-stellaTick n _ _ _ _ _ hardware' _ _ _ | n <= 0 = return hardware'
-stellaTick n word64r intr boolr ir or stellaDebug'@(DebugState { _posbreak = posbreak'@(xbreak', ybreak')}) graphics' sprites' ptr' = do
+stellaTick :: Int -> Segment Word64 -> Segment Int -> Segment Bool -> IRegArray -> ORegArray -> DebugState -> Graphics -> Ptr Word32 -> IO DebugState
+stellaTick n _ _ _ _ _ debugState' _ _ | n <= 0 = return debugState'
+stellaTick n word64r intr boolr ir or stellaDebug'@(DebugState { _posbreak = posbreak'@(xbreak', ybreak')}) graphics' ptr' = do
     hpos' <- ld intr hpos
     vpos' <- ld intr vpos
     let posbreak'' = if (hpos', vpos') == (xbreak', ybreak') then (-1, -1) else posbreak'
@@ -223,11 +226,11 @@ stellaTick n word64r intr boolr ir or stellaDebug'@(DebugState { _posbreak = pos
             if testBit blank 1
                 then pokeElemOff ptr' pixelAddr 0x404040
                 else do
-                    final <- compositeAndCollide word64r boolr ir graphics' sprites' pixelx hpos' or
+                    final <- compositeAndCollide intr word64r boolr ir graphics' pixelx hpos' or
                     let rgb = lut!(final `shift` (-1))
                     pokeElemOff ptr' pixelAddr rgb
 
     let (hpos'', vpos'') = updatePos (hpos', vpos')
     st intr hpos hpos''
     st intr vpos vpos''
-    stellaTick (n-1) word64r intr boolr ir or stellaDebug' { _posbreak = posbreak'' } graphics' sprites' ptr'
+    stellaTick (n-1) word64r intr boolr ir or stellaDebug' { _posbreak = posbreak'' } graphics' ptr'
