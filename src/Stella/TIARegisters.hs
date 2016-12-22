@@ -84,13 +84,17 @@ s_bpos = 8
 pc :: TypedIndex Word16
 pc = 0
 
-intim, p, a, x, y, s :: TypedIndex Word8
+intim, p, a, x, y, s, oldGrp0, newGrp0, oldGrp1, newGrp1 :: TypedIndex Word8
 intim = 0
 p = 1
 a = 2
 x = 3
 y = 4
 s = 5
+oldGrp0 = 6
+oldGrp1 = 7
+newGrp0 = 8
+newGrp1 = 9
 
 type ORegArray = IOUArray OReg Word8
 type IRegArray = IOUArray IReg Word8

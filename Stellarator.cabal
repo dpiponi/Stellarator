@@ -19,8 +19,8 @@ library
   hs-source-dirs:      src
   ghc-options:         -O5 -Wall -fwarn-missing-signatures -ddump-simpl -ddump-asm
   extensions:          
-  exposed-modules:     TIAColors, Binary, Core, Disasm, Stella.Graphics, Stella.Sprites,
-                       DebugCmd, Memory, Stella.SDLState, Stella.TIARegisters, DebugState, Atari2600, Debugger, Metrics, BitManips, Emulation, VideoOps
+  exposed-modules:     TIAColors, Binary, Core, Disasm,
+                       DebugCmd, Memory, Stella.TIARegisters, DebugState, Atari2600, Debugger, Metrics, BitManips, Emulation, VideoOps
   build-depends:       base >= 4.7 && < 5
                      , sdl2
                      , bytestring

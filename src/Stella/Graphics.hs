@@ -9,10 +9,10 @@ data Graphics = Graphics {
     -- _delayP0 :: !Bool,
     -- _delayP1 :: !Bool,
     -- _delayBall :: !Bool,
-    _oldGrp0 :: !Word8,
-    _newGrp0 :: !Word8,
-    _oldGrp1 :: !Word8,
-    _newGrp1 :: !Word8
+    --_oldGrp0 :: !Word8,
+    --_newGrp0 :: !Word8,
+    --_oldGrp1 :: !Word8,
+    --_newGrp1 :: !Word8
     -- _oldBall :: !Bool,
     -- _newBall :: !Bool
 }

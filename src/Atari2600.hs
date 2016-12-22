@@ -18,7 +18,7 @@ module Atari2600(
                  getIRegisters,
                  getORegisters,
                  getWord64Array,
-                 graphics,
+                 --graphics,
                  intArray,
                  iregisters,
                  load,
@@ -31,7 +31,6 @@ module Atari2600(
                  modifyStellaDebug,
                  oregisters,
                  putClock,
-                 putGraphics,
                  --putSprites,
                  putStellaClock,
                  putStellaDebug,
@@ -42,7 +41,6 @@ module Atari2600(
                  stellaDebug,
                  store,
                  useClock,
-                 useGraphics,
                  useMemory,
                  --useSprites,
                  useStellaClock,
@@ -61,16 +59,12 @@ import Data.Word
 import DebugState
 import Memory
 import SDL.Video
-import Stella.Graphics
---import Stella.Sprites
 import Stella.TIARegisters
 
 data Atari2600 = Atari2600 {
     _memory :: IORef Memory,
     _clock :: IORef Int64,
     _debug :: IORef Int,
---    _sprites :: IORef Sprites,
-    _graphics :: IORef Graphics,
     _stellaClock :: IORef Int64,
     _stellaDebug :: IORef DebugState,
 
@@ -209,6 +203,7 @@ modifySprites lens' modifier = do
     liftIO $ modifyIORef' (atari ^. sprites) (over lens' modifier)
     -}
 
+{-
 {-# INLINE useGraphics #-}
 useGraphics :: Getting b Graphics b -> MonadAtari b
 useGraphics lens' = do
@@ -221,6 +216,7 @@ putGraphics :: ASetter Graphics Graphics a a -> a -> MonadAtari ()
 putGraphics lens' value = do
     atari <- ask
     liftIO $ modifyIORef' (atari ^. graphics) (set lens' value)
+    -}
 
 {-# INLINE useStellaClock #-}
 useStellaClock :: Getting b Int64 b -> MonadAtari b
