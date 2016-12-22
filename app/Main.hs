@@ -46,7 +46,7 @@ import SDL.Event
 import SDL.Input.Keyboard
 import SDL.Vect
 import SDL.Video.Renderer
-import Stella.TIARegisters
+import Asm
 import System.Console.CmdArgs hiding ((+=))
 import System.Console.Haskeline
 import System.Exit

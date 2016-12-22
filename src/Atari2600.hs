@@ -39,7 +39,7 @@ import Data.Word
 import DebugState
 import Memory
 import SDL.Video
-import Stella.TIARegisters
+import Asm
 
 data Atari2600 = Atari2600 {
     _memory :: IORef Memory,
@@ -47,8 +47,6 @@ data Atari2600 = Atari2600 {
     _stellaClock :: IORef Int64,
     _stellaDebug :: IORef DebugState,
 
-    -- _oregisters :: IOUArray OReg Word8,
-    -- _iregisters :: IOUArray IReg Word8,
     _ram :: IOUArray Int Word8,
     _rom :: IOUArray Int Word8,
     _boolArray :: Segment Bool,
@@ -66,12 +64,6 @@ $(makeLenses ''Atari2600)
 
 newtype MonadAtari a = M { unM :: ReaderT Atari2600 IO a }
       deriving (Functor, Applicative, Monad, MonadReader Atari2600, MonadIO)
-
-class Monad m => Reg t m where
-    load :: TypedIndex t -> m t
-    store :: TypedIndex t -> t -> m ()
-    modify :: TypedIndex t -> (t -> t) -> m ()
-    modify r f = do { value <- load r; store r (f value) }
 
 instance Reg Word8 MonadAtari where
     {-# INLINE load #-}

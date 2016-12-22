@@ -1,7 +1,8 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
-module Stella.TIARegisters where
+module Asm where
 
 import Data.Word
 import Data.Array.IO
@@ -103,3 +104,9 @@ mod :: MArray IOUArray a IO => IOUArray (TypedIndex a) a -> TypedIndex a -> (a -
 mod arr idx f = do { value <- unsafeRead arr (unTyped idx); unsafeWrite arr (unTyped idx) (f value) }
 
 type Segment a = IOUArray (TypedIndex a) a
+
+class Monad m => Reg t m where
+    load :: TypedIndex t -> m t
+    store :: TypedIndex t -> t -> m ()
+    modify :: TypedIndex t -> (t -> t) -> m ()
+    modify r f = do { value <- load r; store r (f value) }

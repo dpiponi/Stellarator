@@ -36,7 +36,7 @@ import Numeric
 import Prelude hiding (last)
 import SDL.Vect
 import SDL.Video
-import Stella.TIARegisters
+import Asm
 import VideoOps
 import qualified SDL
 

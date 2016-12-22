@@ -13,7 +13,7 @@ import Control.Monad.Trans
 import Data.Int
 import Prelude hiding (mod)
 import Data.Array.Unboxed
-import Stella.TIARegisters
+import Asm
 import DebugState
 import Foreign.Ptr
 import Foreign.Storable

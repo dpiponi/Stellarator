@@ -12,7 +12,7 @@ import DebugCmd
 import DebugState
 import Disasm
 import Emulation
-import Stella.TIARegisters
+import Asm
 import System.Console.Haskeline
 import Text.Parsec
 
