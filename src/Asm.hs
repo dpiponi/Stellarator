@@ -64,6 +64,9 @@ swcha, swchb :: TypedIndex Word8
 swcha = 0x300+0x80
 swchb = 0x300+0x82
 
+maxWord8 :: TypedIndex Word8
+maxWord8 = swchb
+
 trigger1, delayP0, delayP1, delayBall, oldBall, newBall :: TypedIndex Bool
 trigger1 = 0
 delayP0 = 1
@@ -72,8 +75,14 @@ delayBall = 3
 oldBall = 4
 newBall = 5
 
+maxBool :: TypedIndex Bool
+maxBool = newBall
+
 pf :: TypedIndex Word64
 pf = 0
+
+maxWord64 :: TypedIndex Word64
+maxWord64 = pf
 
 hpos, vpos, subtimer, interval, s_ppos0, s_ppos1, s_mpos0, s_mpos1, s_bpos, debug :: TypedIndex Int
 hpos = 0

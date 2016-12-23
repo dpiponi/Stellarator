@@ -9,6 +9,7 @@ TODO
 16. Compare Stella clock to real world clock
 17. Build parser a bit more consistently
 18. Temp audio
+19. What's the black column in freeway?
 
 Done
 ----

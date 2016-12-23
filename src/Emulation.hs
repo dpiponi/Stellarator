@@ -71,11 +71,11 @@ initState ram' mode rom' initialPC
           clock' <- newIORef 0
           -- debug' <- newIORef 8
           stellaClock' <- newIORef 0
-          boolArray' <- newArray (0, 127) False -- Overkill
+          boolArray' <- newArray (0, maxBool) False
           intArray' <- newArray (0, 127) 0      -- Overkill
-          word64Array' <- newArray (0, 127) 0      -- Overkill
+          word64Array' <- newArray (0, maxWord64) 0
           word16Array' <- newArray (0, 127) 0      -- Overkill
-          word8Array' <- newArray (0, 0x3ff) 0      -- Overkill
+          word8Array' <- newArray (0, maxWord8) 0
           liftIO $ st word16Array' pc initialPC
           return $ Atari2600 {
               _rom = rom',

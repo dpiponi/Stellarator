@@ -48,9 +48,9 @@ stretchPlayer' reflect 0b111 o bitmap = o < 32 && testBit bitmap (flipIf reflect
 stretchPlayer' _       _     _ _      = error "Impossible"
 
 {- INLINE stretchPlayer -}
-stretchPlayer :: Bool -> Word8 -> Int -> Word8 -> Bool
-stretchPlayer _       _          o _      | o < 0 || o >= 72 = False
-stretchPlayer reflect sizeCopies o bitmap = stretchPlayer' reflect sizeCopies o bitmap
+stretchPlayer :: Bool -> Int -> Word8 -> Word8 -> Bool
+stretchPlayer _       o _          _      | o < 0 || o >= 72 = False
+stretchPlayer reflect o sizeCopies bitmap = stretchPlayer' reflect sizeCopies o bitmap
 
 clampMissiles :: Word8 -> Word8 -> MonadAtari ()
 clampMissiles resmp0' resmp1' = do
@@ -59,7 +59,6 @@ clampMissiles resmp0' resmp1' = do
 
 -- Atari2600 programmer's guide p.22
 {- INLINE missile0 -}
--- XXX Note that this updates mpos0 so need to take into account XXX
 missile :: Word8 -> Word8 -> Int -> Word8 -> Bool
 missile _       _      o _       | o < 0                  = False
 missile _       _      _ resmp0' | testBit resmp0' 1      = False
@@ -68,22 +67,22 @@ missile nusiz0' _      o _                                = o < missileSize nusi
 
 -- Atari2600 programmer's guide p.40
 {- INLINE player0 -}
-player0 :: Bool -> Word8 -> Int -> MonadAtari Bool
+player0 :: Int -> Bool -> Word8 -> MonadAtari Bool
 player0 _ _ o | o < 0 = return False
-player0 delayP0' nusiz0' o = do
+player0 o delayP0' nusiz0' = do
     let sizeCopies = 0b111 .&. nusiz0'
-    grp0' <- if delayP0' then load oldGrp0 else load newGrp0
+    grp0' <- load $ if delayP0' then oldGrp0 else newGrp0
     refp0' <- load refp0
-    return $ stretchPlayer (testBit refp0' 3) sizeCopies o grp0'
+    return $ stretchPlayer (testBit refp0' 3) o sizeCopies grp0'
 
 {- INLINE player1 -}
-player1 :: Bool -> Word8 -> Int -> MonadAtari Bool
+player1 :: Int -> Bool -> Word8 -> MonadAtari Bool
 player1 _ _ o | o < 0 = return False
-player1 delayP1' nusiz1' o = do
+player1 o delayP1' nusiz1' = do
     let sizeCopies = 0b111 .&. nusiz1'
-    grp1' <- if delayP1' then load oldGrp1 else load newGrp1
+    grp1' <- load $ if delayP1' then oldGrp1 else newGrp1
     refp1' <- load refp1
-    return $ stretchPlayer (testBit refp1' 3) sizeCopies o grp1'
+    return $ stretchPlayer (testBit refp1' 3) o sizeCopies grp1'
 
 {- INLINE ball -}
 ball :: Bool -> Bool -> Bool -> Word8 -> Int -> Bool
@@ -165,8 +164,8 @@ compositeAndCollide pixelx hpos' = do
 
     let lmissile0 = missile nusiz0' enam0' (hpos'-mpos0') resmp0'
     let lmissile1 = missile nusiz1' enam1' (hpos'-mpos1') resmp1'
-    lplayer0 <- player0 delayP0' nusiz0' (hpos'-ppos0')
-    lplayer1 <- player1 delayP1' nusiz1' (hpos'-ppos1')
+    lplayer0 <- player0 (hpos'-ppos0') delayP0' nusiz0'
+    lplayer1 <- player1 (hpos'-ppos1') delayP1' nusiz1'
     let lball = ball delayBall' oldBall' newBall' ctrlpf' (hpos'-bpos')
     let playfieldx = fromIntegral (pixelx `shift` (-2))
     let lplayfield = playfieldx >= 0 && playfieldx < 40 && testBit pf' playfieldx
