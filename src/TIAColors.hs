@@ -3,6 +3,9 @@ module TIAColors where
 import Data.Array.Unboxed
 import Data.Word
 
+{-
+ - Extracted from https://en.wikipedia.org/wiki/Television_Interface_Adaptor
+ -}
 lutList :: [Word32]
 lutList = [
                 0x000000, 0x404040, 0x6C6C6C, 0x909090, 0xB0B0B0, 0xC8C8C8, 0xDCDCDC, 0xECECEC,

@@ -75,3 +75,8 @@ The debug command history is kept in the file .stellarator
 
 UI events to the main window are ignored while single stepping though
 I'll probably fix that eventually.
+
+Credits
+-------
+The primary source of information was http://web.atari.org/stellaes.pdf
+This was a great secondary source with subtle details: http://www.atarihq.com/danb/files/TIA_HW_Notes.txt

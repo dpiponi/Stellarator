@@ -57,44 +57,43 @@ parseCommands:: ParsecT String u Identity Command
 parseCommands = Block <$> semiSep1 lexer parseCommand
 
 parseCommand :: ParsecT String u Identity Command
-parseCommand =
-        Block <$> (braces lexer $ semiSep1 lexer parseCommand)
-    <|> (char 'c' >> whiteSpace lexer >> return Cont)
-    <|> (char 'g' >> whiteSpace lexer >> return DumpGraphics)
-    <|> (char 's' >> whiteSpace lexer >> return Step)
-    <|> Repeat <$> (char 'r' >> whiteSpace lexer >> parseExpr) <*> parseCommand
-    <|> List <$> (char 'l' >> whiteSpace lexer >> optionMaybe parseExpr) <*> optionMaybe parseExpr
-    <|> Print <$> (char 'p' >> whiteSpace lexer >> sepBy1 parseExpr (comma lexer))
-    <|> Until <$> (char 'u' >> whiteSpace lexer >> parseExpr) <*> parseCommand
-    <|> Let <$> (identifier lexer <* char '=' <* whiteSpace lexer) <*> parseExpr
+parseCommand = Block <$> (braces lexer $ semiSep1 lexer parseCommand)
+           <|> (char 'c' >> whiteSpace lexer >> return Cont)
+           <|> (char 'g' >> whiteSpace lexer >> return DumpGraphics)
+           <|> (char 's' >> whiteSpace lexer >> return Step)
+           <|> Repeat <$> (char 'r' >> whiteSpace lexer >> parseExpr) <*> parseCommand
+           <|> List <$> (char 'l' >> whiteSpace lexer >> optionMaybe parseExpr) <*> optionMaybe parseExpr
+           <|> Print <$> (char 'p' >> whiteSpace lexer >> sepBy1 parseExpr (comma lexer))
+           <|> Until <$> (char 'u' >> whiteSpace lexer >> parseExpr) <*> parseCommand
+           <|> Let <$> (identifier lexer <* char '=' <* whiteSpace lexer) <*> parseExpr
 
 lexer :: GenTokenParser String u Identity
 lexer = makeTokenParser haskellStyle
 
 parseExpr :: ParsecT String u Identity Expr
-parseExpr    = buildExpressionParser table term
+parseExpr = buildExpressionParser table term
         <?> "expression"
 
 term :: ParsecT String u Identity Expr
-term    =  parens lexer parseExpr 
-        <|> try (symbol lexer "t" >> return Clock)
-        <|> try (symbol lexer "col" >> return Col)
-        <|> try (symbol lexer "row" >> return Row)
-        <|> try (symbol lexer "eq" >> return EQ)
-        <|> try (symbol lexer "ne" >> return NE)
-        <|> try (symbol lexer "cc" >> return CC)
-        <|> try (symbol lexer "cs" >> return CS)
-        <|> try (symbol lexer "pl" >> return PL)
-        <|> try (symbol lexer "pc" >> return PC)
-        <|> try (symbol lexer "mi" >> return MI)
-        <|> (symbol lexer "a" >> return A)
-        <|> (symbol lexer "x" >> return X)
-        <|> (symbol lexer "y" >> return Y)
-        <|> (symbol lexer "s" >> return S)
-        <|> do { n <- natural lexer; return (EConst (fromIntegral n)) }
-        <|> do { s <- identifier lexer ; return (Var s) }
-        <|> do { s <- stringLiteral lexer ; return (EConstString s) }
-        <?> "simple expression"
+term  = parens lexer parseExpr 
+    <|> try (symbol lexer "t" >> return Clock)
+    <|> try (symbol lexer "col" >> return Col)
+    <|> try (symbol lexer "row" >> return Row)
+    <|> try (symbol lexer "eq" >> return EQ)
+    <|> try (symbol lexer "ne" >> return NE)
+    <|> try (symbol lexer "cc" >> return CC)
+    <|> try (symbol lexer "cs" >> return CS)
+    <|> try (symbol lexer "pl" >> return PL)
+    <|> try (symbol lexer "pc" >> return PC)
+    <|> try (symbol lexer "mi" >> return MI)
+    <|> (symbol lexer "a" >> return A)
+    <|> (symbol lexer "x" >> return X)
+    <|> (symbol lexer "y" >> return Y)
+    <|> (symbol lexer "s" >> return S)
+    <|> do { n <- natural lexer; return (EConst (fromIntegral n)) }
+    <|> do { s <- identifier lexer ; return (Var s) }
+    <|> do { s <- stringLiteral lexer ; return (EConstString s) }
+    <?> "simple expression"
 
 table :: [[Operator String u Identity Expr]]
 table   = [ [prefix "-" Neg, prefix "+" id,

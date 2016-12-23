@@ -1,9 +1,7 @@
 module Debugger(runDebugger) where
 
-import qualified Data.Map.Strict as Map
-
+import Asm
 import Atari2600
---import Control.Lens
 import Control.Monad
 import Control.Monad.State.Strict
 import Core
@@ -12,69 +10,41 @@ import DebugCmd
 import DebugState
 import Disasm
 import Emulation
-import Asm
 import System.Console.Haskeline
 import Text.Parsec
+import qualified Data.Map.Strict as Map
 
 comparison :: (Int -> Int -> Bool) -> Expr -> Expr -> MonadAtari Value
 comparison operator expr0 expr1 = do
-        value0 <- eval expr0
-        value1 <- eval expr1
-        case (value0, value1) of
-            (EInt operand0, EInt operand1) -> return $ EBool (operand0 `operator` operand1)
-            _ -> return EFail
+    value0 <- eval expr0
+    value1 <- eval expr1
+    case (value0, value1) of
+        (EInt operand0, EInt operand1) -> return $ EBool (operand0 `operator` operand1)
+        _ -> return EFail
 
 arith :: (Int -> Int -> Int) -> Expr -> Expr -> MonadAtari Value
 arith operator expr0 expr1 = do
-        value0 <- eval expr0
-        value1 <- eval expr1
-        case (value0, value1) of
-            (EInt operand0, EInt operand1) -> return $ EInt (operand0 `operator` operand1)
-            _ -> return EFail
+    value0 <- eval expr0
+    value1 <- eval expr1
+    case (value0, value1) of
+        (EInt operand0, EInt operand1) -> return $ EInt (operand0 `operator` operand1)
+        _ -> return EFail
 
 eval :: Expr -> MonadAtari Value
-eval A = do
-    value <- getA
-    return (EInt (fromIntegral value))
-eval X = do
-    value <- getX
-    return (EInt (fromIntegral value))
-eval Y = do
-    value <- getY
-    return (EInt (fromIntegral value))
-eval PC = do
-    value <- getPC
-    return (EInt (fromIntegral value))
-eval DebugCmd.S = do
-    value <- getS
-    return (EInt (fromIntegral value))
-eval DebugCmd.EQ = do
-    value <- getZ
-    return (EBool value)
-eval NE = do
-    value <- getZ
-    return (EBool (not value))
-eval CC = do
-    value <- getC
-    return (EBool value)
-eval CS = do
-    value <- getC
-    return (EBool (not value))
-eval PL = do
-    value <- getN
-    return (EBool (not value))
-eval MI = do
-    value <- getN
-    return (EBool value)
-eval DebugCmd.Clock = do
-    value <- useClock id
-    return (EInt (fromIntegral value))
-eval Row = do
-    value <- load vpos
-    return (EInt (fromIntegral value))
-eval Col = do
-    value <- load hpos
-    return (EInt (fromIntegral value))
+eval A = EInt <$> fromIntegral <$> getA
+eval X = EInt <$> fromIntegral <$> getX
+eval Y = EInt <$> fromIntegral <$> getY
+eval PC = EInt <$> fromIntegral <$> getPC
+eval DebugCmd.S = EInt <$> fromIntegral <$> getS
+eval DebugCmd.EQ = EBool <$> getZ
+eval NE = EBool <$> not <$> getZ
+eval CS = EBool <$> getC
+eval CC = EBool <$> not <$> getC
+eval MI = EBool <$> getN
+eval PL = EBool <$> not <$> getN
+eval DebugCmd.Clock = EInt <$> fromIntegral <$> useClock id
+eval Row = EInt <$> fromIntegral <$> load vpos
+eval Col = EInt <$> fromIntegral <$> load hpos
 
 eval (Var name) = do
     v <- useStellaDebug variables
@@ -83,20 +53,20 @@ eval (Var name) = do
         Just value -> return value
 
 eval (Or expr0 expr1) = do
-        value0 <- eval expr0
-        value1 <- eval expr1
-        case (value0, value1) of
-            (EInt operand0, EInt operand1) -> return $ EInt (operand0 .|. operand1)
-            (EBool operand0, EBool operand1) -> return $ EBool (operand0 || operand1)
-            _ -> return EFail
+    value0 <- eval expr0
+    value1 <- eval expr1
+    case (value0, value1) of
+        (EInt operand0, EInt operand1) -> return $ EInt (operand0 .|. operand1)
+        (EBool operand0, EBool operand1) -> return $ EBool (operand0 || operand1)
+        _ -> return EFail
 
 eval (And expr0 expr1) = do
-        value0 <- eval expr0
-        value1 <- eval expr1
-        case (value0, value1) of
-            (EInt operand0, EInt operand1) -> return $ EInt (operand0 .&. operand1)
-            (EBool operand0, EBool operand1) -> return $ EBool (operand0 && operand1)
-            _ -> return EFail
+    value0 <- eval expr0
+    value1 <- eval expr1
+    case (value0, value1) of
+        (EInt operand0, EInt operand1) -> return $ EInt (operand0 .&. operand1)
+        (EBool operand0, EBool operand1) -> return $ EBool (operand0 && operand1)
+        _ -> return EFail
 
 eval (Gt value0 value1) = comparison (>) value0 value1
 eval (Ge value0 value1) = comparison (>=) value0 value1
@@ -112,27 +82,27 @@ eval (LeftShift value0 value1) = arith (shift) value0 value1
 eval (RightShift value0 value1) = arith (shift . negate) value0 value1
 
 eval (PeekByte expr) = do
-        value <- eval expr
-        case value of
-            EInt addr -> do
-                byte <- readMemory (fromIntegral addr)
-                return (EInt $ fromIntegral byte)
-            _ -> return EFail
+    value <- eval expr
+    case value of
+        EInt addr -> do
+            byte <- readMemory (fromIntegral addr)
+            return (EInt $ fromIntegral byte)
+        _ -> return EFail
 
 eval (PeekWord expr) = do
-        value <- eval expr
-        case value of
-            EInt addr -> do
-                lo <- readMemory (fromIntegral addr)
-                hi <- readMemory (fromIntegral addr+1)
-                return (EInt $ fromIntegral $ Core.make16 lo hi)
-            _ -> return EFail
+    value <- eval expr
+    case value of
+        EInt addr -> do
+            lo <- readMemory (fromIntegral addr)
+            hi <- readMemory (fromIntegral addr+1)
+            return (EInt $ fromIntegral $ Core.make16 lo hi)
+        _ -> return EFail
 
 eval (Not expr) = do
     value <- eval expr
     case value of
         EBool operand -> return $ EBool (not operand)
-        EInt operand -> return $ EInt (-1-operand)
+        EInt  operand -> return $ EInt  (-1-operand)
         _ -> return EFail
 
 eval (EConst number) = return (EInt number)
@@ -175,37 +145,42 @@ execCommand cmd =
         DebugCmd.List addr n -> do
             disassemble addr n
             return False
-        Repeat n repeatedCmd -> do
-            n' <- eval n
-            case n' of
-                EInt n'' -> do
-                    replicateM_ n'' (execCommand repeatedCmd)
-                _ -> return ()
-            return False
+        Repeat n repeatedCmd -> execRepeat n repeatedCmd
         Cont -> do
             liftIO $ putStrLn "Continuing..."
             return True
         DumpGraphics -> dumpStella >> return False
         Step -> step >> return False
-        Print es -> do
-            forM_ es $ \e -> do
-                val <- eval e
-                liftIO $ putStr (show val)
-            liftIO $ putStrLn ""
-            return False
-        Until cond repeatedCmd -> do
-            let loop = (do
-                            c <- eval cond
-                            case c of
-                                EBool True -> return ()
-                                EBool False -> do
-                                    void $ execCommand repeatedCmd
-                                    loop
-                                _ -> do
-                                    liftIO $ putStrLn "Non-boolean condition"
-                                    return ())
-            loop
-            return False
+        Print es -> execPrint es
+        Until cond repeatedCmd -> execUntil cond repeatedCmd
+
+execRepeat :: Expr -> Command -> MonadAtari Bool
+execRepeat n repeatedCmd = do
+    n' <- eval n
+    case n' of
+        EInt n'' -> do
+            replicateM_ n'' (execCommand repeatedCmd)
+        _ -> return ()
+    return False
+
+execPrint :: [Expr] -> MonadAtari Bool
+execPrint es = do
+    forM_ es $ \e -> do
+        val <- eval e
+        liftIO $ putStr (show val)
+    liftIO $ putStrLn ""
+    return False
+
+execUntil :: Expr -> Command -> MonadAtari Bool
+execUntil cond repeatedCmd = loop >> return False where
+    loop = do
+        c <- eval cond
+        case c of
+            EBool True -> return ()
+            EBool False -> do
+                void $ execCommand repeatedCmd
+                loop
+            _ -> liftIO $ putStrLn "Non-boolean condition"
 
 runDebugger :: MonadAtari ()
 runDebugger = do
