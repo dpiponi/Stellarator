@@ -102,13 +102,9 @@ trigger1Pressed pressed = do
     vblank' <- load vblank
     let latch = testBit vblank' 6
     case (latch, pressed) of
-        (False, _) -> do
-            inpt4' <- load inpt4
-            store inpt4 ((clearBit inpt4' 7) .|. bit 7 (not pressed))
+        (False, _   ) -> modify inpt4 $ bitAt 7 .~ not pressed
         (True, False) -> return ()
-        (True, True) -> do
-            inpt4' <- load inpt4
-            store inpt4 (clearBit inpt4' 7)
+        (True, True ) -> modify inpt4 $ bitAt 7 .~ False
 
 handleKey :: InputMotion -> Keysym -> MonadAtari ()
 handleKey motion sym = do
@@ -133,9 +129,7 @@ handleKey motion sym = do
 loopUntil :: Int64 -> MonadAtari ()
 loopUntil n = do
     stellaClock' <- useStellaClock id
-    when (stellaClock' < n) $ do
-        step
-        loopUntil n
+    when (stellaClock' < n) $ step >> loopUntil n
 
 {-
 sinSamples :: [Int16]
