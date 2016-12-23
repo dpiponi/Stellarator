@@ -9,11 +9,13 @@ import Data.Bits
 import DebugCmd
 import DebugState
 import Disasm
-import Emulation
+import Emulation()
 import VideoOps
 import System.Console.Haskeline
 import Text.Parsec
 import qualified Data.Map.Strict as Map
+
+data DebugAction = Continue | KeepDebugging
 
 comparison :: (Int -> Int -> Bool) -> Expr -> Expr -> MonadAtari Value
 comparison operator expr0 expr1 = do
@@ -132,48 +134,48 @@ disassemble addr n = do
     bytes <- forM [startPC..startPC+3*fromIntegral n'] readMemory
     liftIO $ dis n' startPC bytes
 
-execCommand :: Command -> MonadAtari Bool
+execCommand :: Command -> MonadAtari DebugAction
 execCommand cmd = 
     case cmd of
         Let var e -> do
             e' <- eval e
             modifyStellaDebug variables $ Map.insert var e'
             _ <- useStellaDebug variables -- Uh? XXX
-            return False
+            return KeepDebugging
         Block cmds -> do
             forM_ cmds execCommand
-            return False
+            return KeepDebugging
         DebugCmd.List addr n -> do
             disassemble addr n
-            return False
+            return KeepDebugging
         Repeat n repeatedCmd -> execRepeat n repeatedCmd
         Cont -> do
             liftIO $ putStrLn "Continuing..."
-            return True
-        DumpGraphics -> dumpStella >> return False
-        Step -> step >> return False
+            return Continue
+        DumpGraphics -> dumpStella >> return KeepDebugging
+        Step -> step >> return KeepDebugging
         Print es -> execPrint es
         Until cond repeatedCmd -> execUntil cond repeatedCmd
 
-execRepeat :: Expr -> Command -> MonadAtari Bool
+execRepeat :: Expr -> Command -> MonadAtari DebugAction
 execRepeat n repeatedCmd = do
     n' <- eval n
     case n' of
         EInt n'' -> do
             replicateM_ n'' (execCommand repeatedCmd)
         _ -> return ()
-    return False
+    return KeepDebugging
 
-execPrint :: [Expr] -> MonadAtari Bool
+execPrint :: [Expr] -> MonadAtari DebugAction
 execPrint es = do
     forM_ es $ \e -> do
         val <- eval e
         liftIO $ putStr (show val)
     liftIO $ putStrLn ""
-    return False
+    return KeepDebugging
 
-execUntil :: Expr -> Command -> MonadAtari Bool
-execUntil cond repeatedCmd = loop >> return False where
+execUntil :: Expr -> Command -> MonadAtari DebugAction
+execUntil cond repeatedCmd = loop >> return KeepDebugging where
     loop = do
         c <- eval cond
         case c of
@@ -190,7 +192,9 @@ runDebugger = do
     case cmd of
         Right cmd' -> do
             q <- execCommand cmd'
-            when (not q) runDebugger
+            case q of
+                KeepDebugging -> runDebugger
+                Continue      -> return ()
         Left e -> do
             liftIO $ print e
             runDebugger
