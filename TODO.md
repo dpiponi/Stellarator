@@ -1,14 +1,14 @@
 TODO
 ----
 
-6. Faster
-7. Deal with problem that WSYNC means stella clock /= 6502 clock
-8. Why does Donkey Kong fail with illegal instruction?
+7. Deal with problem that WSYNC means stella clock /= 3*6502 clock
 9. More ROM bank switching styles
 13. Load 2K roms
 14. Guess ROM type
 15. E0 bank switching segments
 16. Compare Stella clock to real world clock
+17. Build parser a bit more consistently
+18. Temp audio
 
 Done
 ----
@@ -23,3 +23,9 @@ Done
 11. Separate memory read and side-effecting (bank switching) memory read.
 17. Why do combat and xevious fail? Is it a timer issue?
     They work fine.
+    Used wrong bank switching for xevious.
+    Forgot to double rom size to 4K for combat.
+8. Why does Donkey Kong fail with illegal instruction?
+    Seems to work today.
+6. Faster
+    IOUArrays did the trick.

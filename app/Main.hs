@@ -5,6 +5,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE GADTs #-}
 
 module Main where
 
@@ -46,6 +47,7 @@ import SDL.Event
 import SDL.Input.Keyboard
 import SDL.Vect
 import SDL.Video.Renderer
+import SDL.Audio
 import Asm
 import System.Console.CmdArgs hiding ((+=))
 import System.Console.Haskeline
@@ -58,7 +60,10 @@ import VideoOps
 import qualified Data.ByteString.Internal as BS (c2w, w2c)
 import qualified Data.Map.Strict as Map
 import qualified SDL
-
+import Data.IORef
+import Control.Concurrent
+import Data.Int(Int16)
+import Data.Vector.Storable.Mutable as V hiding (modify)
 
 --  XXX Do this If reset occurs during horizontal blank, the object will appear at the left side of the television screen
 data Args = Args { file :: String, bank :: BankMode } deriving (Show, Data, Typeable)
@@ -75,53 +80,49 @@ isPressed :: InputMotion -> Bool
 isPressed Pressed = True
 isPressed Released = False
 
-handleEvent :: Event -> MonadAtari ()
-handleEvent event =
-    case eventPayload event of
-        MouseButtonEvent
-            (MouseButtonEventData win Pressed device ButtonLeft clicks pos) -> do
-            liftIO $ print pos
-            let P (V2 x y) = pos
-            setBreak (fromIntegral x `div` xscale) (fromIntegral y `div` yscale)
-        MouseMotionEvent
-            (MouseMotionEventData win device [ButtonLeft] pos rel) -> do
-            liftIO $ print pos
-            let P (V2 x y) = pos
-            setBreak (fromIntegral x `div` xscale) (fromIntegral y `div` yscale)
-        KeyboardEvent
-            (KeyboardEventData win motion rep sym) -> do
-            handleKey motion sym
+handleEvent :: EventPayload -> MonadAtari ()
 
-        otherwise -> return ()
+handleEvent (MouseButtonEvent (MouseButtonEventData win Pressed device ButtonLeft clicks pos)) = do
+    liftIO $ print pos
+    let P (V2 x y) = pos
+    setBreak (fromIntegral x `div` xscale) (fromIntegral y `div` yscale)
 
-setBitTo :: Int -> Bool -> Word8 -> Word8
-setBitTo i b a = if b then setBit a i else clearBit a i
+handleEvent (MouseMotionEvent (MouseMotionEventData win device [ButtonLeft] pos rel)) = do
+    liftIO $ print pos
+    let P (V2 x y) = pos
+    setBreak (fromIntegral x `div` xscale) (fromIntegral y `div` yscale)
+
+handleEvent (KeyboardEvent (KeyboardEventData win motion rep sym)) = handleKey motion sym
+
+handleEvent _ = return ()
+
+trigger1Pressed :: Bool -> MonadAtari ()
+trigger1Pressed pressed = do
+    store trigger1 pressed
+    vblank' <- load vblank
+    let latch = testBit vblank' 6
+    case (latch, pressed) of
+        (False, _) -> do
+            inpt4' <- load inpt4
+            store inpt4 ((clearBit inpt4' 7) .|. bit 7 (not pressed))
+        (True, False) -> return ()
+        (True, True) -> do
+            inpt4' <- load inpt4
+            store inpt4 (clearBit inpt4' 7)
 
 handleKey :: InputMotion -> Keysym -> MonadAtari ()
 handleKey motion sym = do
     let pressed = isPressed motion
     case keysymScancode sym of
-        SDL.Scancode1 -> dumpState
-        SDL.ScancodeUp -> modify swcha (setBitTo 4 (not pressed))
-        SDL.ScancodeDown -> modify swcha (setBitTo 5 (not pressed))
-        SDL.ScancodeLeft -> modify swcha (setBitTo 6 (not pressed))
-        SDL.ScancodeRight -> modify swcha (setBitTo 7 (not pressed))
-        SDL.ScancodeC -> modify swchb (setBitTo 1 (not pressed))
-        SDL.ScancodeV -> modify swchb (setBitTo 0 (not pressed))
-        SDL.ScancodeSpace ->  do
-            vblank' <- load vblank
-            -- putHardware trigger1 pressed
-            store trigger1 pressed
-            let latch = testBit vblank' 6
-            case (latch, pressed) of
-                (False, _) -> do
-                    inpt4' <- load inpt4
-                    store inpt4 ((clearBit inpt4' 7) .|. bit 7 (not pressed))
-                (True, False) -> return ()
-                (True, True) -> do
-                    inpt4' <- load inpt4
-                    store inpt4 (clearBit inpt4' 7)
-        SDL.ScancodeQ -> liftIO $ exitSuccess
+        SDL.Scancode1      -> dumpState
+        SDL.ScancodeUp     -> modify swcha $ bitAt 4 .~ not pressed
+        SDL.ScancodeDown   -> modify swcha $ bitAt 5 .~ not pressed
+        SDL.ScancodeLeft   -> modify swcha $ bitAt 6 .~ not pressed
+        SDL.ScancodeRight  -> modify swcha $ bitAt 7 .~ not pressed
+        SDL.ScancodeC      -> modify swchb $ bitAt 1 .~ not pressed
+        SDL.ScancodeV      -> modify swchb $ bitAt 0 .~ not pressed
+        SDL.ScancodeSpace  -> trigger1Pressed pressed
+        SDL.ScancodeQ      -> liftIO $ exitSuccess
         SDL.ScancodeEscape -> when pressed $ do
             t <- liftIO $ forkIO $ let spin = SDL.pollEvents >> spin in spin
             dumpState
@@ -136,10 +137,34 @@ loopUntil n = do
         step
         loopUntil n
 
+{-
+sinSamples :: [Int16]
+sinSamples =
+  map (\n ->
+         let t = fromIntegral n / 48000 :: Double
+             freq = 440 * 4
+         in round (fromIntegral (maxBound `div` 2 :: Int16) * sin (t * freq)))
+      [0 :: Integer ..]
+
+audioCB :: IORef [Int16] -> AudioFormat sampleType -> IOVector sampleType -> IO ()
+audioCB samples format buffer =
+  case format of
+    Signed16BitLEAudio ->
+      do samples' <- readIORef samples
+         let n = V.length buffer
+         sequence_ (Prelude.zipWith (write buffer)
+                            [0 ..]
+                            (Prelude.take n samples'))
+         writeIORef samples
+                    (Prelude.drop n samples')
+    _ -> error "Unsupported audio format"
+-}
+
 main :: IO ()
 main = do
     args <- cmdArgs clargs
-    SDL.initialize [SDL.InitVideo]
+    --SDL.initialize [SDL.InitVideo, SDL.InitAudio]
+    SDL.initializeAll
     window <- SDL.createWindow "Stellarator"
                                SDL.defaultWindow {
                                     SDL.windowInitialSize = V2 (fromIntegral $ xscale*screenWidth)
@@ -158,14 +183,28 @@ main = do
     let initialPC = fromIntegral pclo+(fromIntegral pchi `shift` 8)
 
     let style = bank args
-    state <- initState ram style rom 
-                          initialPC backSurface screenSurface window
+    state <- initState ram style rom initialPC backSurface screenSurface window
+
+{-
+    samples <- newIORef sinSamples
+    (device, _) <- SDL.openAudioDevice OpenDeviceSpec {
+        SDL.openDeviceFreq = Mandate 48000,
+        SDL.openDeviceFormat = Mandate Signed16BitNativeAudio,
+        SDL.openDeviceChannels = Mandate Mono,
+        SDL.openDeviceSamples = 4096 * 2,
+        SDL.openDeviceCallback = audioCB samples,
+        SDL.openDeviceUsage = ForPlayback,
+        SDL.openDeviceName = Nothing
+    }
+    setAudioDevicePlaybackState device Play
+    threadDelay 1000000
+-}
 
     let loop = do
             events <- liftIO $ SDL.pollEvents
 
             let quit = elem SDL.QuitEvent $ map SDL.eventPayload events
-            forM_ events handleEvent
+            forM_ events (handleEvent . eventPayload)
             stellaClock' <- useStellaClock id
             loopUntil (stellaClock' + 1000)
 
