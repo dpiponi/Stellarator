@@ -9,15 +9,16 @@
 
 module Main where
 
+import Asm
 import Atari2600
 import Binary
 import Control.Applicative
+import Control.Concurrent
 import Control.Concurrent
 import Control.Concurrent (threadDelay)
 import Control.Lens hiding (_last)
 import Control.Monad
 import Control.Monad.Reader
---import Control.Monad.State.Strict
 import Core
 import Data.Array.IO
 import Data.Array.Unboxed
@@ -27,8 +28,11 @@ import Data.Bits hiding (bit)
 import Data.Bits.Lens
 import Data.ByteString as B hiding (last, putStr, putStrLn, getLine, length, elem, map, reverse)
 import Data.Char
+import Data.IORef
 import Data.Int
+import Data.Int(Int16)
 import Data.Monoid
+import Data.Vector.Storable.Mutable as V hiding (modify)
 import Data.Word
 import Debug.Trace
 import DebugCmd
@@ -43,12 +47,11 @@ import Memory
 import Metrics
 import Numeric
 import Prelude hiding (last)
+import SDL.Audio
 import SDL.Event
 import SDL.Input.Keyboard
 import SDL.Vect
 import SDL.Video.Renderer
-import SDL.Audio
-import Asm
 import System.Console.CmdArgs hiding ((+=))
 import System.Console.Haskeline
 import System.Exit
@@ -60,10 +63,6 @@ import VideoOps
 import qualified Data.ByteString.Internal as BS (c2w, w2c)
 import qualified Data.Map.Strict as Map
 import qualified SDL
-import Data.IORef
-import Control.Concurrent
-import Data.Int(Int16)
-import Data.Vector.Storable.Mutable as V hiding (modify)
 
 --  XXX Do this If reset occurs during horizontal blank, the object will appear at the left side of the television screen
 data Args = Args { file :: String, bank :: BankMode } deriving (Show, Data, Typeable)
@@ -71,9 +70,11 @@ data Args = Args { file :: String, bank :: BankMode } deriving (Show, Data, Type
 clargs :: Args
 clargs = Args { file = "adventure.bin", bank = UnBanked }
 
+{-
 times :: (Integral n, Monad m) => n -> m a -> m ()
 times 0 _ = return ()
 times n m = m >> times (n-1) m
+-}
 
 {- INLINE isPressed -}
 isPressed :: InputMotion -> Bool
@@ -205,7 +206,6 @@ main = do
             loop
 
     flip runReaderT state $ unM $ do
-        -- Joystick buttons not pressed
         store inpt4 0x80
         store inpt5 0x80
         store swcha 0b11111111

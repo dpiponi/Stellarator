@@ -8,8 +8,10 @@ module VideoOps(clampMissiles,
 import Data.Word
 import Data.Bits hiding (bit) -- XXX check this
 import Atari2600
+import Control.Lens
 import Control.Monad
 import Control.Monad.Trans
+import Data.Bits.Lens
 import Data.Int
 import Prelude hiding (mod)
 import Data.Array.Unboxed
@@ -121,21 +123,19 @@ bit n True  = 1 `shift` n
  -}
 doCollisions :: Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> MonadAtari ()
 doCollisions lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1 = do
-    let playball = bit 7 lplayfield .|. bit 6 lball
+    let playball = 0 & bitAt 7 .~ lplayfield & bitAt 6 .~ lball
     when lmissile0 $ do
-        modify cxm0p  (.|. (bit 7 lplayer1 .|. bit 6 lplayer0))
+        modify cxm0p  $ (bitAt 7 ||~ lplayer1) . (bitAt 6 ||~ lplayer0)
         modify cxm0fb (.|. playball)
-        modify cxppmm (.|. (bit 6 lmissile1))
+        modify cxppmm $ bitAt 6 ||~ lmissile1
     when lmissile1 $ do
-        modify cxm1p  (.|. (bit 7 lplayer0 .|. bit 6 lplayer1))
+        modify cxm1p  $ (bitAt 7 ||~ lplayer0) . (bitAt 6 ||~ lplayer1)
         modify cxm1fb (.|. playball)
-    when lplayer0 $ do
+    when lplayer0  $ do
         modify cxp0fb (.|. playball)
-        modify cxppmm (.|. bit 7 lplayer1)
-    when lplayer1 $
-        modify cxp1fb (.|. playball)
-    when lball $
-        modify cxblpf (.|. bit 7 lplayfield)
+        modify cxppmm $ bitAt 7 ||~ lplayer1
+    when lplayer1  $ modify cxp1fb (.|. playball)
+    when lball     $ modify cxblpf $ bitAt 7 ||~ lplayfield
 
 {- INLINE compositeAndCollide -}
 compositeAndCollide :: Int -> Int -> MonadAtari Word8
