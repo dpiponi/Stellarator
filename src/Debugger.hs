@@ -210,7 +210,7 @@ execCommand cmd =
 runDebugger :: MonadAtari ()
 runDebugger = do
     Just line <- liftIO $ runInputT (defaultSettings { historyFile=Just ".stellarator" }) $ getInputLine "> "
-    let cmd = parse parseCommand "" line
+    let cmd = parse parseCommands "" line
     case cmd of
         Right cmd' -> do
             q <- execCommand cmd'

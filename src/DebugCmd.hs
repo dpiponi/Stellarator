@@ -53,43 +53,20 @@ fromHex = fst . head . readHex
 hexWord :: Stream s m Char => ParsecT s u m Word16
 hexWord = fromHex <$> many1 hexDigit
 
+parseCommands:: ParsecT String u Identity Command
+parseCommands = Block <$> semiSep1 lexer parseCommand
+
 parseCommand :: ParsecT String u Identity Command
 parseCommand =
-        Block <$> (braces lexer $ sepBy1 parseCommand (semi lexer))
+        Block <$> (braces lexer $ semiSep1 lexer parseCommand)
     <|> (char 'c' >> whiteSpace lexer >> return Cont)
     <|> (char 'g' >> whiteSpace lexer >> return DumpGraphics)
     <|> (char 's' >> whiteSpace lexer >> return Step)
-    <|> (do
-        _ <- char 'r'
-        _ <- whiteSpace lexer
-        n <- parseExpr
-        c <- parseCommand
-        return $ Repeat n c)
-    <|> (do
-        _ <- char 'l'
-        _ <- whiteSpace lexer
-        addr <- optionMaybe parseExpr
-        n <- optionMaybe parseExpr
-        return (List addr n))
-    <|> (do
-            _ <- char 'p'
-            _ <- whiteSpace lexer
-            exprs <- sepBy1 parseExpr (comma lexer)
-            return $ Print exprs)
-    <|> (do
-            _ <- char 'u'
-            _ <- whiteSpace lexer
-            expr <- parseExpr
-            _ <- whiteSpace lexer
-            cmd <- parseCommand
-            return $ Until expr cmd)
-    <|> (do
-            s <- identifier lexer
-            _ <- whiteSpace lexer
-            _ <- char '='
-            _ <- whiteSpace lexer
-            e <- parseExpr
-            return $ Let s e)
+    <|> Repeat <$> (char 'r' >> whiteSpace lexer >> parseExpr) <*> parseCommand
+    <|> List <$> (char 'l' >> whiteSpace lexer >> optionMaybe parseExpr) <*> optionMaybe parseExpr
+    <|> Print <$> (char 'p' >> whiteSpace lexer >> sepBy1 parseExpr (comma lexer))
+    <|> Until <$> (char 'u' >> whiteSpace lexer >> parseExpr) <*> parseCommand
+    <|> Let <$> (identifier lexer <* char '=' <* whiteSpace lexer) <*> parseExpr
 
 lexer :: GenTokenParser String u Identity
 lexer = makeTokenParser haskellStyle
@@ -147,8 +124,8 @@ table   = [ [prefix "-" Neg, prefix "+" id,
           ]
         
 binary :: String -> (a -> a -> a) -> Assoc -> Operator String u Identity a
-binary  name fun assoc = Infix (do{ reservedOp lexer name; return fun }) assoc
+binary  name fun assoc = Infix   (do{ reservedOp lexer name; return fun }) assoc
 prefix :: String -> (a -> a) -> Operator String u Data.Functor.Identity.Identity a
-prefix  name fun       = Prefix (do{ reservedOp lexer name; return fun })
+prefix  name fun       = Prefix  (do{ reservedOp lexer name; return fun })
 postfix :: String -> (a -> a) -> Operator String u Data.Functor.Identity.Identity a
 postfix name fun       = Postfix (do{ reservedOp lexer name; return fun })
