@@ -78,5 +78,5 @@ I'll probably fix that eventually.
 
 Credits
 -------
-The primary source of information was http://web.atari.org/stellaes.pdf
-This was a great secondary source with subtle details: http://www.atarihq.com/danb/files/TIA_HW_Notes.txt
+1. The primary source of information was http://web.atari.org/stellaes.pdf
+2. This was a great secondary source with subtle details: http://www.atarihq.com/danb/files/TIA_HW_Notes.txt
