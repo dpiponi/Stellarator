@@ -10,6 +10,8 @@ TODO
 17. Build parser a bit more consistently
 18. Temp audio
 19. What's the black column in freeway?
+20. Now performance is OK, unbatch stuff in stellaTickUntil
+21. Maybe tick n should become tick with no args
 
 Done
 ----

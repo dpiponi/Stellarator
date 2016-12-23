@@ -16,6 +16,7 @@ module Emulation(stellaDebug,
                  trigger1,
                  load) where
 
+--import Asm
 import Atari2600
 import BitManips
 import Control.Lens
@@ -298,9 +299,7 @@ readStella addr =
         0x3d -> load inpt5
         0x280 -> load swcha
         0x282 -> load swchb
-        0x284 -> load intim {-do
-            word8r <- view word8Array
-            liftIO $ ld word8r intim-}
+        0x284 -> load intim
         _ -> return 0 
 
 {- INLINE stellaVsync -}
@@ -317,25 +316,36 @@ stellaVsync v = do
 stellaWsync :: MonadAtari ()
 stellaWsync = do
     hpos' <- load hpos
-    when (hpos' > 2) $ do
-        modifyClock id (+ 1)
-        clock' <- useClock id
-        stellaTickUntil (3*clock')
+    -- Run instructions until we're at start of new scan line
+    when (hpos' > 0) $ do
+        --modifyClock id (+ 1)
+        --clock' <- useClock id
+        stellaTickFor 1 -- there's a smarter way to do this XXX
         stellaWsync
 
 -- http://atariage.com/forums/topic/107527-atari-2600-vsyncvblank/
 
-stellaTickUntil :: Int64 -> MonadAtari ()
-stellaTickUntil n = do
-    c <- useStellaClock id
-    let diff = n-c
+stellaTickFor :: Int -> MonadAtari ()
+stellaTickFor d = do
+    n <- load ahead
+    if d > n
+        then do
+            stellaTickFor' (d-n)
+            store ahead 0
+        else store ahead (n-d)
+
+stellaTickFor' :: Int -> MonadAtari ()
+stellaTickFor' diff = do
+    --c <- useStellaClock id
+    --let diff = n-c
     when (diff >= 0) $ do
         -- Batch together items that don't need to be
         -- carried out on individual ticks
-        modifyStellaClock id (+ diff)
+        modifyStellaClock id (+ fromIntegral diff)
         replicateM_ (fromIntegral diff) $ timerTick
         resmp0' <- load resmp0
         resmp1' <- load resmp1
+        -- XXX surely this must be done every time - collisions
         clampMissiles resmp0' resmp1'
 
         stellaDebug' <- useStellaDebug id
@@ -408,8 +418,8 @@ instance Emu6502 MonadAtari where
     {-# INLINE tick #-}
     tick n = do
         modifyClock id (+ fromIntegral n)
-        c <- useClock id
-        stellaTickUntil (3*c)
+        -- c <- useClock id
+        stellaTickFor (3*n)
     {-# INLINE putC #-}
     putC b = do { p' <- load p; store p (p' & bitAt 0 .~ b) }
     {-# INLINE getC #-}
@@ -559,10 +569,12 @@ dumpState = do
 setBreak :: Int -> Int -> MonadAtari ()
 setBreak breakX breakY = putStellaDebug posbreak (breakX+picx, breakY+picy)
 
-graphicsDelay :: Int64 -> MonadAtari ()
-graphicsDelay n = do
-    c <- useClock id
-    stellaTickUntil (3*c+n)
+graphicsDelay :: Int -> MonadAtari ()
+graphicsDelay d = do
+    n <- load ahead
+    when (d > n) $ do
+            stellaTickFor' (d-n)
+            store ahead d
 
 {- INLINABLE writeStella -}
 writeStella :: Word16 -> Word8 -> MonadAtari ()

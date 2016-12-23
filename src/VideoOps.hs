@@ -173,10 +173,10 @@ compositeAndCollide pixelx hpos' = do
     doCollisions lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1
 
     load $ chooseColour (testBit ctrlpf' 2)
-                                      (testBit ctrlpf' 1)
-                                      lplayfield lball
-                                      lmissile0 lmissile1
-                                      lplayer0 lplayer1 pixelx
+                        (testBit ctrlpf' 1)
+                        lplayfield lball
+                        lmissile0 lmissile1
+                        lplayer0 lplayer1 pixelx
 
 stellaTick :: Int -> DebugState -> Ptr Word32 -> MonadAtari DebugState
 stellaTick n debugState' _ | n <= 0 = return debugState'
