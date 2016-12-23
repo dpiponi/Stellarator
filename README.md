@@ -3,8 +3,12 @@
 An Atari 2600 emulator.
 Work in progress...
 
-It'll run Adventure if you have the rom. Try:
-stack build && stack exec Stellarator-exe -- -f ADVNTURE.BIN
+It'll run Adventure if you have the rom.
+
+Try:
+
+    stack build && stack exec Stellarator-exe -- -f ADVNTURE.BIN
+
 You need to obtain ADVNTURE.BIN from somewhere like
 https://www.atariage.com/system_items.html?SystemID=2600&ItemTypeID=ROM
 
