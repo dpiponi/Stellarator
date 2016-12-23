@@ -32,6 +32,9 @@ flipIf :: Bool -> Int -> Int
 flipIf True  idx = idx
 flipIf False idx = 7-idx
 
+{-
+ - See http://atarihq.com/danb/files/stella.pdf page 39
+ -}
 {- INLINE stretchPlayer' -}
 stretchPlayer' :: Bool -> Word8 -> Int -> Word8 -> Bool
 stretchPlayer' reflect 0b000 o bitmap = o < 8 && testBit bitmap (flipIf reflect $ fromIntegral o)
