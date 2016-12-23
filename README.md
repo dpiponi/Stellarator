@@ -69,7 +69,7 @@ Use q to quit debugging.
 
 I'll document the commands eventually but here's an example:
 
-    {u(row==160){s};u(row>160){s;l}}
+    u(row==160){s};u(row>160){s;l}
 
 It single steps until the VCS is on row 160 of the screen.
 It then single steps through the entire row showing each instruction.
