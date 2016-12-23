@@ -25,11 +25,5 @@ lutList = [
 
 -- | LUT converting from COLUM 7 bit colours to RGB
 -- Remember to `shift` (-1) before lookup
-{-# INLINABLE lut #-}
 lut :: UArray Word8 Word32
 lut = listArray (0, 0x7f) lutList
-
-{-
-main = do
-    print lutList
--}

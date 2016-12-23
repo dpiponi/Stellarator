@@ -56,38 +56,38 @@ hexWord = fromHex <$> many1 hexDigit
 parseCommand :: ParsecT String u Identity Command
 parseCommand =
         Block <$> (braces lexer $ sepBy1 parseCommand (semi lexer))
-    <|> (char 'c' >> many (char ' ') >> return Cont)
-    <|> (char 'g' >> many (char ' ') >> return DumpGraphics)
-    <|> (char 's' >> many (char ' ') >> return Step)
+    <|> (char 'c' >> whiteSpace lexer >> return Cont)
+    <|> (char 'g' >> whiteSpace lexer >> return DumpGraphics)
+    <|> (char 's' >> whiteSpace lexer >> return Step)
     <|> (do
         _ <- char 'r'
-        _ <- many (char ' ')
+        _ <- whiteSpace lexer
         n <- parseExpr
         c <- parseCommand
         return $ Repeat n c)
     <|> (do
         _ <- char 'l'
-        _ <- many (char ' ')
+        _ <- whiteSpace lexer
         addr <- optionMaybe parseExpr
         n <- optionMaybe parseExpr
         return (List addr n))
     <|> (do
             _ <- char 'p'
-            _ <- many (char ' ')
+            _ <- whiteSpace lexer
             exprs <- sepBy1 parseExpr (comma lexer)
             return $ Print exprs)
     <|> (do
             _ <- char 'u'
-            _ <- many (char ' ')
+            _ <- whiteSpace lexer
             expr <- parseExpr
-            _ <- many (char ' ')
+            _ <- whiteSpace lexer
             cmd <- parseCommand
             return $ Until expr cmd)
     <|> (do
             s <- identifier lexer
-            _ <- many (char ' ')
+            _ <- whiteSpace lexer
             _ <- char '='
-            _ <- many (char ' ')
+            _ <- whiteSpace lexer
             e <- parseExpr
             return $ Let s e)
 
