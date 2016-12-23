@@ -1,7 +1,6 @@
 TODO
 ----
 
-7. Deal with problem that WSYNC means stella clock /= 3*6502 clock
 9. More ROM bank switching styles
 13. Load 2K roms
 14. Guess ROM type
@@ -11,7 +10,9 @@ TODO
 18. Temp audio
 19. What's the black column in freeway?
 20. Now performance is OK, unbatch stuff in stellaTickUntil
-21. Maybe tick n should become tick with no args
+21. Maybe tick n should become tick with no args (implicitly 1)
+22. Stray pixels in Adventure
+23. What's with crazy flashing in Asteroids?
 
 Done
 ----
@@ -32,3 +33,4 @@ Done
     Seems to work today.
 6. Faster
     IOUArrays did the trick.
+7. Deal with problem that WSYNC means stella clock /= 3*6502 clock

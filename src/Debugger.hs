@@ -10,6 +10,7 @@ import DebugCmd
 import DebugState
 import Disasm
 import Emulation
+import VideoOps
 import System.Console.Haskeline
 import Text.Parsec
 import qualified Data.Map.Strict as Map

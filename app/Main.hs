@@ -210,6 +210,8 @@ main = do
         store inpt5 0x80
         store swcha 0b11111111
         store swchb 0b00001011
+        store xbreak (-1)
+        store ybreak (-1)
         loop
 
     SDL.destroyWindow window

@@ -6,7 +6,6 @@
 {-# LANGUAGE ApplicativeDo #-}
 
 module Emulation(stellaDebug,
-                 dumpStella,
                  dumpRegisters,
                  dumpState,
                  setBreak,
@@ -67,8 +66,8 @@ initState :: IOUArray Int Word8 ->
              SDL.Window -> IO Atari2600
 initState ram' mode rom' initialPC
           helloWorld screenSurface window = do
-          memory' <- newIORef $ Memory { _bankMode = mode }
           stellaDebug' <- newIORef DebugState.start
+          memory' <- newIORef $ Memory { _bankMode = mode }
           clock' <- newIORef 0
           -- debug' <- newIORef 8
           stellaClock' <- newIORef 0
@@ -138,23 +137,6 @@ stellaResmp1 = do
     store s_mpos1 (playerPosition :: Int)
 -}
 
-inBinary :: (Bits a) => Int -> a -> String
-inBinary 0 _ = ""
-inBinary n m = inBinary (n-1) (m `shift` (-1)) ++ if testBit m 0 then "1" else "0"
-
-explainNusiz :: Word8 -> String
-explainNusiz nusiz =
-    case nusiz .&. 0b111 of
-        0b000 -> "one copy"
-        0b001 -> "two copies - close"
-        0b010 -> "two copies - med"
-        0b011 -> "three copies - close"
-        0b100 -> "two copies - wide"
-        0b101 -> "double size player"
-        0b110 -> "3 copies medium"
-        0b111 -> "quad sized player"
-        _ -> error "Impossible to reach"
-
 {- INLINE stellaDebugStr -}
 stellaDebugStr :: Int -> String -> MonadAtari ()
 stellaDebugStr n str = do
@@ -178,10 +160,6 @@ wrap160 :: Int -> Int
 wrap160 i | i < picx = wrap160 (i+160)
           | i >= picx+160 = wrap160 (i-160)
 wrap160 i = i
-
-{-# INLINE clockMove #-}
-clockMove :: Word8 -> Int
-clockMove i = fromIntegral ((fromIntegral i :: Int8) `shift` (-4))
 
 {-# INLINE iz #-}
 iz :: Word16 -> Int -- or NUM
@@ -353,8 +331,7 @@ stellaTickFor' diff = do
         ptr <- liftIO $ surfacePixels surface -- <-- XXX I think it's OK but not sure
         let ptr' = castPtr ptr :: Ptr Word32
         -- XXX Not sure stellaDebug actually changes here so may be some redundancy
-        stellaDebug'' <- stellaTick (fromIntegral diff) stellaDebug' ptr'
-        putStellaDebug id stellaDebug'' -- XX Does this update sprites??? XXX
+        stellaTick (fromIntegral diff) ptr'
 
 {-# INLINE pureReadRom #-}
 pureReadRom :: Word16 -> MonadAtari Word8
@@ -481,46 +458,6 @@ instance Emu6502 MonadAtari where
     {- INLINE illegal -}
     illegal i = error $ "Illegal opcode 0x" ++ showHex i ""
 
-dumpStella :: MonadAtari ()
-dumpStella = do
-    liftIO $ putStrLn "--------"
-    hpos' <- load hpos
-    vpos' <- load vpos
-    liftIO $ putStrLn $ "hpos = " ++ show hpos' ++ " (" ++ show (hpos'-picx) ++ ") vpos = " ++ show vpos' ++ " (" ++ show (vpos'-picy) ++ ")"
-    grp0' <- load oldGrp0
-    grp1' <- load oldGrp1
-    liftIO $ putStrLn $ "GRP0 = " ++ showHex grp0' "" ++ "(" ++ inBinary 8 grp0' ++ ")"
-    liftIO $ putStrLn $ "GRP1 = " ++ showHex grp1' "" ++ "(" ++ inBinary 8 grp1' ++ ")"
-    pf0' <- load pf0
-    pf1' <- load pf1
-    pf2' <- load pf2
-    liftIO $ putStrLn $ "PF = " ++ reverse (inBinary 4 (pf0' `shift` (-4)))
-                                ++ inBinary 8 pf1'
-                                ++ reverse (inBinary 8 pf2')
-    nusiz0' <- load nusiz0
-    nusiz1' <- load nusiz1
-    liftIO $ putStrLn $ "NUSIZ0 = " ++ showHex nusiz0' "" ++ "(" ++ explainNusiz nusiz0' ++
-                        ") NUSIZ1 = " ++ showHex nusiz1' "" ++ "(" ++ explainNusiz nusiz1' ++ ")"
-    enam0' <- load enam0
-    enam1' <- load enam1
-    enablOld <- load oldBall
-    enablNew <- load newBall
-    liftIO $ putStr $ "ENAM0 = " ++ show (testBit enam0' 1)
-    liftIO $ putStr $ " ENAM1 = " ++ show (testBit enam1' 1)
-    liftIO $ putStrLn $ " ENABL = " ++ show (enablOld, enablNew)
-    mpos0' <- load s_mpos0
-    mpos1' <- load s_mpos1
-    hmm0' <- load hmm0
-    hmm1' <- load hmm1
-    liftIO $ putStr $ "missile0 @ " ++ show mpos0' ++ "(" ++ show (clockMove hmm0') ++ ")"
-    liftIO $ putStrLn $ " missile1 @ " ++ show mpos1' ++ "(" ++ show (clockMove hmm1') ++ ")"
-    vdelp0' <- load delayP0
-    vdelp1' <- load delayP1
-    vdelbl' <- load delayBall
-    liftIO $ putStrLn $ "VDELP0 = " ++ show vdelp0' ++ " " ++
-                        "VDELP1 = " ++ show vdelp1' ++ " " ++
-                        "VDELBL = " ++ show vdelbl'
-
 {-# INLINABLE dumpMemory #-}
 dumpMemory :: MonadAtari ()
 dumpMemory = do
@@ -567,7 +504,9 @@ dumpState = do
 
 {- INLINE setBreak -}
 setBreak :: Int -> Int -> MonadAtari ()
-setBreak breakX breakY = putStellaDebug posbreak (breakX+picx, breakY+picy)
+setBreak breakX breakY = do
+    store xbreak (breakX+picx)
+    store ybreak (breakY+picy)
 
 graphicsDelay :: Int -> MonadAtari ()
 graphicsDelay d = do

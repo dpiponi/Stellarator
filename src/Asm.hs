@@ -84,7 +84,8 @@ pf = 0
 maxWord64 :: TypedIndex Word64
 maxWord64 = pf
 
-hpos, vpos, subtimer, interval, s_ppos0, s_ppos1, s_mpos0, s_mpos1, s_bpos, debug, ahead :: TypedIndex Int
+hpos, vpos, subtimer, interval, s_ppos0, s_ppos1, s_mpos0, s_mpos1, s_bpos :: TypedIndex Int
+debug, ahead, xbreak, ybreak :: TypedIndex Int
 hpos = 0
 vpos = 1
 subtimer = 2
@@ -96,6 +97,8 @@ s_mpos1 = 7
 s_bpos = 8
 debug = 9
 ahead = 10
+xbreak = 11
+ybreak = 12
 
 pc, bankOffset :: TypedIndex Word16
 pc = 0
