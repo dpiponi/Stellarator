@@ -143,8 +143,12 @@ execCommand cmd =
             _ <- useStellaDebug variables -- Uh? XXX
             return KeepDebugging
         Block cmds -> do
-            forM_ cmds execCommand
-            return KeepDebugging
+            loop KeepDebugging cmds where
+                loop Continue      _        = return Continue
+                loop KeepDebugging []       = return KeepDebugging
+                loop KeepDebugging (c : cs) = do
+                    action <- execCommand c
+                    loop action cs
         DebugCmd.List addr n -> do
             disassemble addr n
             return KeepDebugging
