@@ -1,0 +1,110 @@
+BLANK RENDER
+------------
+> u(row==100){s};q=t;u(row>100){p"time=",t-q," row=",row," col=",col," bit=",(col-68)/4," a=",a," x=", x;l;s}
+time=0 row=100 col=0 bit=-17 a=254 x=13
+d005 85 2a    sta 0x2a; HMOVE
+time=3 row=100 col=9 bit=-15 a=254 x=13
+d007 85 1c    sta 0x1c; GRP1
+time=6 row=100 col=19 bit=-13 a=254 x=13
+d009 86 05    stx 0x5; NUSIZ1 or CXM1FB
+time=9 row=100 col=27 bit=-11 a=254 x=13
+d00b 6c e3 00 jmp (0xe3)
+time=14 row=100 col=42 bit=-7 a=254 x=13
+d046 a6 e7    ldx 0xe7
+time=17 row=100 col=51 bit=-5 a=254 x=3
+d048 ca       dex
+time=19 row=100 col=57 bit=-3 a=254 x=2
+d049 d0 05    bne 0xd050
+time=22 row=100 col=66 bit=-1 a=254 x=2
+d050 ca       dex
+time=24 row=100 col=72 bit=1 a=254 x=1
+d051 d0 05    bne 0xd058
+time=27 row=100 col=81 bit=3 a=254 x=1
+d058 ca       dex
+time=29 row=100 col=87 bit=4 a=254 x=0
+d059 d0 05    bne 0xd060
+time=31 row=100 col=93 bit=6 a=254 x=0
+d05b 85 10    sta 0x10; RESP0
+time=34 row=100 col=107 bit=9 a=254 x=0
+d05d ea       nop
+time=36 row=100 col=108 bit=10 a=254 x=0
+d05e f0 05    beq 0xd065
+time=39 row=100 col=117 bit=12 a=254 x=0
+d065 ea       nop
+time=41 row=100 col=123 bit=13 a=254 x=0
+d066 f0 05    beq 0xd06d
+time=44 row=100 col=132 bit=16 a=254 x=0
+d06d ea       nop
+time=46 row=100 col=138 bit=17 a=254 x=0
+d06e f0 04    beq 0xd074
+time=49 row=100 col=147 bit=19 a=254 x=0
+d074 85 2b    sta 0x2b; HMCLR
+time=52 row=100 col=156 bit=22 a=254 x=0
+d076 a5 e9    lda 0xe9
+time=55 row=100 col=165 bit=24 a=215 x=0
+d078 85 20    sta 0x20; HMP0
+time=58 row=100 col=174 bit=26 a=215 x=0
+d07a a9 83    lda #0x83
+time=60 row=100 col=180 bit=28 a=131 x=0
+d07c 85 e3    sta 0xe3
+time=63 row=100 col=189 bit=30 a=131 x=0
+d07e a9 00    lda #0x0
+time=65 row=100 col=195 bit=31 a=0 x=0
+d080 4c 00 d1 jmp 0xd100
+time=68 row=100 col=204 bit=34 a=0 x=0
+d100 85 02    sta 0x2; WSYNC or CXP0FB
+
+NON-BLANK RENDER
+----------------
+> u(row==100){s};q=t;u(row>100){p"time=",t-q," row=",row," col=",col," bit=",(col-68)/4," a=",a," x=", x;l;s}
+time=0 row=100 col=0 bit=-17 a=0 x=0
+d3dd 85 2a    sta 0x2a; HMOVE
+time=3 row=100 col=9 bit=-15 a=0 x=0
+d3df 86 1c    stx 0x1c; GRP1
+time=6 row=100 col=19 bit=-13 a=0 x=0
+d3e1 c4 d8    cpy 0xd8
+time=9 row=100 col=27 bit=-11 a=0 x=0
+d3e3 08       PHP
+time=12 row=100 col=36 bit=-8 a=0 x=0
+d3e4 c4 d7    cpy 0xd7
+time=15 row=100 col=45 bit=-6 a=0 x=0
+d3e6 08       PHP
+time=18 row=100 col=54 bit=-4 a=0 x=0
+d3e7 c4 d6    cpy 0xd6
+time=21 row=100 col=63 bit=-2 a=0 x=0
+d3e9 08       PHP
+time=24 row=100 col=72 bit=1 a=0 x=0
+d3ea a2 00    ldx #0x0
+time=26 row=100 col=78 bit=2 a=0 x=0
+d3ec a1 ed    lda (0xed, X)
+time=32 row=100 col=96 bit=7 a=255 x=0
+d3ee c9 ff    cmp #0xff
+time=34 row=100 col=102 bit=8 a=255 x=0
+d3f0 f0 04    beq 0xd3f6
+time=37 row=100 col=111 bit=10 a=255 x=0
+d3f6 c4 ef    cpy 0xef
+time=40 row=100 col=120 bit=13 a=255 x=0
+d3f8 d0 07    bne 0xd401
+time=44 row=100 col=132 bit=16 a=255 x=0
+d401 8a       txa
+time=46 row=100 col=138 bit=17 a=0 x=0
+d402 85 2b    sta 0x2b; HMCLR
+time=49 row=100 col=147 bit=19 a=0 x=0
+d404 85 02    sta 0x2; WSYNC or CXP0FB
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
