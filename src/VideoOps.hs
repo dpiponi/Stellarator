@@ -301,14 +301,17 @@ stellaTick n ptr' = do
 
         let pixelAddr = fromIntegral (screenWidth*pixely+pixelx)
 
-        do
-            blank <- load vblank
-            pixel <- if testBit blank 1
-                then return 0x404040
-                else do
-                    final <- compositeAndCollide pixelx hpos'
-                    return $ lut!(final `shift` (-1))
-            liftIO $ pokeElemOff ptr' pixelAddr pixel
+        blank <- load vblank
+        pendingHmove' <- load pendingHmove
+        let renderBlank = testBit blank 1 || pendingHmove' && pixelx < 8
+        pixel <- if renderBlank
+            then return 0x404040
+            else do
+                final <- compositeAndCollide pixelx hpos'
+                return $ lut!(final `shift` (-1))
+        liftIO $ pokeElemOff ptr' pixelAddr pixel
+
+        when (pixelx >= 8) $ store pendingHmove False
 
     let (hpos'', vpos'') = updatePos hpos' vpos'
     store hpos hpos''

@@ -107,6 +107,8 @@ stellaCxclr =
 {- INLINE stellaHmove -}
 stellaHmove :: MonadAtari ()
 stellaHmove = do
+    store pendingHmove True
+
     poffset0 <- load hmp0
     modify s_ppos0 $ \ppos0' ->  wrap160 (ppos0'-clockMove poffset0)
 

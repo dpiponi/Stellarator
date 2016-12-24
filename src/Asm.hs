@@ -67,16 +67,17 @@ swchb = 0x300+0x82
 maxWord8 :: TypedIndex Word8
 maxWord8 = swchb
 
-trigger1, delayP0, delayP1, delayBall, oldBall, newBall :: TypedIndex Bool
+trigger1, delayP0, delayP1, delayBall, oldBall, newBall, pendingHmove :: TypedIndex Bool
 trigger1 = 0
 delayP0 = 1
 delayP1 = 2
 delayBall = 3
 oldBall = 4
 newBall = 5
+pendingHmove = 6
 
 maxBool :: TypedIndex Bool
-maxBool = newBall
+maxBool = pendingHmove
 
 pf :: TypedIndex Word64
 pf = 0
