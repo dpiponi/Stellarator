@@ -56,12 +56,20 @@ dumpStella = do
     grp1' <- load oldGrp1
     liftIO $ putStrLn $ "GRP0 = " ++ showHex grp0' "" ++ "(" ++ inBinary 8 grp0' ++ ")"
     liftIO $ putStrLn $ "GRP1 = " ++ showHex grp1' "" ++ "(" ++ inBinary 8 grp1' ++ ")"
+    ctrlpf' <- load ctrlpf
+    liftIO $ putStrLn $ "CTRLPF = " ++ showHex ctrlpf' "" ++ ": " ++
+                        (if testBit ctrlpf' 0 then "reflected" else "not reflected") ++ ", " ++
+                        (if testBit ctrlpf' 1 then "score mode" else "not score mode") ++ ", " ++
+                        (if testBit ctrlpf' 2 then "playfield priority" else "player priority")
+    liftIO $ putStrLn $ "ball size = " ++ show (1 `shift` fromIntegral ((ctrlpf' `shift` (-4)) .&. 3) :: Int)
     pf0' <- load pf0
     pf1' <- load pf1
     pf2' <- load pf2
     liftIO $ putStrLn $ "PF = " ++ reverse (inBinary 4 (pf0' `shift` (-4)))
                                 ++ inBinary 8 pf1'
                                 ++ reverse (inBinary 8 pf2')
+    pf' <- load pf
+    liftIO $ putStrLn $ inBinary 40 pf'
     nusiz0' <- load nusiz0
     nusiz1' <- load nusiz1
     liftIO $ putStrLn $ "NUSIZ0 = " ++ showHex nusiz0' "" ++ "(" ++ explainNusiz nusiz0' ++
@@ -75,16 +83,33 @@ dumpStella = do
     liftIO $ putStrLn $ " ENABL = " ++ show (enablOld, enablNew)
     mpos0' <- load s_mpos0
     mpos1' <- load s_mpos1
+    ppos0' <- load s_ppos0
+    ppos1' <- load s_ppos1
+    bpos' <- load s_bpos
     hmm0' <- load hmm0
     hmm1' <- load hmm1
+    hmp0' <- load hmp0
+    hmp1' <- load hmp1
+    hmbl' <- load hmbl
     liftIO $ putStr $ "missile0 @ " ++ show mpos0' ++ "(" ++ show (clockMove hmm0') ++ ")"
     liftIO $ putStrLn $ " missile1 @ " ++ show mpos1' ++ "(" ++ show (clockMove hmm1') ++ ")"
+    liftIO $ putStr $ "player0 @ " ++ show ppos0' ++ "(" ++ show (clockMove hmp0') ++ ")"
+    liftIO $ putStrLn $ " player1 @ " ++ show ppos1' ++ "(" ++ show (clockMove hmp1') ++ ")"
+    liftIO $ putStrLn $ "ball @ " ++ show bpos' ++ "(" ++ show (clockMove hmbl') ++ ")"
     vdelp0' <- load delayP0
     vdelp1' <- load delayP1
     vdelbl' <- load delayBall
     liftIO $ putStrLn $ "VDELP0 = " ++ show vdelp0' ++ " " ++
                         "VDELP1 = " ++ show vdelp1' ++ " " ++
                         "VDELBL = " ++ show vdelbl'
+    colubk' <- load colubk
+    colupf' <- load colupf
+    colup0' <- load colup0
+    colup1' <- load colup1
+    liftIO $ putStrLn $ "COLUBK = " ++ showHex colubk' "" ++ " " ++ colorName colubk'
+    liftIO $ putStrLn $ "COLUPF = " ++ showHex colupf' "" ++ " " ++ colorName colupf'
+    liftIO $ putStrLn $ "COLUP0 = " ++ showHex colup0' "" ++ " " ++ colorName colup0'
+    liftIO $ putStrLn $ "COLUP1 = " ++ showHex colup1' "" ++ " " ++ colorName colup1'
 
 {-# INLINABLE updatePos #-}
 updatePos :: Int -> Int -> (Int, Int)
@@ -161,6 +186,8 @@ ball delayBall' oldBall' newBall' ctrlpf' o = do
 missileSize :: Word8 -> Int
 missileSize nusiz = 1 `shift` (fromIntegral ((nusiz `shift` (-4)) .&. 0b11))
 
+--
+--           Pri   sco   pf    ball  m0    m1   p0     p1    pixelx
 chooseColour :: Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Int -> TypedIndex Word8
 chooseColour True   _    _     True  _     _     _     _     _       = colupf
 chooseColour True  True  True  False _     _     _     _     pixelx  = if pixelx < 80 then colup0 else colup1
@@ -236,11 +263,24 @@ compositeAndCollide pixelx hpos' = do
 
     doCollisions lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1
 
-    load $ chooseColour (testBit ctrlpf' 2)
-                        (testBit ctrlpf' 1)
+    let scoreMode = testBit ctrlpf' 1
+    let playfieldPriority = testBit ctrlpf' 2
+    z <- load $ chooseColour playfieldPriority
+                        scoreMode
                         lplayfield lball
                         lmissile0 lmissile1
                         lplayer0 lplayer1 pixelx
+    vpos' <- load vpos
+    if vpos' == 174 && hpos' == 175
+    then do
+        return z
+    {-
+        liftIO $ print $ "lball = " ++ show lball
+        liftIO $ print $ "scoreMode = " ++ show scoreMode
+        liftIO $ print $ "z=" ++ show z
+        return 0xff
+        -}
+    else return z
 
 {-# INLINE stellaTick #-}
 stellaTick :: Int -> Ptr Word32 -> MonadAtari ()

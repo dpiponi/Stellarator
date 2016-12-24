@@ -120,6 +120,7 @@ stellaHmove = do
     modify s_mpos1 $ \mpos1' ->  wrap160 (mpos1'-clockMove moffset1)
 
     boffset <- load hmbl
+    bpos' <- load s_bpos
     modify s_bpos $ \bpos' -> wrap160 (bpos'-clockMove boffset)
 
 {-
@@ -541,7 +542,7 @@ writeStella addr v = do
        0x11 -> graphicsDelay 5 >> load hpos >>= store s_ppos1 -- RESP1
        0x12 -> graphicsDelay 4 >> load hpos >>= store s_mpos0 -- RESM0
        0x13 -> graphicsDelay 4 >> load hpos >>= store s_mpos1 -- RESM1
-       0x14 -> graphicsDelay 4 >> load hpos >>= store s_bpos  -- RESBL
+       0x14 -> graphicsDelay 4 >> load hpos >>= (return . max (picx+2)) >>= store s_bpos  -- RESBL
        0x1b -> do -- GRP0
                 store newGrp0 v
                 load newGrp1 >>= store oldGrp1

@@ -2,9 +2,11 @@ module TIAColors where
 
 import Data.Array.Unboxed
 import Data.Word
+import Data.Bits
 
 {-
  - Extracted from https://en.wikipedia.org/wiki/Television_Interface_Adaptor
+ - NTSC only
  -}
 lutList :: [Word32]
 lutList = [
@@ -30,3 +32,23 @@ lutList = [
 -- Remember to `shift` (-1) before lookup
 lut :: UArray Word8 Word32
 lut = listArray (0, 0x7f) lutList
+
+colorName :: Word8 -> String
+colorName i = colorName' (i `shift` (-4)) where
+    colorName' 0 = "black-grey"
+    colorName' 1 = "brown-yellow"
+    colorName' 2 = "rust-orange"
+    colorName' 3 = "red-orange"
+    colorName' 4 = "red-pink"
+    colorName' 5 = "purple"
+    colorName' 6 = "purple"
+    colorName' 7 = "blue"
+    colorName' 8 = "blue"
+    colorName' 9 = "blue"
+    colorName' 10 = "blue"
+    colorName' 11 = "teal"
+    colorName' 12 = "green"
+    colorName' 13 = "green"
+    colorName' 14 = "green"
+    colorName' 15 = "brown-beige"
+    colorName' _  = error "Impossible"
