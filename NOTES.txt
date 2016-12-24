@@ -1,0 +1,92 @@
+Playfield:
+Register  Block  Pixel  CPU
+PF0       0      68     22
+PF0       1      72     24
+PF0       2      76     25
+PF0       3      80     26
+PF1       4      84     28
+PF1       5      88     29
+PF1       6      92     30
+PF1       7      96     32
+PF1       8      100    33
+PF1       9      104    34
+PF1       10     108    36
+PF1       11     112    37
+PF2       12     116    38
+PF2       13     120    40
+PF2       14     124    41
+PF2       15     128    42
+PF2       16     132    44
+PF2       17     136    45
+PF2       18     140    46
+PF2       19     144    48
+PF0       0      148    49
+PF0       1      152    50
+PF0       2      156    52
+PF0       3      160    53
+PF1       4      164    54
+PF1       5      168    56
+PF1       6      172    57
+PF1       7      176    58
+PF1       8      180    60
+PF1       9      184    61
+PF1       10     188    62
+PF1       11     192    64
+PF2       12     196    65
+PF2       13     200    66
+PF2       14     204    68
+PF2       15     208    69
+PF2       16     212    70
+PF2       17     216    72
+PF2       18     220    73
+PF2       19     224    74
+
+Debugger output from Adventure:
+
+> u(row==214){s};q=t;u(row>214){p"time=",t-q," col=",col," bit=",(col-68)/4;l;s}
+time=0 col=0 bit=-17
+f099 84 1f    sty 0x1f; ENABL
+time=3 col=9 bit=-15
+f09b 86 1b    stx 0x1b; GRP0
+time=6 col=18 bit=-13
+f09d a4 8f    ldy 0x8f
+time=9 col=27 bit=-11
+f09f b1 80    lda (0x80), Y
+time=14 col=42 bit=-7
+f0a1 85 0d    sta 0xd; PF0
+time=17 col=55 bit=-4
+f0a3 c8       iny
+time=19 col=57 bit=-3
+f0a4 b1 80    lda (0x80), Y
+time=24 col=72 bit=1
+f0a6 85 0e    sta 0xe; PF1
+time=27 col=85 bit=4 ; 4.25 really
+f0a8 c8       iny
+time=29 col=87 bit=4
+f0a9 b1 80    lda (0x80), Y
+time=34 col=102 bit=8
+f0ab 85 0f    sta 0xf; PF2
+time=37 col=115 bit=11
+f0ad c8       iny
+time=39 col=117 bit=12
+f0ae 84 8f    sty 0x8f
+time=42 col=126 bit=14
+f0b0 c6 8e    dec 0x8e
+time=47 col=141 bit=18
+f0b2 a5 8e    lda 0x8e
+time=50 col=150 bit=20
+f0b4 c9 08    cmp #0x8
+time=52 col=156 bit=22
+f0b6 10 a7    BPL 0xf05f
+time=55 col=165 bit=24
+f05f a5 8e    lda 0x8e
+time=58 col=174 bit=26
+f061 38       SEC
+time=60 col=180 bit=28
+f062 e5 89    sbc 0x89
+time=63 col=189 bit=30
+f064 85 02    sta 0x2; WSYNC
+
+By time we've executed that sta PF1 at F0A6 PF1 is already
+being displayed. That explains the one pixel artifact I was
+seeing.

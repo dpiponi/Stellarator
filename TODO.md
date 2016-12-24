@@ -8,11 +8,12 @@ TODO
 16. Compare Stella clock to real world clock
 17. Build parser a bit more consistently
 18. Temp audio
-19. What's the black column in freeway?
+19. What's the black column in Freeway?
 20. Now performance is OK, unbatch stuff in stellaTickUntil
 21. Maybe tick n should become tick with no args (implicitly 1)
-22. Stray pixels in Adventure
 23. What's with crazy flashing in Asteroids?
+24. See if we can get NUSIZ changing to work in Meltdown as in
+    http://atariage.com/forums/topic/82052-tia-schematics-and-timing/
 
 Done
 ----
@@ -34,3 +35,7 @@ Done
 6. Faster
     IOUArrays did the trick.
 7. Deal with problem that WSYNC means stella clock /= 3*6502 clock
+22. Stray pixels in Adventure
+    For now fixed by reducing grahicsDelay but I think I must be
+    misunderstanding something about the timing.
+    See docs/adventure_pf_timing.txt

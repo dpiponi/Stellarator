@@ -531,9 +531,12 @@ writeStella addr v = do
        0x0a -> store ctrlpf v >> makePlayfield               -- COLUPF
        0x0b -> store refp0 v               -- REFP0
        0x0c -> store refp1 v               -- REFP1
-       0x0d -> graphicsDelay 4 >> store pf0 v >> makePlayfield                  -- PF0
-       0x0e -> graphicsDelay 4 >> store pf1 v >> makePlayfield                  -- PF1
-       0x0f -> graphicsDelay 4 >> store pf2 v >> makePlayfield                  -- PF2
+       -- I'm sure I read delay should be 3 for PF registers
+       -- but that doesn't make sense to me.
+       -- See docs/adventure_pf_timing.txt
+       0x0d -> graphicsDelay 3 >> store pf0 v >> makePlayfield                  -- PF0
+       0x0e -> graphicsDelay 3 >> store pf1 v >> makePlayfield                  -- PF1
+       0x0f -> graphicsDelay 3 >> store pf2 v >> makePlayfield                  -- PF2
        0x10 -> graphicsDelay 5 >> load hpos >>= store s_ppos0 -- RESP0
        0x11 -> graphicsDelay 5 >> load hpos >>= store s_ppos1 -- RESP1
        0x12 -> graphicsDelay 4 >> load hpos >>= store s_mpos0 -- RESM0
