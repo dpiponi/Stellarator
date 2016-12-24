@@ -14,7 +14,6 @@ TODO
 24. See if we can get NUSIZ changing to work in Meltdown as in
     http://atariage.com/forums/topic/82052-tia-schematics-and-timing/
 25. Make players etc. wrap
-26. Dot in CCE in Freeway
 
 Done
 ----
@@ -43,3 +42,5 @@ Done
 19. What's the black column in Freeway?
     1. Need to simulate "comb" effect
     2. RESBL during blank seems to set ball position to 68+2.
+26. Dot in CCE in Freeway
+    Inserted graphicsDelay 1 in write to GRPn

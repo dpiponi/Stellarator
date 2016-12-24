@@ -80,6 +80,11 @@ The debug command history is kept in the file .stellarator
 UI events to the main window are ignored while single stepping though
 I'll probably fix that eventually.
 
+Notes
+-----
+For debugging purposes I've rendered parts of TV screen where electron gun
+is blanked as dark grey instead of black.
+
 Credits
 -------
 1. The primary source of information was http://web.atari.org/stellaes.pdf

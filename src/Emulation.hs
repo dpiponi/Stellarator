@@ -545,10 +545,14 @@ writeStella addr v = do
        0x12 -> graphicsDelay 4 >> load hpos >>= store s_mpos0 -- RESM0
        0x13 -> graphicsDelay 4 >> load hpos >>= store s_mpos1 -- RESM1
        0x14 -> graphicsDelay 4 >> load hpos >>= (return . max (picx+2)) >>= store s_bpos  -- RESBL
+       -- graphicsDelay of 1 chosen to stop spurious pixel in
+       -- "CCE" in Freeway.
        0x1b -> do -- GRP0
+                graphicsDelay 1
                 store newGrp0 v
                 load newGrp1 >>= store oldGrp1
        0x1c -> do -- GRP1
+                graphicsDelay 1
                 store newGrp1 v
                 load newGrp0 >>= store oldGrp0
                 load newBall >>= store oldBall
