@@ -1,0 +1,301 @@
+Two things going on here:
+
+The black column should have been at left. This is to hide the "comb effect"
+from doing HMOVEs. And to make this meaningful requires actually simulating the
+comb effect.
+
+> u(row==72){s};q=t;u(row>76){p"time=",t-q," row=",row," col=",col," bit=",(col-68)/4," a=",a," x=", x;l;s}
+time=0 row=72 col=0 bit=-17 a=0 x=9
+f1c2 85 2a    sta 0x2a; HMOVE
+time=3 row=72 col=9 bit=-15 a=0 x=9
+f1c4 a9 00    lda #0x0
+time=5 row=72 col=15 bit=-14 a=0 x=9
+f1c6 85 1b    sta 0x1b; GRP0
+time=8 row=72 col=24 bit=-11 a=0 x=9
+f1c8 b1 d9    lda (0xd9), Y
+time=13 row=72 col=39 bit=-8 a=0 x=9
+f1ca 85 1c    sta 0x1c; GRP1
+time=16 row=72 col=48 bit=-5 a=0 x=9
+f1cc a6 95    ldx 0x95
+time=19 row=72 col=57 bit=-3 a=0 x=9
+f1ce 24 92    bit 0x92
+time=22 row=72 col=66 bit=-1 a=0 x=9
+f1d0 10 02    BPL 0xf1d4
+time=25 row=72 col=75 bit=1 a=0 x=9
+f1d4 a5 93    lda 0x93
+time=28 row=72 col=84 bit=4 a=0 x=9
+f1d6 05 07    ora 0x7; COLUP1 or CXPPMM
+time=31 row=72 col=93 bit=6 a=0 x=9
+f1d8 10 02    BPL 0xf1dc
+time=34 row=72 col=102 bit=8 a=0 x=9
+f1dc b1 db    lda (0xdb), Y
+time=39 row=72 col=117 bit=12 a=0 x=9
+f1de 85 1c    sta 0x1c; GRP1
+time=42 row=72 col=126 bit=14 a=0 x=9
+f1e0 85 2c    sta 0x2c; CXCLR
+time=45 row=72 col=135 bit=16 a=0 x=9
+f1e2 88       dey
+time=47 row=72 col=141 bit=18 a=0 x=9
+f1e3 a5 95    lda 0x95
+time=50 row=72 col=150 bit=20 a=9 x=9
+f1e5 f0 6b    beq 0xf252
+time=52 row=72 col=156 bit=22 a=9 x=9
+f1e7 a6 8b    ldx 0x8b
+time=55 row=72 col=165 bit=24 a=9 x=6
+f1e9 c9 05    cmp #0x5
+time=57 row=72 col=171 bit=25 a=9 x=6
+f1eb d0 02    bne 0xf1ef
+time=60 row=72 col=180 bit=28 a=9 x=6
+f1ef 85 02    sta 0x2; WSYNC or CXP0FB
+
+time=63 row=73 col=0 bit=-17 a=9 x=6
+f1f1 85 2a    sta 0x2a; HMOVE
+time=66 row=73 col=9 bit=-15 a=9 x=6
+f1f3 a9 aa    lda #0xaa
+time=68 row=73 col=15 bit=-14 a=170 x=6
+f1f5 85 0d    sta 0xd; PF0 or INPT5
+time=71 row=73 col=27 bit=-11 a=170 x=6
+f1f7 85 0f    sta 0xf; PF2
+time=74 row=73 col=36 bit=-8 a=170 x=6
+f1f9 4a       lsr a
+time=76 row=73 col=39 bit=-8 a=85 x=6
+f1fa 85 0e    sta 0xe; PF1
+time=79 row=73 col=51 bit=-5 a=85 x=6
+f1fc 86 08    stx 0x8; COLUPF or INPT0 ; playfield dark grey
+time=82 row=73 col=57 bit=-3 a=85 x=6
+f1fe b1 d9    lda (0xd9), Y
+time=87 row=73 col=72 bit=1 a=0 x=6
+f200 85 1c    sta 0x1c; GRP1
+time=90 row=73 col=81 bit=3 a=0 x=6
+f202 c6 95    dec 0x95
+time=95 row=73 col=96 bit=7 a=0 x=6
+f204 b1 db    lda (0xdb), Y
+time=100 row=73 col=111 bit=10 a=0 x=6
+f206 85 1c    sta 0x1c; GRP1
+time=103 row=73 col=120 bit=13 a=0 x=6
+f208 88       dey
+time=105 row=73 col=126 bit=14 a=0 x=6
+f209 85 02    sta 0x2; WSYNC or CXP0FB
+time=108 row=74 col=0 bit=-17 a=0 x=6
+f20b 85 2a    sta 0x2a; HMOVE
+time=111 row=74 col=9 bit=-15 a=0 x=6
+f20d e4 89    cpx 0x89
+time=114 row=74 col=18 bit=-13 a=0 x=6
+f20f d0 09    bne 0xf21a
+time=117 row=74 col=27 bit=-11 a=0 x=6
+f21a a5 8a    lda 0x8a
+time=120 row=74 col=36 bit=-8 a=12 x=6
+f21c 85 08    sta 0x8; COLUPF or INPT0 ; playfield dark grey
+time=123 row=74 col=45 bit=-6 a=12 x=6
+f21e b1 d9    lda (0xd9), Y
+time=128 row=74 col=60 bit=-2 a=0 x=6
+f220 85 1c    sta 0x1c; GRP1
+time=131 row=74 col=69 bit=0 a=0 x=6
+f222 20 16 f6 jsr 0xf616
+time=137 row=74 col=87 bit=4 a=0 x=6
+f616 60       rts
+time=143 row=74 col=105 bit=9 a=0 x=6
+f225 b1 db    lda (0xdb), Y
+time=148 row=74 col=120 bit=13 a=0 x=6
+f227 85 1c    sta 0x1c; GRP1
+time=151 row=74 col=129 bit=15 a=0 x=6
+f229 88       dey
+time=153 row=74 col=135 bit=16 a=0 x=6
+f22a 85 02    sta 0x2; WSYNC or CXP0FB
+time=156 row=75 col=0 bit=-17 a=0 x=6
+f22c 85 2a    sta 0x2a; HMOVE
+time=159 row=75 col=9 bit=-15 a=0 x=6
+f22e 86 08    stx 0x8; COLUPF or INPT0 ; playfield dark grey
+time=162 row=75 col=18 bit=-13 a=0 x=6
+f230 b1 d9    lda (0xd9), Y
+time=167 row=75 col=33 bit=-9 a=0 x=6
+f232 85 1c    sta 0x1c; GRP1
+time=170 row=75 col=42 bit=-7 a=0 x=6
+f234 a6 95    ldx 0x95
+time=173 row=75 col=51 bit=-5 a=0 x=8
+f236 b5 b6    lda 0xb6, X
+time=177 row=75 col=63 bit=-2 a=80 x=8
+f238 85 d9    sta 0xd9
+time=180 row=75 col=72 bit=1 a=80 x=8
+f23a b5 c2    lda 0xc2, X
+time=184 row=75 col=84 bit=4 a=80 x=8
+f23c 85 f6    sta 0xf6
+time=187 row=75 col=93 bit=6 a=80 x=8
+f23e ea       nop
+time=189 row=75 col=99 bit=7 a=80 x=8
+f23f b1 db    lda (0xdb), Y
+time=194 row=75 col=114 bit=11 a=0 x=8
+f241 85 1c    sta 0x1c; GRP1
+time=197 row=75 col=123 bit=13 a=0 x=8
+f243 a5 f6    lda 0xf6
+time=200 row=75 col=132 bit=16 a=80 x=8
+f245 85 db    sta 0xdb
+time=203 row=75 col=141 bit=18 a=80 x=8
+f247 a9 00    lda #0x0
+time=205 row=75 col=147 bit=19 a=0 x=8
+f249 85 92    sta 0x92
+time=208 row=75 col=156 bit=22 a=0 x=8
+f24b 85 93    sta 0x93
+time=211 row=75 col=165 bit=24 a=0 x=8
+f24d 85 0d    sta 0xd; PF0 or INPT5
+time=214 row=75 col=177 bit=27 a=0 x=8
+f24f 4c f0 f0 jmp 0xf0f0
+time=217 row=75 col=183 bit=28 a=0 x=8
+f0f0 a0 0f    ldy #0xf
+time=219 row=75 col=189 bit=30 a=0 x=8
+f0f2 a9 00    lda #0x0
+time=221 row=75 col=195 bit=31 a=0 x=8
+f0f4 85 02    sta 0x2; WSYNC or CXP0FB
+
+time=224 row=76 col=0 bit=-17 a=0 x=8
+f0f6 85 2a    sta 0x2a; HMOVE
+time=227 row=76 col=9 bit=-15 a=0 x=8
+f0f8 85 0e    sta 0xe; PF1
+time=230 row=76 col=21 bit=-12 a=0 x=8
+f0fa 85 0f    sta 0xf; PF2
+time=233 row=76 col=30 bit=-10 a=0 x=8
+f0fc 85 08    sta 0x8; COLUPF or INPT0 ; playfield grey
+time=236 row=76 col=36 bit=-8 a=0 x=8
+f0fe b1 d9    lda (0xd9), Y
+time=241 row=76 col=51 bit=-5 a=0 x=8
+f100 85 1c    sta 0x1c; GRP1
+time=244 row=76 col=60 bit=-2 a=0 x=8
+f102 b5 cd    lda 0xcd, X
+time=248 row=76 col=72 bit=1 a=220 x=8
+f104 85 94    sta 0x94
+time=251 row=76 col=81 bit=3 a=220 x=8
+f106 b5 ab    lda 0xab, X
+time=255 row=76 col=93 bit=6 a=96 x=8
+f108 29 0f    and #0xf
+time=257 row=76 col=99 bit=7 a=0 x=8
+f10a 85 f6    sta 0xf6
+time=260 row=76 col=108 bit=10 a=0 x=8
+f10c b1 db    lda (0xdb), Y
+time=265 row=76 col=123 bit=13 a=0 x=8
+f10e 88       dey
+time=267 row=76 col=129 bit=15 a=0 x=8
+f10f 85 1c    sta 0x1c; GRP1
+time=270 row=76 col=138 bit=17 a=0 x=8
+f111 b5 97    lda 0x97, X
+time=274 row=76 col=150 bit=20 a=64 x=8
+f113 29 07    and #0x7
+time=276 row=76 col=156 bit=22 a=0 x=8
+f115 85 04    sta 0x4; NUSIZ0 or CXM0FB
+time=279 row=76 col=165 bit=24 a=0 x=8
+f117 c9 05    cmp #0x5
+time=281 row=76 col=171 bit=25 a=0 x=8
+f119 d0 04    bne 0xf11f
+time=284 row=76 col=180 bit=28 a=0 x=8
+f11f a9 bd    lda #0xbd
+time=286 row=76 col=186 bit=29 a=189 x=8
+f121 ea       nop
+time=288 row=76 col=192 bit=31 a=189 x=8
+f122 85 d7    sta 0xd7
+time=291 row=76 col=201 bit=33 a=189 x=8
+f124 b1 d9    lda (0xd9), Y
+time=296 row=76 col=216 bit=37 a=0 x=8
+f126 85 1c    sta 0x1c; GRP1
+time=299 row=76 col=225 bit=39 a=0 x=8
+f128 b5 97    lda 0x97, X
+>
+
+
+
+
+
+P (V2 4 127)
+--------
+hpos = 68 (0) vpos = 72 (42)
+GRP0 = 0(00000000)
+GRP1 = 0(00000000)
+CTRLPF = 30: not reflected, not score mode, player priority
+ball size = 8
+PF = 00000000000000000000
+0000000000000000000000000000000000000000
+NUSIZ0 = 0(one copy) NUSIZ1 = 4(two copies - wide)
+ENAM0 = False ENAM1 = False ENABL = (True,True)
+missile0 @ 76(0) missile1 @ 109(0)
+player0 @ 225(0) player1 @ 112(0)
+ball @ 68(0)
+VDELP0 = False VDELP1 = False VDELBL = False
+COLUBK = 6 black-grey
+COLUPF = 0 black-grey
+COLUP0 = 0 black-grey
+COLUP1 = 1e brown-yellow
+P (V2 4 128)
+--------
+hpos = 68 (0) vpos = 73 (43)
+GRP0 = 0(00000000)
+GRP1 = 0(00000000)
+CTRLPF = 30: not reflected, not score mode, player priority
+ball size = 8
+PF = 01010101010101010101
+1010101010101010101010101010101010101010
+NUSIZ0 = 0(one copy) NUSIZ1 = 4(two copies - wide)
+ENAM0 = False ENAM1 = False ENABL = (True,True)
+missile0 @ 76(0) missile1 @ 109(0)
+player0 @ 225(0) player1 @ 112(0)
+ball @ 68(0)
+VDELP0 = False VDELP1 = False VDELBL = False
+COLUBK = 6 black-grey
+COLUPF = 6 black-grey
+COLUP0 = 0 black-grey
+COLUP1 = 1e brown-yellow
+P (V2 4 131)
+--------
+hpos = 68 (0) vpos = 74 (44)
+GRP0 = 0(00000000)
+GRP1 = 0(00000000)
+CTRLPF = 30: not reflected, not score mode, player priority
+ball size = 8
+PF = 01010101010101010101
+1010101010101010101010101010101010101010
+NUSIZ0 = 0(one copy) NUSIZ1 = 4(two copies - wide)
+ENAM0 = False ENAM1 = False ENABL = (True,True)
+missile0 @ 76(0) missile1 @ 109(0)
+player0 @ 225(0) player1 @ 112(0)
+ball @ 68(0)
+VDELP0 = False VDELP1 = False VDELBL = False
+COLUBK = 6 black-grey
+COLUPF = c black-grey
+COLUP0 = 0 black-grey
+COLUP1 = 1e brown-yellow
+P (V2 4 133)
+--------
+hpos = 68 (0) vpos = 75 (45)
+GRP0 = 0(00000000)
+GRP1 = 0(00000000)
+CTRLPF = 30: not reflected, not score mode, player priority
+ball size = 8
+PF = 01010101010101010101
+1010101010101010101010101010101010101010
+NUSIZ0 = 0(one copy) NUSIZ1 = 4(two copies - wide)
+ENAM0 = False ENAM1 = False ENABL = (True,True)
+missile0 @ 76(0) missile1 @ 109(0)
+player0 @ 225(0) player1 @ 112(0)
+ball @ 68(0)
+VDELP0 = False VDELP1 = False VDELBL = False
+COLUBK = 6 black-grey
+COLUPF = 6 black-grey
+COLUP0 = 0 black-grey
+COLUP1 = 1e brown-yellow
+P (V2 4 138)
+--------
+hpos = 68 (0) vpos = 76 (46)
+GRP0 = 0(00000000)
+GRP1 = 0(00000000)
+CTRLPF = 30: not reflected, not score mode, player priority
+ball size = 8
+PF = 00000000000000000000
+0000000000000000000000000000000000000000
+NUSIZ0 = 0(one copy) NUSIZ1 = 4(two copies - wide)
+ENAM0 = False ENAM1 = False ENABL = (True,True)
+missile0 @ 76(0) missile1 @ 109(0)
+player0 @ 225(0) player1 @ 112(0)
+ball @ 68(0)
+VDELP0 = False VDELP1 = False VDELBL = False
+COLUBK = 6 black-grey
+COLUPF = 0 black-grey
+COLUP0 = 0 black-grey
+COLUP1 = 1e brown-yellow
+P (V2 4 139)

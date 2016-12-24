@@ -8,12 +8,13 @@ TODO
 16. Compare Stella clock to real world clock
 17. Build parser a bit more consistently
 18. Temp audio
-19. What's the black column in Freeway?
 20. Now performance is OK, unbatch stuff in stellaTickUntil
 21. Maybe tick n should become tick with no args (implicitly 1)
 23. What's with crazy flashing in Asteroids?
 24. See if we can get NUSIZ changing to work in Meltdown as in
     http://atariage.com/forums/topic/82052-tia-schematics-and-timing/
+25. Make players etc. wrap
+26. Dot in CCE in Freeway
 
 Done
 ----
@@ -39,3 +40,6 @@ Done
     For now fixed by reducing grahicsDelay but I think I must be
     misunderstanding something about the timing.
     See docs/adventure_pf_timing.txt
+19. What's the black column in Freeway?
+    1. Need to simulate "comb" effect
+    2. RESBL during blank seems to set ball position to 68+2.
