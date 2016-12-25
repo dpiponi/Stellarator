@@ -64,12 +64,13 @@ initResources = do
     GL.activeTexture $= GL.TextureUnit 0
     GL.textureBinding GL.Texture2D $= Just tex
 
-    textureData <- mallocBytes (4*4*3) :: IO (Ptr Word8)
-    forM_ [0..3] $ \i ->
-        forM_ [0..3] $ \j -> do
-            pokeElemOff textureData (3*4*i+3*j+0) (fromIntegral $ i*63)
-            pokeElemOff textureData (3*4*i+3*j+1) (fromIntegral $ j*63)
-            pokeElemOff textureData (3*4*i+3*j+2) 128
+    textureData <- mallocBytes (fromIntegral $ screenWidth*screenHeight*4) :: IO (Ptr Word8)
+    forM_ [0..screenHeight-1] $ \i ->
+        forM_ [0..screenWidth-1] $ \j -> do
+            pokeElemOff textureData (fromIntegral $ 4*screenWidth*i+4*j+0) (fromIntegral $ (i `div` 2))
+            pokeElemOff textureData (fromIntegral $ 4*screenWidth*i+4*j+1) (fromIntegral $ (j `div` 2))
+            pokeElemOff textureData (fromIntegral $ 4*screenWidth*i+4*j+2) (fromIntegral $ 128)
+            pokeElemOff textureData (fromIntegral $ 4*screenWidth*i+4*j+3) (fromIntegral $ 255)
 
     putStrLn "Buffering glyph bitmap into texture."
     GL.texImage2D
@@ -77,9 +78,9 @@ initResources = do
         GL.NoProxy
         0
         GL.RGB8
-        (GL.TextureSize2D 4 4)
+        (GL.TextureSize2D (fromIntegral screenWidth) (fromIntegral screenHeight))
         0
-        (GL.PixelData GL.RGB GL.UnsignedByte textureData)
+        (GL.PixelData GL.RGBA GL.UnsignedByte textureData)
 
     putStrLn "Texture loaded."
 
@@ -87,6 +88,33 @@ initResources = do
     GL.textureFilter   GL.Texture2D   $= ((GL.Nearest, Nothing), GL.Nearest)
     GL.textureWrapMode GL.Texture2D GL.S $= (GL.Repeated, GL.ClampToEdge)
     GL.textureWrapMode GL.Texture2D GL.T $= (GL.Repeated, GL.ClampToEdge)
+
+    [tex2] <- GL.genObjectNames 1 :: IO [GL.TextureObject]
+
+    textureData2 <- mallocBytes (fromIntegral $ 256*4) :: IO (Ptr Word8)
+    forM_ [0..255] $ \i -> do
+            pokeElemOff textureData2 (fromIntegral $ 3*i+0) (fromIntegral $ i)
+            pokeElemOff textureData2 (fromIntegral $ 3*i+1) (fromIntegral $ 255-i)
+            pokeElemOff textureData2 (fromIntegral $ 3*i+2) (fromIntegral $ 128)
+            pokeElemOff textureData2 (fromIntegral $ 3*i+3) (fromIntegral $ 255)
+
+    GL.texture GL.Texture1D $= GL.Enabled
+    GL.activeTexture $= GL.TextureUnit 1
+    GL.textureBinding GL.Texture1D $= Just tex2
+
+    GL.texImage1D
+        GL.Texture1D
+        GL.NoProxy
+        0
+        GL.RGB8
+        (GL.TextureSize1D 256)
+        0
+        (GL.PixelData GL.RGB GL.UnsignedByte textureData2)
+
+    GL.textureFilter   GL.Texture1D   $= ((GL.Nearest, Nothing), GL.Nearest)
+    GL.textureWrapMode GL.Texture1D GL.S $= (GL.Repeated, GL.ClampToEdge)
+{-
+    -}
 
     -- compile vertex shader
     vs <- GL.createShader GL.VertexShader
@@ -125,7 +153,7 @@ initResources = do
 
 draw :: GL.Program -> GL.AttribLocation -> IO ()
 draw program attrib = do
-    GL.clearColor $= GL.Color4 1 1 1 1
+    GL.clearColor $= GL.Color4 0 0 0 0
     GL.clear [GL.ColorBuffer]
     GL.viewport $= (GL.Position 0 0, GL.Size (fromIntegral screenWidth) (fromIntegral screenHeight))
 
@@ -134,7 +162,7 @@ draw program attrib = do
     V.unsafeWith vertices $ \ptr ->
         GL.vertexAttribPointer attrib $=
           (GL.ToFloat, GL.VertexArrayDescriptor 2 GL.Float 0 ptr)
-    GL.drawArrays GL.Triangles 0 3 -- 3 is the number of vertices
+    GL.drawArrays GL.Triangles 0 6 -- 3 is the number of vertices
     GL.vertexAttribArray attrib $= GL.Disabled
 
 vsSource, fsSource :: BS.ByteString
@@ -156,22 +184,26 @@ fsSource = BS.intercalate "\n"
            [
                 "#version 110",
                 "",
-                "uniform float fade_factor;",
-                "uniform sampler2D textures[2];",
+                "uniform sampler2D texture;",
+                "uniform sampler1D table;",
                 "varying vec2 texcoord;",
                 "",
                 "void main()",
                 "{",
                 "",
-                "    gl_FragColor = mix(",
-                "        texture2D(textures[0], texcoord),",
-                "        texture2D(textures[1], texcoord),",
-                "        fade_factor);",
+                "    gl_FragColor = ",
+                "        texture2D(texture, texcoord);",
                 "}"
            ]
+           {-
+                "        texture1D(table, texcoord.x);",
+           -}
 
 vertices :: V.Vector Float
-vertices = V.fromList [  0.0,  0.8
-                      , -0.8, -0.8
-                      ,  0.8, -0.8
+vertices = V.fromList [ -1.0, -1.0
+                      ,  1.0, -1.0 
+                      ,  1.0,  1.0 
+                      , -1.0, -1.0 
+                      ,  1.0,  1.0 
+                      , -1.0,  1.0
                       ]
