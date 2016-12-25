@@ -138,6 +138,8 @@ initResources = do
     GL.attachShader program vs
     GL.attachShader program fs
     GL.attribLocation program "coord2d" $= GL.AttribLocation 0
+    texLoc <- getUniformLocation program "texture"
+    print texLoc
     GL.linkProgram program
     linkOK <- GL.get $ GL.linkStatus program
     GL.validateProgram program
