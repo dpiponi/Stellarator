@@ -66,7 +66,7 @@ initResources = do
     textureData <- mallocBytes (fromIntegral $ screenWidth*screenHeight*4) :: IO (Ptr Word8)
     forM_ [0..screenHeight-1] $ \i ->
         forM_ [0..screenWidth-1] $ \j -> do
-            pokeElemOff textureData (fromIntegral $ 4*screenWidth*i+4*j+0) (fromIntegral $ 31*(j `mod` 8))
+            pokeElemOff textureData (fromIntegral $ 4*screenWidth*i+4*j+0) (fromIntegral $ 63*(j `mod` 8))
             pokeElemOff textureData (fromIntegral $ 4*screenWidth*i+4*j+1) (fromIntegral $ 63*(i `mod` 4))
             pokeElemOff textureData (fromIntegral $ 4*screenWidth*i+4*j+2) (fromIntegral $ 0)
             pokeElemOff textureData (fromIntegral $ 4*screenWidth*i+4*j+3) (fromIntegral $ 255)
@@ -76,10 +76,10 @@ initResources = do
         GL.Texture2D
         GL.NoProxy
         0
-        GL.RGB8
+        GL.R
         (GL.TextureSize2D (fromIntegral screenWidth) (fromIntegral screenHeight))
         0
-        (GL.PixelData GL.RGBA GL.UnsignedByte textureData)
+        (GL.PixelData GL.Red GL.UnsignedByte textureData)
 
     putStrLn "Texture loaded."
 
