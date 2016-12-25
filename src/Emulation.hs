@@ -15,7 +15,9 @@ module Emulation(stellaDebug,
                  trigger1,
                  load) where
 
---import Asm
+import Asm
+import Graphics.Rendering.OpenGL
+--import Graphics.Rendering.OpenGL.GL.PixelRectangles.Rasterization
 import Atari2600
 import BitManips
 import Control.Lens
@@ -122,7 +124,6 @@ stellaHmove = do
     modify s_mpos1 $ \mpos1' ->  wrap160 (mpos1'-clockMove moffset1)
 
     boffset <- load hmbl
-    bpos' <- load s_bpos
     modify s_bpos $ \bpos' -> wrap160 (bpos'-clockMove boffset)
 
 {-
@@ -589,3 +590,9 @@ renderDisplay = do
                                  (V2 (fromIntegral $ screenWidth*xscale) (fromIntegral $ screenHeight*yscale))))
     lockSurface back
     updateWindowSurface window
+    --surface <- getBackSurface
+    --ptr <- liftIO $ SDL.surfacePixels surface -- <-- XXX I think it's OK but not sure
+    --let ptr' = castPtr ptr :: Ptr Word32
+    --liftIO $ drawPixels (Size (fromIntegral screenWidth) (fromIntegral screenHeight)) (PixelData RGBA UnsignedByte ptr)
+    --liftIO $ rect (Vertex2 0 (0::Float)) (Vertex2 300 200)
+    --SDL.glSwapWindow window

@@ -9,6 +9,7 @@
 
 module Main where
 
+import Graphics.Rendering.OpenGL
 import Asm
 import Atari2600
 import Binary
@@ -164,7 +165,9 @@ main = do
                                SDL.defaultWindow {
                                     SDL.windowInitialSize = V2 (fromIntegral $ xscale*screenWidth)
                                                                (fromIntegral $ yscale*screenHeight) }
-    SDL.showWindow window
+    --context <- SDL.glCreateContext window
+    --SDL.swapInterval SDL.$= SDL.SynchronizedUpdates
+    --SDL.showWindow window
     screenSurface <- SDL.getWindowSurface window
 
     backSurface <- createRGBSurface (V2 (fromIntegral screenWidth)

@@ -33,6 +33,7 @@ library
                      , parsec
                      , haskeline
                      , containers
+                     , OpenGL
   default-language:    Haskell2010
 
 executable stellarator-exe
@@ -56,6 +57,35 @@ executable stellarator-exe
                      , random
                      , haskeline
                      , containers
+                     , OpenGL
+                     , Stellarator
+  default-language:    Haskell2010
+
+executable experiment-exe
+  hs-source-dirs:      experiment
+  main-is:             Main.hs
+  extensions:         
+  ghc-options:         -O5 -fwarn-missing-signatures -ddump-simpl -ddump-asm 
+  build-depends:       base
+                     , sdl2
+                     , bytestring
+                     , vector
+                     , OpenGL
+                     , array
+                     , mtl
+                     , lens
+                     , binary
+                     , cmdargs
+                     , monad-loops
+                     , parsec
+                     , binary
+                     , random
+                     , haskeline
+                     , containers
+                     , OpenGL
+                     , OpenGLRaw
+                     , GLUtil
+                     , distributive
                      , Stellarator
   default-language:    Haskell2010
 
