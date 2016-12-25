@@ -93,20 +93,20 @@ initResources = do
             pokeElemOff textureData2 (fromIntegral $ 4*i+2) (fromIntegral $ 0)
             pokeElemOff textureData2 (fromIntegral $ 4*i+3) (fromIntegral $ 255)
 
-    GL.textureBinding GL.Texture2D $= Just tex2
+    GL.textureBinding GL.Texture1D $= Just tex2
 
-    GL.texImage2D
-        GL.Texture2D
+    GL.texImage1D
+        GL.Texture1D
         GL.NoProxy
         0
         GL.RGB8
-        (GL.TextureSize2D 256 1)
+        (GL.TextureSize1D 256)
         0
         (GL.PixelData GL.RGBA GL.UnsignedByte textureData2)
 
-    GL.textureFilter   GL.Texture2D   $= ((GL.Nearest, Nothing), GL.Nearest)
-    GL.textureWrapMode GL.Texture2D GL.S $= (GL.Repeated, GL.ClampToEdge)
-    GL.textureWrapMode GL.Texture2D GL.T $= (GL.Repeated, GL.ClampToEdge)
+    GL.textureFilter   GL.Texture1D   $= ((GL.Nearest, Nothing), GL.Nearest)
+    GL.textureWrapMode GL.Texture1D GL.S $= (GL.Repeated, GL.ClampToEdge)
+    GL.textureWrapMode GL.Texture1D GL.T $= (GL.Repeated, GL.ClampToEdge)
 
     -----
 
@@ -148,8 +148,8 @@ initResources = do
     GL.textureBinding GL.Texture2D $= Just tex
 
     GL.activeTexture $= GL.TextureUnit 1
-    GL.textureBinding GL.Texture2D $= Just tex2
-    GL.texture GL.Texture2D $= GL.Enabled
+    GL.textureBinding GL.Texture1D $= Just tex2
+    GL.texture GL.Texture1D $= GL.Enabled
 
     GL.uniform texLoc $= GL.Index1 (0::GL.GLint)
     GL.uniform texLoc2 $= GL.Index1 (1::GL.GLint)
@@ -200,14 +200,14 @@ fsSource = BS.intercalate "\n"
                 "#version 110",
                 "",
                 "uniform sampler2D texture;",
-                "uniform sampler2D table;",
+                "uniform sampler1D table;",
                 "varying vec2 texcoord;",
                 "",
                 "void main()",
                 "{",
                 "",
                 "    vec4 index = texture2D(texture, texcoord);",
-                "    gl_FragColor = texture2D(table, vec2(index.x, 0));",
+                "    gl_FragColor = texture1D(table, index.x);",
                 "}"
            ]
 
