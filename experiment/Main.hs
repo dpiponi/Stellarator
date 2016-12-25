@@ -63,20 +63,17 @@ initResources = do
 
     GL.textureBinding GL.Texture2D $= Just tex
 
-    textureData <- mallocBytes (fromIntegral $ screenWidth*screenHeight*4) :: IO (Ptr Word8)
+    textureData <- mallocBytes (fromIntegral $ screenWidth*screenHeight) :: IO (Ptr Word8)
     forM_ [0..screenHeight-1] $ \i ->
         forM_ [0..screenWidth-1] $ \j -> do
-            pokeElemOff textureData (fromIntegral $ 4*screenWidth*i+4*j+0) (fromIntegral $ 63*(j `mod` 8))
-            pokeElemOff textureData (fromIntegral $ 4*screenWidth*i+4*j+1) (fromIntegral $ 63*(i `mod` 4))
-            pokeElemOff textureData (fromIntegral $ 4*screenWidth*i+4*j+2) (fromIntegral $ 0)
-            pokeElemOff textureData (fromIntegral $ 4*screenWidth*i+4*j+3) (fromIntegral $ 255)
+            pokeElemOff textureData (fromIntegral $ screenWidth*i+j) (fromIntegral $ 63*(j `mod` 8))
 
     putStrLn "Buffering glyph bitmap into texture."
     GL.texImage2D
         GL.Texture2D
         GL.NoProxy
         0
-        GL.R
+        GL.R8
         (GL.TextureSize2D (fromIntegral screenWidth) (fromIntegral screenHeight))
         0
         (GL.PixelData GL.Red GL.UnsignedByte textureData)
