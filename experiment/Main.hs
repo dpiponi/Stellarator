@@ -24,8 +24,11 @@ import Foreign.Ptr
 import Data.Word
 import Foreign.Storable
 
+windowWidth, windowHeight :: CInt
+(windowWidth, windowHeight) = (640, 480)
+
 screenWidth, screenHeight :: CInt
-(screenWidth, screenHeight) = (640, 480)
+(screenWidth, screenHeight) = (64, 48)
 
 main :: IO ()
 main = do
@@ -38,7 +41,7 @@ main = do
   window <-
     SDL.createWindow
       "SDL / OpenGL Example"
-      SDL.defaultWindow {SDL.windowInitialSize = V2 screenWidth screenHeight,
+      SDL.defaultWindow {SDL.windowInitialSize = V2 windowWidth windowHeight,
                          SDL.windowOpenGL = Just SDL.defaultOpenGL}
   SDL.showWindow window
 
@@ -65,10 +68,10 @@ createImageTexture :: GL.TextureObject -> Int -> IO ()
 createImageTexture texName offset = do
     GL.textureBinding GL.Texture2D $= Just texName
 
-    textureData <- mallocBytes (fromIntegral $ screenWidth*screenHeight) :: IO (Ptr Word8)
-    forM_ [0..screenHeight-1] $ \i ->
-        forM_ [0..screenWidth-1] $ \j -> do
-            pokeElemOff textureData (fromIntegral $ screenWidth*i+j) (fromIntegral $ (j+fromIntegral offset))
+    textureData <- mallocBytes (fromIntegral $ windowWidth*windowHeight) :: IO (Ptr Word8)
+    forM_ [0..windowHeight-1] $ \i ->
+        forM_ [0..windowWidth-1] $ \j -> do
+            pokeElemOff textureData (fromIntegral $ windowWidth*i+j) (fromIntegral $ (j+fromIntegral offset))
 
     putStrLn "Image texture created"
     GL.texImage2D
@@ -189,7 +192,7 @@ draw :: GL.Program -> GL.AttribLocation -> IO ()
 draw program attrib = do
     GL.clearColor $= GL.Color4 0 0 0 0
     GL.clear [GL.ColorBuffer]
-    GL.viewport $= (GL.Position 0 0, GL.Size (fromIntegral screenWidth) (fromIntegral screenHeight))
+    GL.viewport $= (GL.Position 0 0, GL.Size (fromIntegral windowWidth) (fromIntegral windowHeight))
 
     GL.currentProgram $= Just program
     GL.vertexAttribArray attrib $= GL.Enabled
