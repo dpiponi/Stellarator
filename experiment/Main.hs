@@ -4,6 +4,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
+import TIAColors
+import Data.Bits
+import Data.Array.Unboxed
 import Control.Monad
 import Foreign.C.Types
 import SDL.Vect
@@ -57,18 +60,16 @@ main = do
   SDL.destroyWindow window
   SDL.quit
 
-initResources :: IO (GL.Program, GL.AttribLocation)
-initResources = do
-    [tex, tex2] <- GL.genObjectNames 2 :: IO [GL.TextureObject]
-
-    GL.textureBinding GL.Texture2D $= Just tex
+createImageTexture :: GL.TextureObject -> IO ()
+createImageTexture texName = do
+    GL.textureBinding GL.Texture2D $= Just texName
 
     textureData <- mallocBytes (fromIntegral $ screenWidth*screenHeight) :: IO (Ptr Word8)
     forM_ [0..screenHeight-1] $ \i ->
         forM_ [0..screenWidth-1] $ \j -> do
-            pokeElemOff textureData (fromIntegral $ screenWidth*i+j) (fromIntegral $ 63*(j `mod` 8))
+            pokeElemOff textureData (fromIntegral $ screenWidth*i+j) (fromIntegral $ j)
 
-    putStrLn "Buffering glyph bitmap into texture."
+    putStrLn "Image texture created"
     GL.texImage2D
         GL.Texture2D
         GL.NoProxy
@@ -84,16 +85,13 @@ initResources = do
     GL.textureWrapMode GL.Texture2D GL.S $= (GL.Repeated, GL.ClampToEdge)
     GL.textureWrapMode GL.Texture2D GL.T $= (GL.Repeated, GL.ClampToEdge)
 
-    ----
+createLUTTexture :: GL.TextureObject -> IO ()
+createLUTTexture texName = do
+    textureData2 <- mallocBytes (fromIntegral $ 4*256) :: IO (Ptr Word32)
+    forM_ [0..255] $ \i ->
+        pokeElemOff textureData2 (fromIntegral $ i) (fromIntegral $ lut!(i `shift` (-1)))
 
-    textureData2 <- mallocBytes (fromIntegral $ 256*4) :: IO (Ptr Word8)
-    forM_ [0..255] $ \i -> do
-            pokeElemOff textureData2 (fromIntegral $ 4*i+0) (fromIntegral $ 0)
-            pokeElemOff textureData2 (fromIntegral $ 4*i+1) (fromIntegral $ i)
-            pokeElemOff textureData2 (fromIntegral $ 4*i+2) (fromIntegral $ 0)
-            pokeElemOff textureData2 (fromIntegral $ 4*i+3) (fromIntegral $ 255)
-
-    GL.textureBinding GL.Texture1D $= Just tex2
+    GL.textureBinding GL.Texture1D $= Just texName
 
     GL.texImage1D
         GL.Texture1D
@@ -102,14 +100,14 @@ initResources = do
         GL.RGB8
         (GL.TextureSize1D 256)
         0
-        (GL.PixelData GL.RGBA GL.UnsignedByte textureData2)
+        (GL.PixelData GL.BGRA GL.UnsignedByte textureData2)
 
     GL.textureFilter   GL.Texture1D   $= ((GL.Nearest, Nothing), GL.Nearest)
     GL.textureWrapMode GL.Texture1D GL.S $= (GL.Repeated, GL.ClampToEdge)
     GL.textureWrapMode GL.Texture1D GL.T $= (GL.Repeated, GL.ClampToEdge)
 
-    -----
-
+createShaderProgram :: IO GL.Program
+createShaderProgram = do
     -- compile vertex shader
     vs <- GL.createShader GL.VertexShader
     GL.shaderSourceBS vs $= vsSource
@@ -137,6 +135,16 @@ initResources = do
 
     print $ linkOK
 
+    unless linkOK $ do
+        hPutStrLn stderr "GL.linkProgram error"
+        plog <- GL.get $ GL.programInfoLog program
+        putStrLn plog
+        exitFailure
+
+    return program
+
+connectProgramToTextures :: GL.Program -> GL.TextureObject -> GL.TextureObject -> IO ()
+connectProgramToTextures program tex tex2 = do
     GL.currentProgram $= Just program
     texLoc <- GL.uniformLocation program "texture"
     print texLoc
@@ -157,12 +165,22 @@ initResources = do
     GL.validateProgram program
     status <- GL.get $ GL.validateStatus program
     print $ status
-    unless (linkOK && status) $ do
+    unless status $ do
         hPutStrLn stderr "GL.linkProgram error"
         plog <- GL.get $ GL.programInfoLog program
         putStrLn plog
         exitFailure
     GL.currentProgram $= Just program
+
+initResources :: IO (GL.Program, GL.AttribLocation)
+initResources = do
+    [tex, tex2] <- GL.genObjectNames 2 :: IO [GL.TextureObject]
+
+    createImageTexture tex
+    createLUTTexture tex2
+
+    program <- createShaderProgram
+    connectProgramToTextures program tex tex2
 
     return (program, GL.AttribLocation 0)
 
