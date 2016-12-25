@@ -30,10 +30,10 @@ screenWidth, screenHeight :: CInt
 main :: IO ()
 main = do
   SDL.initialize [SDL.InitVideo]
-  SDL.HintRenderScaleQuality $= SDL.ScaleLinear
-  do renderQuality <- SDL.get SDL.HintRenderScaleQuality
-     when (renderQuality /= SDL.ScaleLinear) $
-       putStrLn "Warning: Linear texture filtering not enabled!"
+  -- SDL.HintRenderScaleQuality $= SDL.ScaleLinear
+  -- do renderQuality <- SDL.get SDL.HintRenderScaleQuality
+  --    when (renderQuality /= SDL.ScaleLinear) $
+  --      putStrLn "Warning: Linear texture filtering not enabled!"
 
   window <-
     SDL.createWindow
@@ -43,31 +43,32 @@ main = do
   SDL.showWindow window
 
   _ <- SDL.glCreateContext window
-  (prog, attrib) <- initResources
+  (prog, attrib, tex) <- initResources
 
-  let loop = do
+  let loop i = do
         events <- SDL.pollEvents
         let quit = elem SDL.QuitEvent $ map SDL.eventPayload events
 
         GL.clear [GL.ColorBuffer]
         draw prog attrib
         SDL.glSwapWindow window
+        createImageTexture tex i
 
-        unless quit loop
+        unless quit $ loop (i+1)
 
-  loop
+  loop 0
 
   SDL.destroyWindow window
   SDL.quit
 
-createImageTexture :: GL.TextureObject -> IO ()
-createImageTexture texName = do
+createImageTexture :: GL.TextureObject -> Int -> IO ()
+createImageTexture texName offset = do
     GL.textureBinding GL.Texture2D $= Just texName
 
     textureData <- mallocBytes (fromIntegral $ screenWidth*screenHeight) :: IO (Ptr Word8)
     forM_ [0..screenHeight-1] $ \i ->
         forM_ [0..screenWidth-1] $ \j -> do
-            pokeElemOff textureData (fromIntegral $ screenWidth*i+j) (fromIntegral $ j)
+            pokeElemOff textureData (fromIntegral $ screenWidth*i+j) (fromIntegral $ (j+fromIntegral offset))
 
     putStrLn "Image texture created"
     GL.texImage2D
@@ -172,17 +173,17 @@ connectProgramToTextures program tex tex2 = do
         exitFailure
     GL.currentProgram $= Just program
 
-initResources :: IO (GL.Program, GL.AttribLocation)
+initResources :: IO (GL.Program, GL.AttribLocation, GL.TextureObject)
 initResources = do
     [tex, tex2] <- GL.genObjectNames 2 :: IO [GL.TextureObject]
 
-    createImageTexture tex
+    createImageTexture tex 0
     createLUTTexture tex2
 
     program <- createShaderProgram
     connectProgramToTextures program tex tex2
 
-    return (program, GL.AttribLocation 0)
+    return (program, GL.AttribLocation 0, tex)
 
 draw :: GL.Program -> GL.AttribLocation -> IO ()
 draw program attrib = do
