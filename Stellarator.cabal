@@ -20,7 +20,7 @@ library
   ghc-options:         -O5 -Wall -fwarn-missing-signatures -ddump-simpl -ddump-asm
   extensions:          
   exposed-modules:     TIAColors, Binary, Core, Disasm,
-                       DebugCmd, Memory, Asm, DebugState, Atari2600, Debugger, Metrics, BitManips, Emulation, VideoOps
+                       DebugCmd, Memory, Asm, DebugState, Atari2600, Debugger, Metrics, BitManips, Emulation, VideoOps, Display
   build-depends:       base >= 4.7 && < 5
                      , sdl2
                      , bytestring

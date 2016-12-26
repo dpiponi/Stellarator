@@ -283,7 +283,7 @@ compositeAndCollide pixelx hpos' = do
     else return z
 
 {-# INLINE stellaTick #-}
-stellaTick :: Int -> Ptr Word32 -> MonadAtari ()
+stellaTick :: Int -> Ptr Word8 -> MonadAtari ()
 stellaTick n _ | n <= 0 = return ()
 stellaTick n ptr' = do
     hpos' <- load hpos
@@ -305,10 +305,8 @@ stellaTick n ptr' = do
         pendingHmove' <- load pendingHmove
         let renderBlank = testBit blank 1 || pendingHmove' && pixelx < 8
         pixel <- if renderBlank
-            then return 0x404040
-            else do
-                final <- compositeAndCollide pixelx hpos'
-                return $ lut!(final `shift` (-1))
+            then return 0
+            else compositeAndCollide pixelx hpos'
         liftIO $ pokeElemOff ptr' pixelAddr pixel
 
         when (pixelx >= 8) $ store pendingHmove False

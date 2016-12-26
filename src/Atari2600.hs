@@ -14,14 +14,19 @@ module Atari2600(
                  useStellaDebug,
                  modifyClock,
                  useStellaClock,
-                 getBackSurface,
+                 --getBackSurface,
                  ram,
                  rom,
                  useMemory,
                  useClock,
                  putStellaDebug,
-                 getFrontSurface,
-                 getFrontWindow,
+                 --getFrontSurface,
+                 --getFrontWindow,
+                 sdlWindow,
+                 textureData,
+                 tex,
+                 glProg,
+                 glAttrib,
                  modifyStellaClock,
                  stellaDebug,
                  clock,
@@ -36,9 +41,12 @@ import Data.Array.IO
 import Data.IORef
 import Data.Int
 import Data.Word
+import qualified SDL
+import Foreign.Ptr
 import DebugState
 import Memory
-import SDL.Video
+import qualified Graphics.Rendering.OpenGL as GL
+--import SDL.Video
 import Asm
 
 data Atari2600 = Atari2600 {
@@ -55,9 +63,16 @@ data Atari2600 = Atari2600 {
     _word16Array :: Segment Word16,
     _word64Array :: Segment Word64,
 
+{-
     _sdlBackSurface :: Surface,
     _sdlFrontSurface :: Surface,
-    _sdlFrontWindow :: Window
+    _sdlFrontWindow :: Window,
+-}
+    _sdlWindow :: SDL.Window,
+    _textureData :: Ptr Word8,
+    _tex :: GL.TextureObject,
+    _glProg :: GL.Program,
+    _glAttrib :: GL.AttribLocation
 }
 
 $(makeLenses ''Atari2600)
@@ -166,6 +181,7 @@ modifyStellaClock lens' modifier = do
     atari <- ask
     liftIO $ modifyIORef' (atari ^. stellaClock) (over lens' modifier)
 
+{-
 {-# INLINE getBackSurface #-}
 getBackSurface :: MonadAtari Surface
 getBackSurface = do
@@ -183,3 +199,4 @@ getFrontWindow :: MonadAtari Window
 getFrontWindow = do
     atari <- ask
     return $ atari ^. sdlFrontWindow
+    -}

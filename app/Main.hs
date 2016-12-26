@@ -16,6 +16,7 @@ import Binary
 import Control.Applicative
 import Control.Concurrent
 import Control.Concurrent
+import Display
 import Control.Concurrent (threadDelay)
 import Control.Lens hiding (_last)
 import Control.Monad
@@ -167,11 +168,16 @@ main = do
                                                                (fromIntegral $ yscale*screenHeight) }
     --context <- SDL.glCreateContext window
     --SDL.swapInterval SDL.$= SDL.SynchronizedUpdates
-    --SDL.showWindow window
+    SDL.showWindow window
+    _ <- SDL.glCreateContext window
+    SDL.swapInterval $= SDL.SynchronizedUpdates
+    (prog, attrib, tex, textureData) <- initResources
+    {-
     screenSurface <- SDL.getWindowSurface window
 
     backSurface <- createRGBSurface (V2 (fromIntegral screenWidth)
                                         (fromIntegral screenHeight)) RGB888
+                                        -}
 
     rom <- newArray (0, 0x3fff) 0 :: IO (IOUArray Int Word8)
     ram <- newArray (0, 0x7f) 0 :: IO (IOUArray Int Word8)
@@ -181,7 +187,7 @@ main = do
     let initialPC = fromIntegral pclo+(fromIntegral pchi `shift` 8)
 
     let style = bank args
-    state <- initState ram style rom initialPC backSurface screenSurface window
+    state <- initState ram style rom initialPC window prog attrib tex textureData
 
 {-
     samples <- newIORef sinSamples
@@ -218,5 +224,6 @@ main = do
         loop
 
     SDL.destroyWindow window
-    SDL.freeSurface backSurface
+    --SDL.freeSurface backSurface
+    -- XXX Free malloced data?
     SDL.quit

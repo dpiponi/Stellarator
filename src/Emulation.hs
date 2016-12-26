@@ -16,10 +16,11 @@ module Emulation(stellaDebug,
                  load) where
 
 import Asm
-import Graphics.Rendering.OpenGL
+import Graphics.Rendering.OpenGL as GL
 --import Graphics.Rendering.OpenGL.GL.PixelRectangles.Rasterization
 import Atari2600
 import BitManips
+import Display
 import Control.Lens
 import Control.Monad.Reader
 import Core
@@ -37,7 +38,7 @@ import Metrics
 import Numeric
 import Prelude hiding (last)
 import SDL.Vect
-import SDL.Video
+import SDL.Video hiding (updateTexture)
 import Asm
 import VideoOps
 import qualified SDL
@@ -64,10 +65,13 @@ initState :: IOUArray Int Word8 ->
              BankMode ->
              IOUArray Int Word8 ->
              Word16 ->
-             SDL.Surface -> SDL.Surface ->
-             SDL.Window -> IO Atari2600
-initState ram' mode rom' initialPC
-          helloWorld screenSurface window = do
+             SDL.Window -> 
+             GL.Program ->
+             GL.AttribLocation ->
+             GL.TextureObject ->
+             Ptr Word8 ->
+             IO Atari2600
+initState ram' mode rom' initialPC window prog attrib tex textureData = do
           stellaDebug' <- newIORef DebugState.start
           memory' <- newIORef $ Memory { _bankMode = mode }
           clock' <- newIORef 0
@@ -86,14 +90,19 @@ initState ram' mode rom' initialPC
               _memory = memory',
               _clock = clock',
               _stellaClock = stellaClock',
-              _sdlBackSurface = helloWorld,
-              _sdlFrontSurface = screenSurface,
-              _sdlFrontWindow = window,
+              --_sdlBackSurface = helloWorld,
+              --_sdlFrontSurface = screenSurface,
+              --_sdlFrontWindow = window,
               _boolArray = boolArray',
               _intArray = intArray',
               _word64Array = word64Array',
               _word16Array = word16Array',
-              _word8Array = word8Array'
+              _word8Array = word8Array',
+              _sdlWindow = window,
+              _textureData = textureData,
+              _tex = tex,
+              _glProg = prog,
+              _glAttrib = attrib
           }
 
 {- INLINE stellaHmclr -}
@@ -330,10 +339,11 @@ stellaTickFor' diff = do
         -- XXX surely this must be done every time - collisions
         clampMissiles resmp0' resmp1'
 
-        stellaDebug' <- useStellaDebug id
-        surface <- getBackSurface
-        ptr <- liftIO $ surfacePixels surface -- <-- XXX I think it's OK but not sure
-        let ptr' = castPtr ptr :: Ptr Word32
+        --stellaDebug' <- useStellaDebug id
+        --surface <- getBackSurface
+        --ptr <- liftIO $ surfacePixels surface -- <-- XXX I think it's OK but not sure
+        --let ptr' = castPtr ptr :: Ptr Word32
+        ptr' <- view textureData
         -- XXX Not sure stellaDebug actually changes here so may be some redundancy
         stellaTick (fromIntegral diff) ptr'
 
@@ -581,18 +591,10 @@ writeStella addr v = do
 
 renderDisplay :: MonadAtari ()
 renderDisplay = do
-    back <- getBackSurface
-    front <- getFrontSurface
-    window <- getFrontWindow
-    unlockSurface back
-    surfaceBlitScaled back Nothing front
-                (Just (Rectangle (P (V2 0 0))
-                                 (V2 (fromIntegral $ screenWidth*xscale) (fromIntegral $ screenHeight*yscale))))
-    lockSurface back
-    updateWindowSurface window
-    --surface <- getBackSurface
-    --ptr <- liftIO $ SDL.surfacePixels surface -- <-- XXX I think it's OK but not sure
-    --let ptr' = castPtr ptr :: Ptr Word32
-    --liftIO $ drawPixels (Size (fromIntegral screenWidth) (fromIntegral screenHeight)) (PixelData RGBA UnsignedByte ptr)
-    --liftIO $ rect (Vertex2 0 (0::Float)) (Vertex2 300 200)
-    --SDL.glSwapWindow window
+    window <- view sdlWindow
+    prog <- view glProg
+    attrib <- view glAttrib
+    tex <- view tex
+    ptr <- view textureData
+    liftIO $ updateTexture tex ptr
+    liftIO $ draw window prog attrib
