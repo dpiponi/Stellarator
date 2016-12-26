@@ -30,51 +30,13 @@ windowWidth, windowHeight :: CInt
 screenWidth, screenHeight :: CInt
 (screenWidth, screenHeight) = (64, 48)
 
-main :: IO ()
-main = do
-  SDL.initialize [SDL.InitVideo]
-  -- SDL.HintRenderScaleQuality $= SDL.ScaleLinear
-  -- do renderQuality <- SDL.get SDL.HintRenderScaleQuality
-  --    when (renderQuality /= SDL.ScaleLinear) $
-  --      putStrLn "Warning: Linear texture filtering not enabled!"
-
-  window <-
-    SDL.createWindow
-      "SDL / OpenGL Example"
-      SDL.defaultWindow {SDL.windowInitialSize = V2 windowWidth windowHeight,
-                         SDL.windowOpenGL = Just SDL.defaultOpenGL}
-  SDL.showWindow window
-
-  _ <- SDL.glCreateContext window
-  SDL.swapInterval $= SDL.SynchronizedUpdates
-  (prog, attrib, tex) <- initResources
-
-  let loop i = do
-        events <- SDL.pollEvents
-        let quit = elem SDL.QuitEvent $ map SDL.eventPayload events
-
-        GL.clear [GL.ColorBuffer]
-        draw prog attrib
-        SDL.glSwapWindow window
-        createImageTexture tex i
-
-        unless quit $ loop (i+1)
-
-  loop 0
-
-  SDL.destroyWindow window
-  SDL.quit
-
-createImageTexture :: GL.TextureObject -> Int -> IO ()
-createImageTexture texName offset = do
-    GL.textureBinding GL.Texture2D $= Just texName
-
-    textureData <- mallocBytes (fromIntegral $ screenWidth*screenHeight) :: IO (Ptr Word8)
+renderImageTexture :: GL.TextureObject -> Ptr Word8 -> Int -> IO ()
+renderImageTexture texName textureData offset = do
     forM_ [0..screenHeight-1] $ \i ->
         forM_ [0..screenWidth-1] $ \j -> do
             pokeElemOff textureData (fromIntegral $ screenWidth*i+j) (fromIntegral $ (j+fromIntegral offset))
 
-    putStrLn "Image texture created"
+    GL.textureBinding GL.Texture2D $= Just texName
     GL.texImage2D
         GL.Texture2D
         GL.NoProxy
@@ -84,11 +46,18 @@ createImageTexture texName offset = do
         0
         (GL.PixelData GL.Red GL.UnsignedByte textureData)
 
-    putStrLn "Texture loaded."
+createImageTexture :: GL.TextureObject -> Int -> IO (Ptr Word8)
+createImageTexture texName offset = do
+    GL.textureBinding GL.Texture2D $= Just texName
+
+    textureData <- mallocBytes (fromIntegral $ screenWidth*screenHeight) :: IO (Ptr Word8)
+    renderImageTexture texName textureData offset
 
     GL.textureFilter   GL.Texture2D   $= ((GL.Nearest, Nothing), GL.Nearest)
     GL.textureWrapMode GL.Texture2D GL.S $= (GL.Repeated, GL.ClampToEdge)
     GL.textureWrapMode GL.Texture2D GL.T $= (GL.Repeated, GL.ClampToEdge)
+
+    return textureData
 
 createLUTTexture :: GL.TextureObject -> IO ()
 createLUTTexture texName = do
@@ -177,20 +146,20 @@ connectProgramToTextures program tex tex2 = do
         exitFailure
     GL.currentProgram $= Just program
 
-initResources :: IO (GL.Program, GL.AttribLocation, GL.TextureObject)
+initResources :: IO (GL.Program, GL.AttribLocation, GL.TextureObject, Ptr Word8)
 initResources = do
     [tex, tex2] <- GL.genObjectNames 2 :: IO [GL.TextureObject]
 
-    createImageTexture tex 0
+    textureData <- createImageTexture tex 0
     createLUTTexture tex2
 
     program <- createShaderProgram
     connectProgramToTextures program tex tex2
 
-    return (program, GL.AttribLocation 0, tex)
+    return (program, GL.AttribLocation 0, tex, textureData)
 
-draw :: GL.Program -> GL.AttribLocation -> IO ()
-draw program attrib = do
+draw :: SDL.Window -> GL.Program -> GL.AttribLocation -> IO ()
+draw window program attrib = do
     GL.clearColor $= GL.Color4 0 0 0 0
     GL.clear [GL.ColorBuffer]
     GL.viewport $= (GL.Position 0 0, GL.Size (fromIntegral windowWidth) (fromIntegral windowHeight))
@@ -202,6 +171,7 @@ draw program attrib = do
           (GL.ToFloat, GL.VertexArrayDescriptor 2 GL.Float 0 ptr)
     GL.drawArrays GL.Triangles 0 6 -- 3 is the number of vertices
     GL.vertexAttribArray attrib $= GL.Disabled
+    SDL.glSwapWindow window
 
 vsSource, fsSource :: BS.ByteString
 vsSource = BS.intercalate "\n"
@@ -242,3 +212,36 @@ vertices = V.fromList [ -1.0, -1.0
                       ,  1.0,  1.0 
                       , -1.0,  1.0
                       ]
+
+main :: IO ()
+main = do
+  SDL.initialize [SDL.InitVideo]
+  -- SDL.HintRenderScaleQuality $= SDL.ScaleLinear
+  -- do renderQuality <- SDL.get SDL.HintRenderScaleQuality
+  --    when (renderQuality /= SDL.ScaleLinear) $
+  --      putStrLn "Warning: Linear texture filtering not enabled!"
+
+  window <-
+    SDL.createWindow
+      "SDL / OpenGL Example"
+      SDL.defaultWindow {SDL.windowInitialSize = V2 windowWidth windowHeight,
+                         SDL.windowOpenGL = Just SDL.defaultOpenGL}
+  SDL.showWindow window
+
+  _ <- SDL.glCreateContext window
+  SDL.swapInterval $= SDL.SynchronizedUpdates
+  (prog, attrib, tex, textureData) <- initResources
+
+  let loop i = do
+        events <- SDL.pollEvents
+        let quit = elem SDL.QuitEvent $ map SDL.eventPayload events
+
+        renderImageTexture tex textureData i
+        draw window prog attrib
+
+        unless quit $ loop (i+1)
+
+  loop 1
+
+  SDL.destroyWindow window
+  SDL.quit
