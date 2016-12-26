@@ -25,7 +25,7 @@ import Data.Word
 import Foreign.Storable
 
 windowWidth, windowHeight :: CInt
-(windowWidth, windowHeight) = (640, 480)
+(windowWidth, windowHeight) = (2000, 1600)
 
 screenWidth, screenHeight :: CInt
 (screenWidth, screenHeight) = (64, 48)
@@ -46,6 +46,7 @@ main = do
   SDL.showWindow window
 
   _ <- SDL.glCreateContext window
+  SDL.swapInterval $= SDL.SynchronizedUpdates
   (prog, attrib, tex) <- initResources
 
   let loop i = do
@@ -68,10 +69,10 @@ createImageTexture :: GL.TextureObject -> Int -> IO ()
 createImageTexture texName offset = do
     GL.textureBinding GL.Texture2D $= Just texName
 
-    textureData <- mallocBytes (fromIntegral $ windowWidth*windowHeight) :: IO (Ptr Word8)
-    forM_ [0..windowHeight-1] $ \i ->
-        forM_ [0..windowWidth-1] $ \j -> do
-            pokeElemOff textureData (fromIntegral $ windowWidth*i+j) (fromIntegral $ (j+fromIntegral offset))
+    textureData <- mallocBytes (fromIntegral $ screenWidth*screenHeight) :: IO (Ptr Word8)
+    forM_ [0..screenHeight-1] $ \i ->
+        forM_ [0..screenWidth-1] $ \j -> do
+            pokeElemOff textureData (fromIntegral $ screenWidth*i+j) (fromIntegral $ (j+fromIntegral offset))
 
     putStrLn "Image texture created"
     GL.texImage2D
