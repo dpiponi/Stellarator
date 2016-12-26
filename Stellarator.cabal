@@ -34,6 +34,7 @@ library
                      , haskeline
                      , containers
                      , OpenGL
+                     , time
   default-language:    Haskell2010
 
 executable stellarator-exe
@@ -84,7 +85,6 @@ executable experiment-exe
                      , containers
                      , OpenGL
                      , OpenGLRaw
-                     , GLUtil
                      , distributive
                      , Stellarator
   default-language:    Haskell2010

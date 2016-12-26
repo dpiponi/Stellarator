@@ -63,16 +63,11 @@ data Atari2600 = Atari2600 {
     _word16Array :: Segment Word16,
     _word64Array :: Segment Word64,
 
-{-
-    _sdlBackSurface :: Surface,
-    _sdlFrontSurface :: Surface,
-    _sdlFrontWindow :: Window,
--}
-    _sdlWindow :: SDL.Window,
+    _sdlWindow :: !SDL.Window,
     _textureData :: Ptr Word8,
-    _tex :: GL.TextureObject,
-    _glProg :: GL.Program,
-    _glAttrib :: GL.AttribLocation
+    _tex :: !GL.TextureObject,
+    _glProg :: !GL.Program,
+    _glAttrib :: !GL.AttribLocation
 }
 
 $(makeLenses ''Atari2600)
@@ -129,6 +124,7 @@ instance Reg Bool MonadAtari where
     store r v = do
         value <- view boolArray
         liftIO $ unsafeWrite value (unTyped r) v
+
 {-# INLINE useStellaDebug #-}
 useStellaDebug :: Getting b DebugState b -> MonadAtari b
 useStellaDebug lens' = do

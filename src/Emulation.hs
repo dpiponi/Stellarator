@@ -25,6 +25,7 @@ import Control.Lens
 import Control.Monad.Reader
 import Core
 import Data.Array.IO
+import Data.Time.Clock
 import Data.Bits hiding (bit)
 import Data.Bits.Lens
 import Data.IORef
@@ -302,6 +303,8 @@ stellaVsync v = do
         store vpos 0
     store vsync v
     renderDisplay
+    t <- liftIO $ getCurrentTime
+    liftIO $ print t
 
 {- INLINE stellaWsync -}
 stellaWsync :: MonadAtari ()
@@ -598,3 +601,4 @@ renderDisplay = do
     ptr <- view textureData
     liftIO $ updateTexture tex ptr
     liftIO $ draw window prog attrib
+    return ()

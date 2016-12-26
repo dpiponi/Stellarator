@@ -72,12 +72,6 @@ data Args = Args { file :: String, bank :: BankMode } deriving (Show, Data, Type
 clargs :: Args
 clargs = Args { file = "adventure.bin", bank = UnBanked }
 
-{-
-times :: (Integral n, Monad m) => n -> m a -> m ()
-times 0 _ = return ()
-times n m = m >> times (n-1) m
--}
-
 {- INLINE isPressed -}
 isPressed :: InputMotion -> Bool
 isPressed Pressed = True
@@ -167,17 +161,11 @@ main = do
                                     SDL.windowInitialSize = V2 (fromIntegral $ xscale*screenWidth)
                                                                (fromIntegral $ yscale*screenHeight) }
     --context <- SDL.glCreateContext window
-    --SDL.swapInterval SDL.$= SDL.SynchronizedUpdates
     SDL.showWindow window
     _ <- SDL.glCreateContext window
     SDL.swapInterval $= SDL.SynchronizedUpdates
+    --SDL.swapInterval $= SDL.ImmediateUpdates
     (prog, attrib, tex, textureData) <- initResources
-    {-
-    screenSurface <- SDL.getWindowSurface window
-
-    backSurface <- createRGBSurface (V2 (fromIntegral screenWidth)
-                                        (fromIntegral screenHeight)) RGB888
-                                        -}
 
     rom <- newArray (0, 0x3fff) 0 :: IO (IOUArray Int Word8)
     ram <- newArray (0, 0x7f) 0 :: IO (IOUArray Int Word8)
