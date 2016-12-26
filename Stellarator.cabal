@@ -40,7 +40,7 @@ executable stellarator-exe
   hs-source-dirs:      app
   main-is:             Main.hs
   extensions:         
-  ghc-options:         -O5 -fwarn-missing-signatures -ddump-simpl -ddump-asm 
+  ghc-options:         -O5 -Wall -fwarn-missing-signatures -ddump-simpl -ddump-asm 
   build-depends:       base
                      , sdl2
                      , bytestring
@@ -65,7 +65,7 @@ executable experiment-exe
   hs-source-dirs:      experiment
   main-is:             Main.hs
   extensions:         
-  ghc-options:         -O5 -fwarn-missing-signatures -ddump-simpl -ddump-asm 
+  ghc-options:         -O5 -Wall -fwarn-missing-signatures -ddump-simpl -ddump-asm 
   build-depends:       base
                      , sdl2
                      , bytestring

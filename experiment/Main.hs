@@ -4,25 +4,23 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import TIAColors
-import Data.Bits
-import Data.Array.Unboxed
 import Control.Monad
+import Data.Array.Unboxed
+import Data.Bits
+import Data.Word
 import Foreign.C.Types
-import SDL.Vect
-import qualified Data.ByteString as BS
-import qualified Data.Vector.Storable as V
-import           System.Exit (exitFailure)
-import           System.IO
-
-import SDL (($=))
-import qualified SDL
-import qualified Graphics.Rendering.OpenGL as GL
-
 import Foreign.Marshal.Alloc
 import Foreign.Ptr
-import Data.Word
 import Foreign.Storable
+import SDL (($=))
+import SDL.Vect
+import System.Exit (exitFailure)
+import System.IO
+import TIAColors
+import qualified Data.ByteString as BS
+import qualified Data.Vector.Storable as V
+import qualified Graphics.Rendering.OpenGL as GL
+import qualified SDL
 
 windowWidth, windowHeight :: CInt
 (windowWidth, windowHeight) = (2000, 1600)
