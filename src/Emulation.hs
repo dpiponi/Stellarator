@@ -15,7 +15,7 @@ module Emulation(stellaDebug,
                  trigger1,
                  load) where
 
-import Asm
+import Asm()
 import Graphics.Rendering.OpenGL as GL
 --import Graphics.Rendering.OpenGL.GL.PixelRectangles.Rasterization
 import Atari2600
@@ -25,7 +25,6 @@ import Control.Lens
 import Control.Monad.Reader
 import Core
 import Data.Array.IO
-import Data.Time.Clock
 import Data.Bits hiding (bit)
 import Data.Bits.Lens
 import Data.IORef
@@ -38,8 +37,6 @@ import Memory
 import Metrics
 import Numeric
 import Prelude hiding (last)
-import SDL.Vect
-import SDL.Video hiding (updateTexture)
 import Asm
 import VideoOps
 import qualified SDL
@@ -301,10 +298,8 @@ stellaVsync v = do
     when (testBit oldv 1 && not (testBit v 1)) $ do
         store hpos 0
         store vpos 0
+        renderDisplay
     store vsync v
-    renderDisplay
-    t <- liftIO $ getCurrentTime
-    liftIO $ print t
 
 {- INLINE stellaWsync -}
 stellaWsync :: MonadAtari ()
