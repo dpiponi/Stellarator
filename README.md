@@ -73,15 +73,9 @@ make use of precise timing of the video circuitry including delays as
 signals propagate through it. I only have only implemented delays on
 a small part of the hardware and that likely explains most of the quirks
 you see.
-It doesn't yet reproduce the artifacts I described here:
-https://plus.google.com/+DanPiponi/posts/NLUwTTKpV6i
 
 Some games don't function at all, even with the correct rom bank switching.
 For example the baddies don't seem to appear in Millipede.
-And there's lots of screen horribleness in Asteroids though it is playable.
-
-During a blanking period the "electron gun" renders gray not black.
-Useful for debugging.
 
 Debugger
 --------
@@ -108,6 +102,8 @@ Credits
 -------
 1. The primary source of information was http://web.atari.org/stellaes.pdf
 2. This was a great secondary source with subtle details: http://www.atarihq.com/danb/files/TIA_HW_Notes.txt
+3. I've used Stella as my reference "hardware". I've had tiny peeks at Stella's source but I don't want
+   to do that too much as it removes some of the fun :-) (http://stella.sourceforge.net)
 
 Playable Games
 --------------
