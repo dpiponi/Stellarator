@@ -16,7 +16,8 @@ TODO
     http://www.biglist.com/lists/stella/archives/199705/msg00024.html
 28. Options file.
 29. Allow keys to be configurable. Otherwise Q*Bert too confusing.
-30. Bad pixel on score in Planet Patrol
+30. In Raiders of the Lost Ark, Indy initially descends a pixel or two to the right
+    of where he does in Stella.
 
 Done
 ----
@@ -52,3 +53,5 @@ Done
 23. What's with crazy flashing in Asteroids?
     It's fine. That's how the original worked. Switching to synced OpenGL improves look.
 25. Make players etc. wrap
+30. Bad pixel on score in Planet Patrol
+    It's there in Youtube videos so it's not a Stellarator bug.

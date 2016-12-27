@@ -4,7 +4,6 @@ Testing:
 Asymmetric.bin: check 't'
 Adventure: glitch in playfield
 Freeway: dot in CCE
-Planet Patrol: dot above score
 
 
 Playfield:
