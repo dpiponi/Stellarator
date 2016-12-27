@@ -16,6 +16,7 @@ TODO
     http://www.biglist.com/lists/stella/archives/199705/msg00024.html
 28. Options file.
 29. Allow keys to be configurable. Otherwise Q*Bert too confusing.
+30. Bad pixel on score in Planet Patrol
 
 Done
 ----
