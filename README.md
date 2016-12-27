@@ -110,3 +110,8 @@ Lots of games work:
 | Freeway:               |Sprite "wrap" not implemented so vehicles pop on and off.                 |
 | Frogger 2:             |Uses E8 bank switching. Not implemented.                                  |
 | Fun with Numbers:      |Works. Pity the kids that learnt mathematics using this.                  |
+| Ikari Warriors:        |16K ROM not supported yet.                                                |
+| Indy 500               |Steering doesn't seem to work. Maybe expects different controller.        |
+| Millipede              |Use -b f6. No enemies seem to arrive.                                     |
+| Pacman                 |Seems to work fine. Flickering is normal.                                 |
+| Pinball                |Seems to work fine.                                                       |
