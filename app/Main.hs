@@ -202,14 +202,14 @@ main = do
 
             loop
 
-    flip runReaderT state $ unM $ do
-        store inpt4 0x80
-        store inpt5 0x80
-        store swcha 0b11111111
-        store swchb 0b00001011
-        store xbreak (-1)
-        store ybreak (-1)
-        loop
+    _ <- flip runReaderT state $ unM $ do
+            store inpt4 0x80
+            store inpt5 0x80
+            store swcha 0b11111111
+            store swchb 0b00001011
+            store xbreak (-1)
+            store ybreak (-1)
+            loop
 
     SDL.destroyWindow window
     --SDL.freeSurface backSurface

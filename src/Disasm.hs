@@ -74,18 +74,23 @@ make16 lo hi = fromIntegral lo+(fromIntegral hi `shift` 8)
 
 indirectX :: String -> [Word8] -> (Int, String, [Word8])
 indirectX mne (b : bs) = (2, mne ++ " (" ++ inHex8 b ++ ", X)", bs)
+indirectX mne [] = error "Not handled"
 
 zeroPage :: String -> [Word8] -> (Int, String, [Word8])
 zeroPage mne (b : bs) = (2, mne ++ " " ++ address8 b, bs)
+zeroPage mne [] = error "Not handled"
 
 absolute :: String -> [Word8] -> (Int, String, [Word8])
 absolute mne (blo : bhi : bs) = (3, mne ++ " " ++ inHex16 (make16 blo bhi), bs)
+absolute mne [] = error "Not handled"
 
 indirect :: String -> [Word8] -> (Int, String, [Word8])
 indirect mne (blo : bhi : bs) = (3, mne ++ " (" ++ inHex16 (make16 blo bhi) ++ ")", bs)
+indirect mne [] = error "Not handled"
 
 indirectY :: String -> [Word8] -> (Int, String, [Word8])
 indirectY mne (b : bs) = (2, mne ++ " (" ++ inHex8 b ++ "), Y", bs)
+indirectY mne [] = error "Not handled"
 
 zeroPageX :: String -> [Word8] -> (Int, String, [Word8])
 zeroPageX mne (b : bs) = (2, mne ++ " " ++ inHex8 b ++ ", X", bs)
