@@ -28,13 +28,13 @@ import Data.Binary hiding (get)
 import Data.Binary.Get
 import Data.Bits hiding (bit)
 import Data.Bits.Lens
-import Data.ByteString as B hiding (last, putStr, putStrLn, getLine, length, elem, map, reverse)
+import Data.ByteString as B hiding (last, putStr, putStrLn, getLine, length, elem, map, reverse, readFile)
 import Data.Char
 import Data.IORef
 import Data.Int
 import Data.Int(Int16)
 import Data.Monoid
-import Data.Vector.Storable.Mutable as V hiding (modify)
+import Data.Vector.Storable.Mutable as V hiding (modify, readFile, read)
 import Data.Word
 import Debug.Trace
 import DebugCmd
@@ -151,8 +151,23 @@ audioCB samples format buffer =
     _ -> error "Unsupported audio format"
 -}
 
+data Options = Options {
+    screenScaleX :: Int,
+    screenScaleY :: Int
+} deriving (Show, Read)
+
+defaultOptions :: Options
+defaultOptions = Options {
+    screenScaleX = 5,
+    screenScaleY = 3
+}
+
 main :: IO ()
 main = do
+    optionsString <- readFile ".stellarator-options"
+    let options = read optionsString :: Options
+    print options
+
     args <- cmdArgs clargs
     --SDL.initialize [SDL.InitVideo, SDL.InitAudio]
     SDL.initializeAll
@@ -195,7 +210,7 @@ main = do
     let loop = do
             events <- liftIO $ SDL.pollEvents
 
-            let quit = elem SDL.QuitEvent $ map SDL.eventPayload events
+            --let quit = elem SDL.QuitEvent $ map SDL.eventPayload events
             forM_ events (handleEvent . eventPayload)
             stellaClock' <- useStellaClock id
             loopUntil (stellaClock' + 1000)

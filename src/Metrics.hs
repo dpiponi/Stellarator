@@ -12,8 +12,8 @@ screenWidth, screenHeight :: Int
 (screenWidth, screenHeight) = (160, screenScanLines)
 
 xscale, yscale :: Int
-xscale = 5
-yscale = 3
+xscale = 10
+yscale = 6
 
 windowWidth, windowHeight :: Int
 (windowWidth, windowHeight) = (xscale*screenWidth, yscale*screenHeight)
