@@ -133,6 +133,7 @@ Lots of games work:
 | Pacman                 |Seems to work fine. Flickering is normal.                                 |
 | Pinball                |Seems to work fine.                                                       |
 | Planet Patrol          |Seems to play fine apart from a bad pixel at top of screen                |
+| Pole Position          |Use -b f8. Playable but some clear alignment problems between sprites.    |
 | Q*Bert                 |Seems to play fine                                                        |
 | Quest for Quintana Roo |Seems to play fine but hard to tell.                                      |
 | Raiders of Lost Ark    |Use -b f6. Starts fine. Might need controllers I don't emulate yet.       |
