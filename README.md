@@ -93,6 +93,8 @@ Playable Games
 
 Lots of games work:
 
+| Game                   |Result of testing                                                         |
+|------------------------|--------------------------------------------------------------------------|
 | Adventure:             |Seems to play fine.                                                       |
 | Aquaventure:           |Use -b f8. seems to play fine.                                            |
 | Air Sea Battle:        |Seems to play fine.                                                       |
