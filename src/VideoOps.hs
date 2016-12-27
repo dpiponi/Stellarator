@@ -230,6 +230,9 @@ doCollisions lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1 = do
     when lplayer1  $ modify cxp1fb (.|. playball)
     when lball     $ modify cxblpf $ bitAt 7 ||~ lplayfield
 
+wrap160' x | x < 0 = x+160
+wrap160' x = x
+
 {- INLINE compositeAndCollide -}
 compositeAndCollide :: Int -> Int -> MonadAtari Word8
 compositeAndCollide pixelx hpos' = do
@@ -253,11 +256,11 @@ compositeAndCollide pixelx hpos' = do
     newBall' <- load newBall
     pf' <- load pf
 
-    let lmissile0 = missile nusiz0' enam0' (hpos'-mpos0') resmp0'
-    let lmissile1 = missile nusiz1' enam1' (hpos'-mpos1') resmp1'
-    lplayer0 <- player0 (hpos'-ppos0') delayP0' nusiz0'
-    lplayer1 <- player1 (hpos'-ppos1') delayP1' nusiz1'
-    let lball = ball delayBall' oldBall' newBall' ctrlpf' (hpos'-bpos')
+    let lmissile0 = missile nusiz0' enam0' (wrap160' $ hpos'-mpos0') resmp0'
+    let lmissile1 = missile nusiz1' enam1' (wrap160' $ hpos'-mpos1') resmp1'
+    lplayer0 <- player0 (wrap160' $ hpos'-ppos0') delayP0' nusiz0'
+    lplayer1 <- player1 (wrap160' $ hpos'-ppos1') delayP1' nusiz1'
+    let lball = ball delayBall' oldBall' newBall' ctrlpf' (wrap160' $ hpos'-bpos')
     let playfieldx = fromIntegral (pixelx `shift` (-2))
     let lplayfield = playfieldx >= 0 && playfieldx < 40 && testBit pf' playfieldx
 
