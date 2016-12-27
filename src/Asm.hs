@@ -21,6 +21,7 @@ oldGrp0 = 6
 oldGrp1 = 7
 newGrp0 = 8
 newGrp1 = 9
+timint = 10
 
 nusiz0, nusiz1, colup0, colup1, pf0, pf1, pf2, enam0, enam1, hmp0, hmp1, hmm0, hmm1, hmbl :: TypedIndex Word8
 vblank, vsync, refp0, refp1, colupf, colubk, ctrlpf, resmp0, resmp1 :: TypedIndex Word8

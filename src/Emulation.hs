@@ -41,23 +41,25 @@ import Asm
 import VideoOps
 import qualified SDL
 
-timerTick' :: Word8 -> Int -> Int -> (Word8, Int, Int)
-timerTick' 0      0         _         = ((-1), (3*1-1), 1)
-timerTick' intim' 0         interval' = ((intim'-1), (3*interval'-1), interval')
-timerTick' intim' subtimer' interval' = (intim', (subtimer'-1), interval')
+timerTick' :: Word8 -> Int -> Int -> Word8 -> (Word8, Int, Int, Word8)
+timerTick' 0      0         _         _       = (-1,       3*1-1,         1,         0x80)
+timerTick' intim' 0         interval' timint' = (intim'-1, 3*interval'-1, interval', timint')
+timerTick' intim' subtimer' interval' timint' = (intim',   subtimer'-1,   interval', timint')
 
 timerTick :: MonadAtari ()
 timerTick = do
-    (intim'', subtimer'', interval'') <- timerTick' <$> load intim <*> load subtimer <*> load interval
+    (intim'', subtimer'', interval'', timint'') <- timerTick' <$> load intim <*> load subtimer <*> load interval <*> load timint
     store intim intim''
     store subtimer subtimer''
     store interval interval''
+    store timint timint''
 
 startIntervalTimerN :: Int -> Word8 -> MonadAtari ()
 startIntervalTimerN n v = do
     store interval n
-    store subtimer (3*n-1)
+    store subtimer 1 -- Was 3*n-1
     store intim v
+    store timint 0
 
 initState :: IOUArray Int Word8 ->
              BankMode ->
@@ -289,6 +291,7 @@ readStella addr =
         0x280 -> load swcha
         0x282 -> load swchb
         0x284 -> load intim
+        0x285 -> load timint
         _ -> return 0 
 
 {- INLINE stellaVsync -}

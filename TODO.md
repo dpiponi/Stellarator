@@ -14,7 +14,7 @@ TODO
 24. See if we can get NUSIZ changing to work in Meltdown as in
     http://atariage.com/forums/topic/82052-tia-schematics-and-timing/
 25. Make players etc. wrap
-26. Implement "undocumented" TIMINT
+26. Implement "undocumented" TIMINT and also implement timer correctly
     http://atariage.com/forums/topic/133686-please-explain-riot-timmers/?p=1617207
 
 Done
