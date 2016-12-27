@@ -440,6 +440,15 @@ ins_nop = do
     tick 1
     discard $ getPC >>= readMemory
 
+{-
+-- 3 clock cycles. Undocumented.
+{-# INLINABLE ins_nop #-}
+ins_dop :: Emu6502 m => m ()
+ins_nop = do
+    tick 1
+    discard $ getPC >>= readMemory
+-}
+
 -- 3 clock cycles
 {-# INLINABLE ins_jmp #-}
 ins_jmp :: Emu6502 m => m ()
@@ -1093,6 +1102,7 @@ step = do
     incPC
     case i of
         0x00 -> ins_brk
+        0x04 -> void $ readZeroPage -- XXX undocumented "DOP" nop
         0x08 -> ins_php
         0x10 -> ins_bra getN False
         0x18 -> ins_set putC False
