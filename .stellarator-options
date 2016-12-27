@@ -1,0 +1,6 @@
+Options {
+    screenScaleX = 5,
+    screenScaleY = 3,
+    topOverscan = 10,
+    bottomOverscan = 10
+}

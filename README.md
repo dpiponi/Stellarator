@@ -65,7 +65,7 @@ Command line options
 Debugger
 --------
 Hitting escape while running the emulator drops you into the debugger.
-Use q to quit debugging.
+Use c to quit debugging and return to game playing.
 
 I'll document the commands eventually but here's an example:
 
@@ -82,10 +82,29 @@ I'll probably fix that eventually.
 
 Notes
 -----
-For debugging purposes I've rendered parts of TV screen where electron gun
-is blanked as dark grey instead of black.
 
 Credits
 -------
 1. The primary source of information was http://web.atari.org/stellaes.pdf
 2. This was a great secondary source with subtle details: http://www.atarihq.com/danb/files/TIA_HW_Notes.txt
+
+Playable Games
+--------------
+
+Lots of games work:
+
+Adventure:              Seems to play fine.
+Aquaventure:            Use -b f8. seems to play fine.
+Air Sea Battle:         Seems to play fine.
+Asteroids:              Seems to play fine. Flicker is correct behaviour.
+Centipede:              Use -b f8. seems to play fine.
+Circus:                 Seems to play fine. Too fast for me...
+Combat:                 Seems to play fine. Two player though...
+Commando Raid:          Seems to play fine. Ugly "comb" effect is correct.
+Cosmic Ark:             Seems to play fine but star rendering is replaced by ugly vertical line.
+Defender:               Seems to play fine.
+Donkey Kong:            Seems to play fine.
+Dukes if Hazzard:       Use -b f6. Seems to play fine.
+Freeway:                Sprite "wrap" not implemented so vehicles pop on and off.
+Frogger 2:              Uses E8 bank switching. Not implemented.
+Fun with Numbers:       Works. Pity the kids that learnt mathematics using this.

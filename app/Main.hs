@@ -153,13 +153,17 @@ audioCB samples format buffer =
 
 data Options = Options {
     screenScaleX :: Int,
-    screenScaleY :: Int
+    screenScaleY :: Int,
+    topOverscan :: Int,
+    bottomOverscan :: Int
 } deriving (Show, Read)
 
 defaultOptions :: Options
 defaultOptions = Options {
     screenScaleX = 5,
-    screenScaleY = 3
+    screenScaleY = 3,
+    topOverscan = 10,
+    bottomOverscan = 10
 }
 
 main :: IO ()
