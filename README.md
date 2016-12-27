@@ -93,18 +93,18 @@ Playable Games
 
 Lots of games work:
 
-Adventure:              Seems to play fine.
-Aquaventure:            Use -b f8. seems to play fine.
-Air Sea Battle:         Seems to play fine.
-Asteroids:              Seems to play fine. Flicker is correct behaviour.
-Centipede:              Use -b f8. seems to play fine.
-Circus:                 Seems to play fine. Too fast for me...
-Combat:                 Seems to play fine. Two player though...
-Commando Raid:          Seems to play fine. Ugly "comb" effect is correct.
-Cosmic Ark:             Seems to play fine but star rendering is replaced by ugly vertical line.
-Defender:               Seems to play fine.
-Donkey Kong:            Seems to play fine.
-Dukes if Hazzard:       Use -b f6. Seems to play fine.
-Freeway:                Sprite "wrap" not implemented so vehicles pop on and off.
-Frogger 2:              Uses E8 bank switching. Not implemented.
-Fun with Numbers:       Works. Pity the kids that learnt mathematics using this.
+* Adventure:              Seems to play fine.
+* Aquaventure:            Use -b f8. seems to play fine.
+* Air Sea Battle:         Seems to play fine.
+* Asteroids:              Seems to play fine. Flicker is correct behaviour.
+* Centipede:              Use -b f8. seems to play fine.
+* Circus:                 Seems to play fine. Too fast for me...
+* Combat:                 Seems to play fine. Two player though...
+* Commando Raid:          Seems to play fine. Ugly "comb" effect is correct.
+* Cosmic Ark:             Seems to play fine but star rendering is replaced by ugly vertical line.
+* Defender:               Seems to play fine.
+* Donkey Kong:            Seems to play fine.
+* Dukes if Hazzard:       Use -b f6. Seems to play fine.
+* Freeway:                Sprite "wrap" not implemented so vehicles pop on and off.
+* Frogger 2:              Uses E8 bank switching. Not implemented.
+* Fun with Numbers:       Works. Pity the kids that learnt mathematics using this.
