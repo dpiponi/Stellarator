@@ -10,7 +10,7 @@ import Data.Array.Base
 
 newtype TypedIndex t = TO { unTyped :: Int } deriving (Ord, Ix, Eq, Num)
 
-intim, p, a, x, y, s, oldGrp0, newGrp0, oldGrp1, newGrp1 :: TypedIndex Word8
+intim, p, a, x, y, s, oldGrp0, newGrp0, oldGrp1, newGrp1, timint :: TypedIndex Word8
 intim = 0
 p = 1
 a = 2

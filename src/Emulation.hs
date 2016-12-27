@@ -41,6 +41,9 @@ import Asm
 import VideoOps
 import qualified SDL
 
+(@=) :: Reg a MonadAtari => TypedIndex a -> a -> MonadAtari ()
+(@=) = store
+
 timerTick' :: Word8 -> Int -> Int -> Word8 -> (Word8, Int, Int, Word8)
 timerTick' 0      0         _         _       = (-1,       3*1-1,         1,         0x80)
 timerTick' intim' 0         interval' timint' = (intim'-1, 3*interval'-1, interval', timint')
@@ -49,17 +52,17 @@ timerTick' intim' subtimer' interval' timint' = (intim',   subtimer'-1,   interv
 timerTick :: MonadAtari ()
 timerTick = do
     (intim'', subtimer'', interval'', timint'') <- timerTick' <$> load intim <*> load subtimer <*> load interval <*> load timint
-    store intim intim''
-    store subtimer subtimer''
-    store interval interval''
-    store timint timint''
+    intim @= intim''
+    subtimer @= subtimer''
+    interval @= interval''
+    timint @= timint''
 
 startIntervalTimerN :: Int -> Word8 -> MonadAtari ()
 startIntervalTimerN n v = do
-    store interval n
-    store subtimer 1 -- Was 3*n-1
-    store intim v
-    store timint 0
+    interval @= n
+    subtimer @= 0 -- Was 3*n-1
+    intim @= v
+    timint @= 0
 
 initState :: IOUArray Int Word8 ->
              BankMode ->
@@ -108,12 +111,12 @@ initState ram' mode rom' initialPC window prog attrib tex textureData = do
 {- INLINE stellaHmclr -}
 stellaHmclr :: MonadAtari ()
 stellaHmclr =
-    mapM_ (flip store 0) [hmp0, hmp1, hmm0, hmm1, hmbl]
+    mapM_ (@= 0) [hmp0, hmp1, hmm0, hmm1, hmbl]
 
 {- INLINE stellaCxclr -}
 stellaCxclr :: MonadAtari ()
 stellaCxclr =
-    mapM_ (flip store 0) [cxm0p, cxm1p, cxm0fb, cxm1fb, cxp0fb, cxp1fb, cxblpf, cxppmm]
+    mapM_ (@= 0) [cxm0p, cxm1p, cxm0fb, cxm1fb, cxp0fb, cxp1fb, cxblpf, cxppmm]
 
 {- INLINE stellaHmove -}
 stellaHmove :: MonadAtari ()
@@ -233,7 +236,7 @@ stellaVblank :: Word8 -> MonadAtari ()
 stellaVblank v = do
     trigger1' <- load trigger1
     modify inpt4 $ bitAt 7 .~ not trigger1'
-    store vblank v
+    vblank @= v
 
 makePlayfield :: MonadAtari ()
 makePlayfield = do
@@ -242,7 +245,7 @@ makePlayfield = do
     pf2' <- load pf2
     ctrlpf' <- load ctrlpf
     let pf' = assemblePlayfield (testBit ctrlpf' 0) pf0' pf1' pf2'
-    store pf pf'
+    pf @= pf'
 
 {- INLINABLE readStella -}
 readStella :: Word16 -> MonadAtari Word8
@@ -299,10 +302,10 @@ stellaVsync :: Word8 -> MonadAtari ()
 stellaVsync v = do
     oldv <- load vsync
     when (testBit oldv 1 && not (testBit v 1)) $ do
-        store hpos 0
-        store vpos 0
+        hpos @= 0
+        vpos @= 0
         renderDisplay
-    store vsync v
+    vsync @= v
 
 {- INLINE stellaWsync -}
 stellaWsync :: MonadAtari ()
@@ -323,8 +326,8 @@ stellaTickFor d = do
     if d > n
         then do
             stellaTickFor' (d-n)
-            store ahead 0
-        else store ahead (n-d)
+            ahead @= 0
+        else ahead @= (n-d)
 
 stellaTickFor' :: Int -> MonadAtari ()
 stellaTickFor' diff = do
@@ -413,55 +416,55 @@ instance Emu6502 MonadAtari where
         -- c <- useClock id
         stellaTickFor (3*n)
     {-# INLINE putC #-}
-    putC b = do { p' <- load p; store p (p' & bitAt 0 .~ b) }
+    putC b = do { p' <- load p; p @= (p' & bitAt 0 .~ b) }
     {-# INLINE getC #-}
     getC = do { p' <- load p; return (p' ^. bitAt 0) }
     {-# INLINE putZ #-}
-    putZ b = do { p' <- load p; store p (p' & bitAt 1 .~ b) }
+    putZ b = do { p' <- load p; p @= (p' & bitAt 1 .~ b) }
     {-# INLINE getZ #-}
     getZ = do { p' <- load p; return (p' ^. bitAt 1) }
     {-# INLINE putI #-}
-    putI b = do { p' <- load p; store p (p' & bitAt 2 .~ b) }
+    putI b = do { p' <- load p; p @= (p' & bitAt 2 .~ b) }
     {-# INLINE getI #-}
     getI = do { p' <- load p; return (p' ^. bitAt 2) }
     {-# INLINE putD #-}
-    putD b = do { p' <- load p; store p (p' & bitAt 3 .~ b) }
+    putD b = do { p' <- load p; p @= (p' & bitAt 3 .~ b) }
     {-# INLINE getD #-}
     getD = do { p' <- load p; return (p' ^. bitAt 3) }
     {-# INLINE putB #-}
-    putB b = do { p' <- load p; store p (p' & bitAt 4 .~ b) }
+    putB b = do { p' <- load p; p @= (p' & bitAt 4 .~ b) }
     {-# INLINE getB #-}
     getB = do { p' <- load p; return (p' ^. bitAt 4) }
     {-# INLINE putV #-}
-    putV b = do { p' <- load p; store p (p' & bitAt 6 .~ b) }
+    putV b = do { p' <- load p; p @= (p' & bitAt 6 .~ b) }
     {-# INLINE getV #-}
     getV = do { p' <- load p; return (p' ^. bitAt 6) }
     {-# INLINE putN #-}
-    putN b = do { p' <- load p; store p (p' & bitAt 7 .~ b) }
+    putN b = do { p' <- load p; p @= (p' & bitAt 7 .~ b) }
     {-# INLINE getN #-}
     getN = do { p' <- load p; return (p' ^. bitAt 7) }
     {-# INLINE getA #-}
     getA = load a
     {-# INLINE putA #-}
-    putA r = store a r
+    putA r = a @= r
     {-# INLINE getS #-}
     getS = load s
     {-# INLINE putS #-}
-    putS r = store s r
+    putS r = s @= r
     {-# INLINE getX #-}
     getX = load x
     {-# INLINE putX #-}
-    putX r = store x r 
+    putX r = x @= r 
     {-# INLINE getP #-}
     getP = load p
     {-# INLINE putP #-}
-    putP r = store p r 
+    putP r = p @= r 
     {-# INLINE getY #-}
     getY = load y
     {-# INLINE putY #-}
-    putY r = store y r
+    putY r = y @= r
     {-# INLINE putPC #-}
-    putPC r = store pc r
+    putPC r = pc @= r
     {-# INLINE addPC #-}
     addPC n = modify pc (+ fromIntegral n)
 
@@ -520,15 +523,15 @@ dumpState = do
 {- INLINE setBreak -}
 setBreak :: Int -> Int -> MonadAtari ()
 setBreak breakX breakY = do
-    store xbreak (breakX+picx)
-    store ybreak (breakY+picy)
+    xbreak @= (breakX+picx)
+    ybreak @= (breakY+picy)
 
 graphicsDelay :: Int -> MonadAtari ()
 graphicsDelay d = do
     n <- load ahead
     when (d > n) $ do
             stellaTickFor' (d-n)
-            store ahead d
+            ahead @= d
 
 {- INLINABLE writeStella -}
 writeStella :: Word16 -> Word8 -> MonadAtari ()
@@ -537,21 +540,21 @@ writeStella addr v = do
        0x00 -> stellaVsync v             -- VSYNC
        0x01 -> stellaVblank v            -- VBLANK
        0x02 -> stellaWsync               -- WSYNC
-       0x04 -> store nusiz0 v        -- NUSIZ0
-       0x05 -> store nusiz1 v        -- NUSIZ1
-       0x06 -> store colup0 v               -- COLUP0
-       0x07 -> store colup1 v               -- COLUP1
-       0x08 -> store colupf v               -- COLUPF
-       0x09 -> store colubk v               -- COLUBK
-       0x0a -> store ctrlpf v >> makePlayfield               -- COLUPF
-       0x0b -> store refp0 v               -- REFP0
-       0x0c -> store refp1 v               -- REFP1
+       0x04 -> nusiz0 @= v        -- NUSIZ0
+       0x05 -> nusiz1 @= v        -- NUSIZ1
+       0x06 -> colup0 @= v               -- COLUP0
+       0x07 -> colup1 @= v               -- COLUP1
+       0x08 -> colupf @= v               -- COLUPF
+       0x09 -> colubk @= v               -- COLUBK
+       0x0a -> ctrlpf @= v >> makePlayfield               -- COLUPF
+       0x0b -> refp0 @= v               -- REFP0
+       0x0c -> refp1 @= v               -- REFP1
        -- I'm sure I read delay should be 3 for PF registers
        -- but that doesn't make sense to me.
        -- See docs/adventure_pf_timing.txt
-       0x0d -> graphicsDelay 3 >> store pf0 v >> makePlayfield                  -- PF0
-       0x0e -> graphicsDelay 3 >> store pf1 v >> makePlayfield                  -- PF1
-       0x0f -> graphicsDelay 3 >> store pf2 v >> makePlayfield                  -- PF2
+       0x0d -> graphicsDelay 3 >> pf0 @= v >> makePlayfield                  -- PF0
+       0x0e -> graphicsDelay 3 >> pf1 @= v >> makePlayfield                  -- PF1
+       0x0f -> graphicsDelay 3 >> pf2 @= v >> makePlayfield                  -- PF2
        0x10 -> graphicsDelay 5 >> load hpos >>= store s_ppos0 -- RESP0
        0x11 -> graphicsDelay 5 >> load hpos >>= store s_ppos1 -- RESP1
        0x12 -> graphicsDelay 4 >> load hpos >>= store s_mpos0 -- RESM0
@@ -568,19 +571,19 @@ writeStella addr v = do
                 store newGrp1 v
                 load newGrp0 >>= store oldGrp0
                 load newBall >>= store oldBall
-       0x1d -> store enam0 v                -- ENAM0
-       0x1e -> store enam1 v                -- ENAM1
+       0x1d -> enam0 @= v                -- ENAM0
+       0x1e -> enam1 @= v                -- ENAM1
        0x1f -> store newBall $ testBit v 1   -- ENABL
-       0x20 -> store hmp0 v                 -- HMP0
-       0x21 -> store hmp1 v                 -- HMP1
-       0x22 -> store hmm0 v                 -- HMM0
-       0x23 -> store hmm1 v                 -- HMM1
-       0x24 -> store hmbl v                 -- HMBL
+       0x20 -> hmp0 @= v                 -- HMP0
+       0x21 -> hmp1 @= v                 -- HMP1
+       0x22 -> hmm0 @= v                 -- HMM0
+       0x23 -> hmm1 @= v                 -- HMM1
+       0x24 -> hmbl @= v                 -- HMBL
        0x25 -> store delayP0 $ testBit v 0   -- VDELP0
        0x26 -> store delayP1 $ testBit v 0   -- VDELP1
        0x27 -> store delayBall $ testBit v 0   -- VDELBL
-       0x28 -> store resmp0 v
-       0x29 -> store resmp1 v
+       0x28 -> resmp0 @= v
+       0x29 -> resmp1 @= v
        0x2a -> stellaHmove               -- HMOVE
        0x2b -> stellaHmclr               -- HMCLR
        0x2c -> stellaCxclr               -- CXCLR
