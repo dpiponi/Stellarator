@@ -107,7 +107,7 @@ Lots of games work:
 | Defender:              |Seems to play fine.                                                       |
 | Donkey Kong:           |Seems to play fine.                                                       |
 | Dukes if Hazzard:      |Use -b f6. Seems to play fine.                                            |
-| Freeway:               |Sprite "wrap" not implemented so vehicles pop on and off.                 |
+| Freeway:               |Seems to play fine.                                                       |
 | Frogger 2:             |Uses E8 bank switching. Not implemented.                                  |
 | Fun with Numbers:      |Works. Pity the kids that learnt mathematics using this.                  |
 | Ikari Warriors:        |16K ROM not supported yet.                                                |
@@ -115,3 +115,6 @@ Lots of games work:
 | Millipede              |Use -b f6. No enemies seem to arrive.                                     |
 | Pacman                 |Seems to work fine. Flickering is normal.                                 |
 | Pinball                |Seems to work fine.                                                       |
+| Planet Patrol          |Seems to play fine apart from a bad pixel at top of screen                |
+| Q*Bert                 |Seems to play fine                                                        |
+| Quest for Quintana Roo |Seems to play fine but hard to tell.                                      |

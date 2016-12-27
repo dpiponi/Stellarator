@@ -15,6 +15,7 @@ TODO
 27. See what I can do about Cosmic Ark stars
     http://www.biglist.com/lists/stella/archives/199705/msg00024.html
 28. Options file.
+29. Allow keys to be configurable. Otherwise Q*Bert too confusing.
 
 Done
 ----
