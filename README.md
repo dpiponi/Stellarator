@@ -112,36 +112,40 @@ Lots of games work:
 
 | Game                   |Result of testing                                                         |
 |------------------------|--------------------------------------------------------------------------|
-| Adventure:             |Seems to play fine.                                                       |
-| Aquaventure:           |Use -b f8. seems to play fine.                                            |
-| Air Sea Battle:        |Seems to play fine.                                                       |
-| Asteroids:             |Seems to play fine. Flicker is correct behaviour.                         |
-| Centipede:             |Use -b f8. seems to play fine.                                            |
-| Circus:                |Seems to play fine. Too fast for me...                                    |
-| Combat:                |Seems to play fine. Two player though...                                  |
-| Commando Raid:         |Seems to play fine. Ugly "comb" effect is correct.                        |
-| Cosmic Ark:            |Seems to play fine but star rendering is replaced by ugly vertical line.  |
-| Defender:              |Seems to play fine.                                                       |
-| Donkey Kong:           |Seems to play fine.                                                       |
-| Dukes if Hazzard:      |Use -b f6. Seems to play fine.                                            |
-| Freeway:               |Seems to play fine.                                                       |
-| Frogger 2:             |Uses E8 bank switching. Not implemented.                                  |
-| Fun with Numbers:      |Works. Pity the kids that learnt mathematics using this.                  |
-| Ikari Warriors:        |16K ROM not supported yet.                                                |
-| Indy 500               |Steering doesn't seem to work. Maybe expects different controller.        |
-| Millipede              |Use -b f6. No enemies seem to arrive.                                     |
-| Pacman                 |Seems to work fine. Flickering is normal.                                 |
-| Pinball                |Seems to work fine.                                                       |
-| Planet Patrol          |Seems to play fine apart from a bad pixel at top of screen                |
-| Pole Position          |Use -b f8. Playable but some clear alignment problems between sprites.    |
-| Q*Bert                 |Seems to play fine                                                        |
-| Quest for Quintana Roo |Seems to play fine but hard to tell.                                      |
-| Raiders of Lost Ark    |Use -b f6. Starts fine. Might need controllers I don't emulate yet.       |
-| River Patrol           |Fails with illegal instruction. Maybe needs new bank switching method.    |
-| River Raid             |Seems to play fine.                                                       |
-| Sea Hawk               |Seems to play fine.                                                       |
-| Star Trek: SOS         |Use -b f8. Seems to play fine.                                            |
-| SW: Empire Strikes Back|Seems to play fine.                                                       |
-| Xevious                |Use -f b8. Seems to play fine.                                            |
-| Zaxxon                 |Use -f b8. Seems to play fine.                                            |
+| Adventure:             | Seems to play fine.                                                      |
+| Aquaventure:           | Use -b f8. seems to play fine.                                           |
+| Air Sea Battle:        | Seems to play fine.                                                      |
+| Asteroids:             | Seems to play fine. Flicker is correct behaviour.                        |
+| Centipede:             | Use -b f8. seems to play fine.                                           |
+| Circus:                | Seems to play fine. Too fast for me...                                   |
+| Combat:                | Seems to play fine. Two player though...                                 |
+| Commando Raid:         | Seems to play fine. Ugly "comb" effect is correct.                       |
+| Cosmic Ark:            | Seems to play fine but star rendering is replaced by ugly vertical line. |
+| Defender:              | Seems to play fine.                                                      |
+| Donkey Kong:           | Seems to play fine.                                                      |
+| Dukes if Hazzard:      | Use -b f6. Seems to play fine.                                           |
+| Freeway:               | Seems to play fine.                                                      |
+| Frogger 2:             | Uses E8 bank switching. Not implemented.                                 |
+| Fun with Numbers:      | Works. Pity the kids that learnt mathematics using this.                 |
+| Ikari Warriors:        | 16K ROM not supported yet.                                               |
+| Indy 500               | Steering doesn't seem to work. Maybe expects different controller.       |
+| Midnight Magic         | Use -b f6. Seems to work fine.                                           |
+| Millipede              | Use -b f6. No enemies seem to arrive.                                    |
+| Pacman                 | Seems to work fine. Flickering is normal.                                |
+| Pinball                | Seems to work fine.                                                      |
+| Planet Patrol          | Seems to play fine apart from a bad pixel at top of screen               |
+| Pole Position          | Use -b f8. Playable but some clear alignment problems between sprites.   |
+| Q*Bert                 | Seems to play fine                                                       |
+| Quest for Quintana Roo | Seems to play fine but hard to tell.                                     |
+| Raiders of Lost Ark    | Use -b f6. Starts fine. Might need controllers I don't emulate yet.      |
+| River Patrol           | Fails with illegal instruction. Maybe needs new bank switching method.   |
+| River Raid             | Seems to play fine.                                                      |
+| Sea Hawk               | Seems to play fine.                                                      |
+| Star Trek: SOS         | Use -b f8. Seems to play fine.                                           |
+| Star Master            | ?? Lack of aliens to shoot is in Stella too. Half crosshair missing.     |
+| SW: Empire Strikes Back| Seems to play fine.                                                      |
+| Vanguard               | Seems to play fine                                                       |
+| Xevious                | Use -f b8. Seems to play fine.                                           |
+| Yar's Revenge          | Seems to play fine.                                                      |
+| Zaxxon                 | Use -f b8. Seems to play fine.                                           |
 
