@@ -123,6 +123,7 @@ Lots of games work:
 | Commando Raid:         | Seems to play fine. Ugly "comb" effect is correct.                       |
 | Cosmic Ark:            | Seems to play fine but star rendering is replaced by ugly vertical line. |
 | Defender:              | Seems to play fine.                                                      |
+| Demon Attack:          | Seems to play fine.                                                      |
 | Donkey Kong:           | Seems to play fine.                                                      |
 | Dukes if Hazzard:      | Use -b f6. Seems to play fine.                                           |
 | Freeway:               | Seems to play fine.                                                      |
