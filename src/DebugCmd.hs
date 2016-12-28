@@ -19,6 +19,7 @@ data Command = Cont
              | Repeat Expr Command
              | Block [Command]
              | Let String Expr
+             | Execute Expr
               deriving (Show)
 
 data Value = EFail | EInt Int | EBool Bool | EString String
@@ -62,6 +63,7 @@ parseCommand = Block <$> (braces lexer $ semiSep1 lexer parseCommand)
            <|> (char 'g' >> whiteSpace lexer >> return DumpGraphics)
            <|> (char 's' >> whiteSpace lexer >> return Step)
            <|> Repeat <$> (char 'r' >> whiteSpace lexer >> parseExpr) <*> parseCommand
+           <|> Execute <$> (char 'x' >> whiteSpace lexer >> parseExpr)
            <|> List <$> (char 'l' >> whiteSpace lexer >> optionMaybe parseExpr) <*> optionMaybe parseExpr
            <|> Print <$> (char 'p' >> whiteSpace lexer >> sepBy1 parseExpr (comma lexer))
            <|> Until <$> (char 'u' >> whiteSpace lexer >> parseExpr) <*> parseCommand

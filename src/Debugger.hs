@@ -160,6 +160,20 @@ execCommand cmd =
         Step -> step >> return KeepDebugging
         Print es -> execPrint es
         Until cond repeatedCmd -> execUntil cond repeatedCmd
+        Execute cmdExpr -> execute cmdExpr
+
+execute :: Expr -> MonadAtari DebugAction
+execute cmdExpr = do
+    cmdValue <- eval cmdExpr
+    case cmdValue of
+        EString cmdString -> do
+            let cmd = parse parseCommands "" cmdString
+            case cmd of
+                Right cmd' -> execCommand cmd'
+                Left e -> do
+                    liftIO $ print e
+                    return KeepDebugging
+        _ -> return KeepDebugging
 
 execRepeat :: Expr -> Command -> MonadAtari DebugAction
 execRepeat n repeatedCmd = do
