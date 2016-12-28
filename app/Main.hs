@@ -67,10 +67,10 @@ import qualified Data.Map.Strict as Map
 import qualified SDL
 
 --  XXX Do this If reset occurs during horizontal blank, the object will appear at the left side of the television screen
-data Args = Args { file :: String, bank :: BankMode } deriving (Show, Data, Typeable)
+data Args = Args { file :: String, bank :: String } deriving (Show, Data, Typeable)
 
 clargs :: Args
-clargs = Args { file = "adventure.bin", bank = UnBanked }
+clargs = Args { file = "adventure.bin", bank = "" }
 
 {- INLINE isPressed -}
 isPressed :: InputMotion -> Bool
@@ -189,19 +189,21 @@ main = do
     rom <- newArray (0, 0x3fff) 0 :: IO (IOUArray Int Word8)
     ram <- newArray (0, 0x7f) 0 :: IO (IOUArray Int Word8)
     bankStyle <- readBinary rom (file args) 0x0000
-    pclo <- readArray rom 0x0ffc
-    pchi <- readArray rom 0x0ffd
-    let initialPC = fromIntegral pclo+(fromIntegral pchi `shift` 8)
+    let bankStyle' = case (bank args) of
+                        "f8" -> ModeF8
+                        "f6" -> ModeF6
+                        "3f" -> Mode3F
+                        _    -> bankStyle
 
-    let initBankState = case bankStyle of
+    let initBankState = case bankStyle' of
                             UnBanked -> NoBank
                             ModeF8 -> BankF8 0x0000
                             ModeF6 -> BankF6 0x0000
-                            Mode3F -> error "Mode 3F not implemented yet"
+                            Mode3F -> Bank3F 0x0000
     print $ "Initial bank state = " ++ show initBankState
 
     --let style = bank args
-    state <- initState ram initBankState rom initialPC window prog attrib tex textureData
+    state <- initState ram initBankState rom 0x0000 window prog attrib tex textureData
 
 {-
     samples <- newIORef sinSamples
@@ -235,6 +237,12 @@ main = do
             store swchb 0b00001011
             store xbreak (-1)
             store ybreak (-1)
+            pclo <- readMemory 0x1ffc
+            pchi <- readMemory 0x1ffd
+            let initialPC = fromIntegral pclo+(fromIntegral pchi `shift` 8)
+            liftIO $ putStrLn $ "Starting at address: 0x" ++ showHex initialPC ""
+            store pc initialPC
+            -- runDebugger
             loop
 
     SDL.destroyWindow window

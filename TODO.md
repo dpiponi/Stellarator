@@ -1,6 +1,7 @@
 TODO
 ----
 
+14. Guess ROM type (reactivated)
 9. More ROM bank switching styles
 15. E0 bank switching segments
 16. Compare Stella clock to real world clock
@@ -16,6 +17,8 @@ TODO
 29. Allow keys to be configurable. Otherwise Q*Bert too confusing.
 30. In Raiders of the Lost Ark, Indy initially descends a pixel or two to the right
     of where he does in Stella.
+31. Allow starting in debugger.
+32. Handle UI events in debugger.
 
 Done
 ----
@@ -54,4 +57,4 @@ Done
 30. Bad pixel on score in Planet Patrol
     It's there in Youtube videos so it's not a Stellarator bug.
 13. Load 2K roms
-14. Guess ROM type
+33. 3F Tigervision bank switching.

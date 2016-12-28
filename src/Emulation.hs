@@ -352,34 +352,18 @@ stellaTickFor' diff = do
         stellaTick (fromIntegral diff) ptr'
 
 {-# INLINE pureReadRom #-}
+-- | pureReadRom sees address in full 6507 range 0x0000-0x1fff
 pureReadRom :: Word16 -> MonadAtari Word8
 pureReadRom addr = do
+    -- liftIO $ putStrLn $ "readReadRom: Reading from address 0x" ++ showHex addr ""
     atari <- ask
     let m = atari ^. rom
     let bankStateRef = atari ^. bankState
     bankState' <- liftIO $ readIORef bankStateRef
     let bankedAddress = bankAddress bankState' addr
+    -- liftIO $ putStrLn $ "readReadRom: Reading from bankAddress 0x" ++ showHex bankedAddress "" ++ " (" ++ show bankState' ++ ")"
     byte <- liftIO $ readArray m bankedAddress
     return byte
-
-{-# INLINE bankSwitch #-}
-bankSwitch :: Word16 -> Word8 -> BankState -> BankState
-bankSwitch _      _ NoBank     = NoBank
-bankSwitch 0x1ff8 _ (BankF8 _) = BankF8 0x0000
-bankSwitch 0x1ff9 _ (BankF8 _) = BankF8 0x1000
-bankSwitch 0x1ff6 _ (BankF6 _) = BankF6 0x0000
-bankSwitch 0x1ff7 _ (BankF6 _) = BankF6 0x1000
-bankSwitch 0x1ff8 _ (BankF6 _) = BankF6 0x2000
-bankSwitch 0x1ff9 _ (BankF6 _) = BankF6 0x3000
-bankSwitch _      _ (Bank3F _) = error "Not implemented yet"
-bankSwitch _      _ state      = state
-
-{-# INLINE bankAddress #-}
-bankAddress :: BankState -> Word16 -> Int
-bankAddress NoBank          addr = iz (addr .&. 0xfff)
-bankAddress (BankF8 offset) addr = ((iz addr .&. 0xfff)+iz offset)
-bankAddress (BankF6 offset) addr = ((iz addr .&. 0xfff)+iz offset)
-bankAddress (Bank3F _)      _    = error "Mode 3F not implemented yet"
 
 {-# INLINE pureReadMemory #-}
 -- | pureReadMemory expects an address in range 0x0000-0x1fff
@@ -407,6 +391,7 @@ pureWriteMemory RAM  addr v = do
 instance Emu6502 MonadAtari where
     {-# INLINE readMemory #-}
     readMemory addr' = do
+        -- liftIO $ putStrLn $ "readMemory: Reading from address 0x" ++ showHex addr' ""
         let addr = addr' .&. 0x1fff -- 6507
         byte <- pureReadMemory (memoryType addr) addr
 

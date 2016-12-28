@@ -49,14 +49,20 @@ Use mouse click to get info about graphics registers for the selected pixel.
 Command line options
 --------------------
 
-    -f <filename> - Load rom from file
-    -b unbanked|f8|f6 - select rom bank switching style
-                        If it's a 2K or 4K cartridge use 'unbanked' (which is the default)
-                        If it's an 8K cartridge try f8
-                        If it's a 16K cartridge try f6
-                        There are other styles that I haven't implemented yet.
-                        NB: Banking option is ignored as there's currently
-                        only one method appropriate to each ROM size.
+    -f <filename>
+           Load rom from file
+
+    -b unbanked|f8|f6|3f
+           select rom bank switching style
+           Currently Stellarator automatically picks:
+
+           * unbanked for 2K or 4K roms
+           * f8 for 8K roms
+           * f6 for 16K roms
+
+           So only use for this currently is to select
+           3f for 8K ROMS such as Tigervision's
+           Miner 2049er.
 
 Notes
 -----
@@ -131,6 +137,7 @@ Lots of games work:
 | Indy 500               | Steering doesn't seem to work. Maybe expects different controller.       |
 | Midnight Magic         | Seems to work fine.                                                      |
 | Millipede              | No enemies seem to arrive.                                               |
+| Miner 2049er           | Use -b 3f. Seems to work fine.                                           |
 | Moonsweeper            | Seems to play fine.                                                      |
 | Pacman                 | Seems to work fine. Flickering is normal.                                |
 | Phoenix                | Seems to work fine.                                                      |
