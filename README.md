@@ -55,8 +55,8 @@ Command line options
                         If it's an 8K cartridge try f8
                         If it's a 16K cartridge try f6
                         There are other styles that I haven't implemented yet.
-                        NB: _Currently banking option is ignored as there's currently
-                        only one method appropriate to each ROM size_.
+                        NB: Banking option is ignored as there's currently
+                        only one method appropriate to each ROM size.
 
 Notes
 -----
