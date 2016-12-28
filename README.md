@@ -117,6 +117,7 @@ Lots of games work:
 | Air Sea Battle:        | Seems to play fine.                                                      |
 | Asteroids:             | Seems to play fine. Flicker is correct behaviour.                        |
 | Centipede:             | Use -b f8. seems to play fine.                                           |
+| Chopper Command        | Seems to play fine.                                                      |
 | Circus:                | Seems to play fine. Too fast for me...                                   |
 | Combat:                | Seems to play fine. Two player though...                                 |
 | Commando Raid:         | Seems to play fine. Ugly "comb" effect is correct.                       |
@@ -132,6 +133,7 @@ Lots of games work:
 | Midnight Magic         | Use -b f6. Seems to work fine.                                           |
 | Millipede              | Use -b f6. No enemies seem to arrive.                                    |
 | Pacman                 | Seems to work fine. Flickering is normal.                                |
+| Phoenix                | Use -b f8. Seems to work fine.                                           |
 | Pinball                | Seems to work fine.                                                      |
 | Planet Patrol          | Seems to play fine apart from a bad pixel at top of screen               |
 | Pole Position          | Use -b f8. Playable but some clear alignment problems between sprites.   |
@@ -141,6 +143,7 @@ Lots of games work:
 | River Patrol           | Fails with illegal instruction. Maybe needs new bank switching method.   |
 | River Raid             | Seems to play fine.                                                      |
 | Sea Hawk               | Seems to play fine.                                                      |
+| Space Canyon           | Has an illegal opcode. It's clearly there in disassembly :-(             |
 | Star Trek: SOS         | Use -b f8. Seems to play fine.                                           |
 | Star Master            | ?? Lack of aliens to shoot is in Stella too. Half crosshair missing.     |
 | SW: Empire Strikes Back| Seems to play fine.                                                      |
