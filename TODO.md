@@ -2,7 +2,6 @@ TODO
 ----
 
 9. More ROM bank switching styles
-14. Guess ROM type
 15. E0 bank switching segments
 16. Compare Stella clock to real world clock
 17. Build debug command parser a bit more consistently
@@ -55,3 +54,4 @@ Done
 30. Bad pixel on score in Planet Patrol
     It's there in Youtube videos so it's not a Stellarator bug.
 13. Load 2K roms
+14. Guess ROM type

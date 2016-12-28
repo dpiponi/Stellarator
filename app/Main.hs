@@ -188,13 +188,13 @@ main = do
 
     rom <- newArray (0, 0x3fff) 0 :: IO (IOUArray Int Word8)
     ram <- newArray (0, 0x7f) 0 :: IO (IOUArray Int Word8)
-    readBinary rom (file args) 0x0000
+    bankStyle <- readBinary rom (file args) 0x0000
     pclo <- readArray rom 0x0ffc
     pchi <- readArray rom 0x0ffd
     let initialPC = fromIntegral pclo+(fromIntegral pchi `shift` 8)
 
-    let style = bank args
-    state <- initState ram style rom initialPC window prog attrib tex textureData
+    --let style = bank args
+    state <- initState ram bankStyle rom initialPC window prog attrib tex textureData
 
 {-
     samples <- newIORef sinSamples
