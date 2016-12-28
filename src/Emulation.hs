@@ -65,7 +65,7 @@ startIntervalTimerN n v = do
     timint @= 0
 
 initState :: IOUArray Int Word8 ->
-             BankMode ->
+             BankState ->
              IOUArray Int Word8 ->
              Word16 ->
              SDL.Window -> 
@@ -74,9 +74,9 @@ initState :: IOUArray Int Word8 ->
              GL.TextureObject ->
              Ptr Word8 ->
              IO Atari2600
-initState ram' mode rom' initialPC window prog attrib tex textureData = do
+initState ram' bankState rom' initialPC window prog attrib tex textureData = do
           stellaDebug' <- newIORef DebugState.start
-          memory' <- newIORef $ Memory { _bankMode = mode }
+          bankState' <- newIORef bankState
           clock' <- newIORef 0
           -- debug' <- newIORef 8
           stellaClock' <- newIORef 0
@@ -90,7 +90,7 @@ initState ram' mode rom' initialPC window prog attrib tex textureData = do
               _rom = rom',
               _ram = ram',
               _stellaDebug = stellaDebug',
-              _memory = memory',
+              _bankState = bankState',
               _clock = clock',
               _stellaClock = stellaClock',
               --_sdlBackSurface = helloWorld,
@@ -356,23 +356,35 @@ pureReadRom :: Word16 -> MonadAtari Word8
 pureReadRom addr = do
     atari <- ask
     let m = atari ^. rom
-    offset <- load bankOffset
-    byte <- liftIO $ readArray m ((iz addr .&. 0xfff)+fromIntegral offset)
+    let bankStateRef = atari ^. bankState
+    bankState' <- liftIO $ readIORef bankStateRef
+    let bankedAddress = bankAddress bankState' addr
+    byte <- liftIO $ readArray m bankedAddress
     return byte
 
 {-# INLINE bankSwitch #-}
-bankSwitch :: BankMode -> Word16 -> Word16 -> Word16
-bankSwitch _        addr  old | addr < 0x1ff6 = old
-bankSwitch UnBanked _      _    = 0
-bankSwitch F8       0x1ff8 _    = 0
-bankSwitch F8       0x1ff9 _    = 0x1000
-bankSwitch F6       0x1ff6 _    = 0
-bankSwitch F6       0x1ff7 _    = 0x1000
-bankSwitch F6       0x1ff8 _    = 0x2000
-bankSwitch F6       0x1ff9 _    = 0x3000
-bankSwitch _        _      old = old
+bankSwitch :: Word16 -> Word8 -> BankState -> BankState
+bankSwitch _      _ NoBank     = NoBank
+bankSwitch 0x1ff8 _ (BankF8 _) = BankF8 0x0000
+bankSwitch 0x1ff9 _ (BankF8 _) = BankF8 0x1000
+bankSwitch 0x1ff6 _ (BankF6 _) = BankF6 0x0000
+bankSwitch 0x1ff7 _ (BankF6 _) = BankF6 0x1000
+bankSwitch 0x1ff8 _ (BankF6 _) = BankF6 0x2000
+bankSwitch 0x1ff9 _ (BankF6 _) = BankF6 0x3000
+bankSwitch _      _ (Bank3F _) = error "Not implemented yet"
+bankSwitch _      _ state      = state
+
+{-# INLINE bankAddress #-}
+bankAddress :: BankState -> Word16 -> Int
+bankAddress NoBank          addr = iz (addr .&. 0xfff)
+bankAddress (BankF8 offset) addr = ((iz addr .&. 0xfff)+iz offset)
+bankAddress (BankF6 offset) addr = ((iz addr .&. 0xfff)+iz offset)
+bankAddress (Bank3F _)      _    = error "Mode 3F not implemented yet"
 
 {-# INLINE pureReadMemory #-}
+-- | pureReadMemory expects an address in range 0x0000-0x1fff
+-- The 'pure' refers to the fact that there are no side effects,
+-- i.e. it won't trigger bank switching.
 pureReadMemory :: MemoryType -> Word16 -> MonadAtari Word8
 pureReadMemory ROM  addr = pureReadRom addr
 pureReadMemory TIA  addr = readStella (addr .&. 0x3f)
@@ -397,16 +409,21 @@ instance Emu6502 MonadAtari where
     readMemory addr' = do
         let addr = addr' .&. 0x1fff -- 6507
         byte <- pureReadMemory (memoryType addr) addr
-        bankType <- useMemory bankMode
-        modify bankOffset $ bankSwitch bankType addr
+
+        atari <- ask
+        let bankStateRef = atari ^. bankState
+        liftIO $ modifyIORef bankStateRef $ bankSwitch addr 0
+
         return byte
 
     {-# INLINE writeMemory #-}
     writeMemory addr' v = do
         let addr = addr' .&. 0x1fff -- 6507
         pureWriteMemory (memoryType addr) addr v
-        bankType <- useMemory bankMode
-        modify bankOffset $ bankSwitch bankType addr
+
+        atari <- ask
+        let bankStateRef = atari ^. bankState
+        liftIO $ modifyIORef bankStateRef $ bankSwitch addr v
 
     {-# INLINE getPC #-}
     getPC = load pc

@@ -1,3 +1,10 @@
+Bank Switching
+--------------
+http://blog.kevtris.org/blogfiles/Atari%202600%20Mappers.txt
+http://www.classic-games.com/atari2600/bankswitch.html
+
+Dukes of Hazzard (at the least) uses *reads* to switch ROM banks.
+
 Testing:
 -------
 

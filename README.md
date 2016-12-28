@@ -109,24 +109,25 @@ Lots of games work:
 
 | Game                   |Result of testing                                                         |
 |------------------------|--------------------------------------------------------------------------|
-| Adventure:             | Seems to play fine.                                                      |
-| Aquaventure:           | seems to play fine.                                                      |
-| Air Sea Battle:        | Seems to play fine.                                                      |
-| Asteroids:             | Seems to play fine. Flicker is correct behaviour.                        |
-| Centipede:             | seems to play fine.                                                      |
+| Adventure              | Seems to play fine.                                                      |
+| Aquaventure            | seems to play fine.                                                      |
+| Air Sea Battle         | Seems to play fine.                                                      |
+| Asteroids              | Seems to play fine. Flicker is correct behaviour.                        |
+| Centipede              | seems to play fine.                                                      |
 | Chopper Command        | Seems to play fine.                                                      |
-| Circus:                | Seems to play fine. Too fast for me...                                   |
-| Combat:                | Seems to play fine. Two player though...                                 |
-| Commando Raid:         | Seems to play fine. Ugly "comb" effect is correct.                       |
-| Cosmic Ark:            | Seems to play fine but star rendering is replaced by ugly vertical line. |
+| Circus                 | Seems to play fine. Too fast for me...                                   |
+| Combat                 | Seems to play fine. Two player though...                                 |
+| Commando Raid          | Seems to play fine. Ugly "comb" effect is correct.                       |
+| Cosmic Ark             | Seems to play fine but star rendering is replaced by ugly vertical line. |
 | Defender:              | Seems to play fine.                                                      |
-| Demon Attack:          | Seems to play fine.                                                      |
-| Donkey Kong:           | Seems to play fine.                                                      |
-| Dukes if Hazzard:      | Seems to play fine.                                                      |
-| Freeway:               | Seems to play fine.                                                      |
-| Frogger 2:             | Uses E8 bank switching. Not implemented.                                 |
-| Fun with Numbers:      | Works. Pity the kids that learnt mathematics using this.                 |
-| Ikari Warriors:        | Seems to play fine                                                       |
+| Demon Attack           | Seems to play fine.                                                      |
+| Donkey Kong            | Seems to play fine.                                                      |
+| Dukes if Hazzard       | Seems to play fine.                                                      |
+| Freeway                | Seems to play fine.                                                      |
+| Frogger 2              | Uses E8 bank switching. Not implemented.                                 |
+| Fun with Numbers       | Works. Pity the kids that learnt mathematics using this.                 |
+| Galaxians              | Seems to play fine except for an extra column of aliens!                 |
+| Ikari Warriors         | Seems to play fine                                                       |
 | Indy 500               | Steering doesn't seem to work. Maybe expects different controller.       |
 | Midnight Magic         | Seems to work fine.                                                      |
 | Millipede              | No enemies seem to arrive.                                               |

@@ -34,6 +34,6 @@ readBinary arr filename origin = do
                 writeArray arr (i+fromIntegral origin) (BS.c2w c)
             case romSize of
                 0x1000 -> return UnBanked
-                0x2000 -> return F8
-                0x4000 -> return F6
+                0x2000 -> return ModeF8
+                0x4000 -> return ModeF6
                 _      -> error "Unrecognised ROM size"

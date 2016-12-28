@@ -14,10 +14,11 @@ module Atari2600(
                  useStellaDebug,
                  modifyClock,
                  useStellaClock,
+                 bankState,
                  --getBackSurface,
                  ram,
                  rom,
-                 useMemory,
+                 --useMemory,
                  useClock,
                  putStellaDebug,
                  --getFrontSurface,
@@ -50,7 +51,8 @@ import qualified Graphics.Rendering.OpenGL as GL
 import Asm
 
 data Atari2600 = Atari2600 {
-    _memory :: IORef Memory,
+    --_memory :: IORef Memory,
+    _bankState :: IORef BankState,
     _clock :: IORef Int64,
     _stellaClock :: IORef Int64,
     _stellaDebug :: IORef DebugState,
@@ -144,12 +146,14 @@ modifyStellaDebug lens' modifier = do
     atari <- ask
     liftIO $ modifyIORef' (atari ^. stellaDebug) (over lens' modifier)
 
+{-
 {-# INLINE useMemory #-}
 useMemory :: Getting b Memory b -> MonadAtari b
 useMemory lens' = do
     atari <- ask
     memory' <- liftIO $ readIORef (atari ^. memory)
     return $! memory' ^. lens'
+-}
 
 {-# INLINE useClock #-}
 useClock :: Getting b Int64 b -> MonadAtari b

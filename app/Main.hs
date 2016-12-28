@@ -193,8 +193,15 @@ main = do
     pchi <- readArray rom 0x0ffd
     let initialPC = fromIntegral pclo+(fromIntegral pchi `shift` 8)
 
+    let initBankState = case bankStyle of
+                            UnBanked -> NoBank
+                            ModeF8 -> BankF8 0x0000
+                            ModeF6 -> BankF6 0x0000
+                            Mode3F -> error "Mode 3F not implemented yet"
+    print $ "Initial bank state = " ++ show initBankState
+
     --let style = bank args
-    state <- initState ram bankStyle rom initialPC window prog attrib tex textureData
+    state <- initState ram initBankState rom initialPC window prog attrib tex textureData
 
 {-
     samples <- newIORef sinSamples
