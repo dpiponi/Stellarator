@@ -64,7 +64,8 @@ startIntervalTimerN n v = do
     intim @= v
     timint @= 0
 
-initState :: IOUArray Int Word8 ->
+initState :: Int -> Int -> Int -> Int ->
+             IOUArray Int Word8 ->
              BankState ->
              IOUArray Int Word8 ->
              Word16 ->
@@ -74,9 +75,9 @@ initState :: IOUArray Int Word8 ->
              GL.TextureObject ->
              Ptr Word8 ->
              IO Atari2600
-initState ram' bankState rom' initialPC window prog attrib tex textureData = do
+initState xscale' yscale' width height ram' initBankState rom' initialPC window prog attrib initTex initTextureData = do
           stellaDebug' <- newIORef DebugState.start
-          bankState' <- newIORef bankState
+          bankState' <- newIORef initBankState
           clock' <- newIORef 0
           -- debug' <- newIORef 8
           stellaClock' <- newIORef 0
@@ -87,6 +88,10 @@ initState ram' bankState rom' initialPC window prog attrib tex textureData = do
           word8Array' <- newArray (0, maxWord8) 0
           liftIO $ st word16Array' pc initialPC
           return $ Atari2600 {
+              _xscale = xscale',
+              _yscale = yscale',
+              _windowWidth = width,
+              _windowHeight = height,
               _rom = rom',
               _ram = ram',
               _stellaDebug = stellaDebug',
@@ -102,8 +107,8 @@ initState ram' bankState rom' initialPC window prog attrib tex textureData = do
               _word16Array = word16Array',
               _word8Array = word8Array',
               _sdlWindow = window,
-              _textureData = textureData,
-              _tex = tex,
+              _textureData = initTextureData,
+              _tex = initTex,
               _glProg = prog,
               _glAttrib = attrib
           }
@@ -604,6 +609,8 @@ renderDisplay = do
     attrib <- view glAttrib
     tex' <- view tex
     ptr <- view textureData
+    windowWidth' <- view windowWidth
+    windowHeight' <- view windowHeight
     liftIO $ updateTexture tex' ptr
-    liftIO $ draw window prog attrib
+    liftIO $ draw window windowWidth' windowHeight' prog attrib
     return ()

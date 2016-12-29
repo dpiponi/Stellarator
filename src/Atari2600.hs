@@ -8,6 +8,8 @@
 module Atari2600(
                  MonadAtari(..),
                  Atari2600(..),
+                 xscale,
+                 yscale,
                  load,
                  store,
                  modify,
@@ -25,6 +27,8 @@ module Atari2600(
                  --getFrontWindow,
                  sdlWindow,
                  textureData,
+                 windowWidth,
+                 windowHeight,
                  tex,
                  glProg,
                  glAttrib,
@@ -69,7 +73,11 @@ data Atari2600 = Atari2600 {
     _textureData :: Ptr Word8,
     _tex :: !GL.TextureObject,
     _glProg :: !GL.Program,
-    _glAttrib :: !GL.AttribLocation
+    _glAttrib :: !GL.AttribLocation,
+    _windowWidth :: !Int,
+    _windowHeight :: !Int,
+    _xscale :: !Int,
+    _yscale :: !Int
 }
 
 $(makeLenses ''Atari2600)

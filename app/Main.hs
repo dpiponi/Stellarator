@@ -81,14 +81,18 @@ isPressed Released = False
 handleEvent :: [(Scancode, AtariKey)] -> EventPayload -> MonadAtari ()
 
 handleEvent atariKeys (MouseButtonEvent (MouseButtonEventData win Pressed device ButtonLeft clicks pos)) = do
+    xscale' <- view xscale
+    yscale' <- view yscale
     liftIO $ print pos
     let P (V2 x y) = pos
-    setBreak (fromIntegral x `div` xscale) (fromIntegral y `div` yscale)
+    setBreak (fromIntegral x `div` xscale') (fromIntegral y `div` yscale')
 
 handleEvent atariKeys (MouseMotionEvent (MouseMotionEventData win device [ButtonLeft] pos rel)) = do
+    xscale' <- view xscale
+    yscale' <- view yscale
     liftIO $ print pos
     let P (V2 x y) = pos
-    setBreak (fromIntegral x `div` xscale) (fromIntegral y `div` yscale)
+    setBreak (fromIntegral x `div` xscale') (fromIntegral y `div` yscale')
 
 handleEvent atariKeys (KeyboardEvent (KeyboardEventData win motion rep sym)) = handleKey atariKeys motion sym
 
@@ -142,14 +146,16 @@ main = do
     optionsString <- readFile optionsFile
     let options' = read optionsString :: Options
     print options'
+    let screenScaleX' = screenScaleX options'
+    let screenScaleY' = screenScaleY options'
     let atariKeys = keysFromOptions options'
 
     --SDL.initialize [SDL.InitVideo, SDL.InitAudio]
     SDL.initializeAll
     window <- SDL.createWindow "Stellarator"
                                SDL.defaultWindow {
-                                    SDL.windowInitialSize = V2 (fromIntegral $ xscale*screenWidth)
-                                                               (fromIntegral $ yscale*screenHeight) }
+                                    SDL.windowInitialSize = V2 (fromIntegral $ screenScaleX'*screenWidth)
+                                                               (fromIntegral $ screenScaleY'*screenHeight) }
     --context <- SDL.glCreateContext window
     SDL.showWindow window
     _ <- SDL.glCreateContext window
@@ -174,7 +180,7 @@ main = do
     print $ "Initial bank state = " ++ show initBankState
 
     --let style = bank args
-    state <- initState ram initBankState rom 0x0000 window prog attrib tex textureData
+    state <- initState screenScaleX' screenScaleY' (screenHeight*screenScaleX') (screenHeight*screenScaleY') ram initBankState rom 0x0000 window prog attrib tex textureData
 
     let loop = do
             events <- liftIO $ SDL.pollEvents

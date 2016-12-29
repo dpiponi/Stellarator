@@ -66,3 +66,5 @@ Done
    Too open-ended a goal
 29. Allow keys to be configurable. Otherwise Q*Bert too confusing.
 28. Options file.
+40. Configurable window size
+    Via options file

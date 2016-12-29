@@ -16,7 +16,6 @@ import Control.Monad.Trans
 import Data.Bits.Lens
 import Data.Int
 import Prelude hiding (mod)
-import Data.Array.Unboxed
 import Asm
 --import DebugState
 import Foreign.Ptr
@@ -230,8 +229,9 @@ doCollisions lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1 = do
     when lplayer1  $ modify cxp1fb (.|. playball)
     when lball     $ modify cxblpf $ bitAt 7 ||~ lplayfield
 
-wrap160' x | x < 0 = x+160
-wrap160' x = x
+wrap160' :: Int -> Int
+wrap160' x' | x' < 0 = x'+160
+wrap160' x' = x'
 
 {- INLINE compositeAndCollide -}
 compositeAndCollide :: Int -> Int -> MonadAtari Word8

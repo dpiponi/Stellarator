@@ -160,8 +160,8 @@ initResources = do
     return (program, GL.AttribLocation 0, tex, textureData)
 
 -- | Render VCS screen as pair of triangles.
-draw :: SDL.Window -> GL.Program -> GL.AttribLocation -> IO ()
-draw window program attrib = do
+draw :: SDL.Window -> Int -> Int -> GL.Program -> GL.AttribLocation -> IO ()
+draw window windowWidth windowHeight program attrib = do
     GL.clearColor $= GL.Color4 0 0 0 0
     GL.clear [GL.ColorBuffer]
     GL.viewport $= (GL.Position 0 0, GL.Size (fromIntegral windowWidth) (fromIntegral windowHeight))
