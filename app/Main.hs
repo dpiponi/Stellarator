@@ -155,7 +155,12 @@ data Options = Options {
     screenScaleX :: Int,
     screenScaleY :: Int,
     topOverscan :: Int,
-    bottomOverscan :: Int
+    bottomOverscan :: Int,
+    joystick1Left :: String,
+    joystick1Right :: String,
+    joystick1Up :: String,
+    joystick1Down :: String,
+    joystick1Trigger :: String
 } deriving (Show, Read)
 
 defaultOptions :: Options
@@ -163,7 +168,12 @@ defaultOptions = Options {
     screenScaleX = 5,
     screenScaleY = 3,
     topOverscan = 10,
-    bottomOverscan = 10
+    bottomOverscan = 10,
+    joystick1Left = "Left",
+    joystick1Right = "Right",
+    joystick1Up = "Up",
+    joystick1Down = "Down",
+    joystick1Trigger = "Space"
 }
 
 main :: IO ()

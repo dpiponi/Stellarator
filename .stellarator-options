@@ -2,5 +2,10 @@ Options {
     screenScaleX = 5,
     screenScaleY = 3,
     topOverscan = 10,
-    bottomOverscan = 10
+    bottomOverscan = 10,
+    joystick1Left = "Left",
+    joystick1Right = "Right",
+    joystick1Up = "Up",
+    joystick1Down = "Down",
+    joystick1Trigger = "Space"
 }

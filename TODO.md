@@ -2,7 +2,6 @@ TODO
 ----
 
 14. Guess ROM type (reactivated)
-9. More ROM bank switching styles
 15. E0 bank switching segments
 16. Compare Stella clock to real world clock
 17. Build debug command parser a bit more consistently
@@ -19,6 +18,12 @@ TODO
     of where he does in Stella.
 31. Allow starting in debugger.
 32. Handle UI events in debugger.
+33. Why misalignment in Pole Position?
+34. What's wrong with Stargate?
+35. E8 bank switching
+36. Simulate paddles
+37. Simulate keypads
+38. Second joystick
 
 Done
 ----
@@ -58,3 +63,5 @@ Done
     It's there in Youtube videos so it's not a Stellarator bug.
 13. Load 2K roms
 33. 3F Tigervision bank switching.
+9. More ROM bank switching styles
+   Too open-ended a goal

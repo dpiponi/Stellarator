@@ -151,10 +151,15 @@ Lots of games work:
 | River Raid             | Seems to play fine.                                                      |
 | Sea Hawk               | Seems to play fine.                                                      |
 | Space Canyon           | Has an illegal opcode. It's clearly there in disassembly :-(             |
-| Star Trek: SOS         | Seems to play fine.                                                      |
+| Star Fox               | Plays fine (if you can call it "play"). Unsteady opening screen.         |
 | Star Master            | ?? Lack of aliens to shoot is in Stella too. Half crosshair missing.     |
+| Star Trek: SOS         | Seems to play fine.                                                      |
+| Stargate               | Screen mostly blank?                                                     |
+| Strategy X             | Seems to play fine apart from minor sprite misalignment.                 |
 | SW: Empire Strikes Back| Seems to play fine.                                                      |
+| Tank City              | Seems to play fine apart from some misrendered score digits              |
 | Vanguard               | Seems to play fine                                                       |
+| Xenohpobe              | Seems to play fine                                                       |
 | Xevious                | Seems to play fine.                                                      |
 | Yar's Revenge          | Seems to play fine.                                                      |
 | Zaxxon                 | Seems to play fine.                                                      |
