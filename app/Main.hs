@@ -13,38 +13,21 @@ import Graphics.Rendering.OpenGL
 import Asm
 import Atari2600
 import Binary
-import Control.Applicative
-import Control.Concurrent
-import Control.Concurrent
 import Display
 import Control.Concurrent (threadDelay)
+import Control.Concurrent
+import Data.Int
 import Control.Lens hiding (_last)
 import Control.Monad
 import Control.Monad.Reader
 import Core
 import Data.Array.IO
-import Data.Array.Unboxed
 import Data.Binary hiding (get)
-import Data.Binary.Get
 import Data.Bits hiding (bit)
 import Data.Bits.Lens
-import Data.ByteString as B hiding (last, putStr, putStrLn, getLine, length, elem, map, reverse, readFile)
-import Data.Char
-import Data.IORef
-import Data.Int
 import Data.Int(Int16)
-import Data.Monoid
-import Data.Vector.Storable.Mutable as V hiding (modify, readFile, read)
-import Data.Word
-import Debug.Trace
-import DebugCmd
-import DebugState
 import Debugger
-import Disasm
 import Emulation
-import Foreign.C.Types
-import Foreign.Ptr
-import Foreign.Storable
 import Memory
 import Metrics
 import Numeric
@@ -53,18 +36,9 @@ import SDL.Audio
 import SDL.Event
 import SDL.Input.Keyboard
 import SDL.Vect
-import SDL.Video.Renderer
 import System.Console.CmdArgs hiding ((+=))
-import System.Console.Haskeline
 import System.Exit
-import System.IO
-import System.Random
-import TIAColors
-import Text.Parsec
-import VideoOps
 import Keys
-import qualified Data.ByteString.Internal as BS (c2w, w2c)
-import qualified Data.Map.Strict as Map
 import qualified SDL
 
 --  XXX Do this If reset occurs during horizontal blank, the object will appear at the left side of the television screen
@@ -180,7 +154,7 @@ main = do
     print $ "Initial bank state = " ++ show initBankState
 
     --let style = bank args
-    state <- initState screenScaleX' screenScaleY' (screenHeight*screenScaleX') (screenHeight*screenScaleY') ram initBankState rom 0x0000 window prog attrib tex textureData
+    state <- initState screenScaleX' screenScaleY' (screenWidth*screenScaleX') (screenHeight*screenScaleY') ram initBankState rom 0x0000 window prog attrib tex textureData
 
     let loop = do
             events <- liftIO $ SDL.pollEvents
