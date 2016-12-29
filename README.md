@@ -52,6 +52,12 @@ Command line options
     -f <filename>
            Load rom from file
 
+    -o <options file>
+            Default is .stellarator-options in current directory.
+            Allows setting of keys and window size.
+            Fragile file format so copy original as closely as
+            possible.
+
     -b unbanked|f8|f6|3f
            select rom bank switching style
            Currently Stellarator automatically picks:
