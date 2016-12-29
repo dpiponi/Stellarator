@@ -1,245 +1,114 @@
---port of https://github.com/bergey/haskell-OpenGL-examples
+{-# LANGUAGE TemplateHaskell #-}
 
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import Control.Monad
-import Data.Array.Unboxed
-import Data.Bits
-import Data.Word
-import Foreign.C.Types
-import Foreign.Marshal.Alloc
-import Foreign.Ptr
-import Foreign.Storable
-import SDL (($=))
-import SDL.Vect
-import System.Exit (exitFailure)
+import Text.AhoCorasick
+import qualified Data.ByteString.Internal as BS (c2w, w2c)
 import System.IO
-import TIAColors
-import qualified Data.ByteString as BS
-import qualified Data.Vector.Storable as V
-import qualified Graphics.Rendering.OpenGL as GL
-import qualified SDL
+import Data.Word
+import Control.Monad
+import Data.List
+import System.Environment
+import Data.Bits
+import Control.Lens
 
-windowWidth, windowHeight :: CInt
-(windowWidth, windowHeight) = (2000, 1600)
+--testString = map BS.c2w $ take 16384 (cycle "ushers")
+--example1 = mapM_ print $ findAll simpleSM testString where
+--    simpleSM = makeSimpleStateMachine $ map (map BS.c2w) ["he","she","his","hers"]
 
-screenWidth, screenHeight :: CInt
-(screenWidth, screenHeight) = (64, 48)
+data Evidence = Evidence {
+    _forE0 :: Float,
+    _for3F :: Float,
+    _forF6 :: Float,
+    _forF8 :: Float,
+    _forNo :: Float
+} deriving Show
 
-renderImageTexture :: GL.TextureObject -> Ptr Word8 -> Int -> IO ()
-renderImageTexture texName textureData offset = do
-    forM_ [0..screenHeight-1] $ \i ->
-        forM_ [0..screenWidth-1] $ \j -> do
-            pokeElemOff textureData (fromIntegral $ screenWidth*i+j) (fromIntegral $ (j+fromIntegral offset))
+$(makeLenses ''Evidence)
 
-    GL.textureBinding GL.Texture2D $= Just texName
-    GL.texImage2D
-        GL.Texture2D
-        GL.NoProxy
-        0
-        GL.R8
-        (GL.TextureSize2D (fromIntegral screenWidth) (fromIntegral screenHeight))
-        0
-        (GL.PixelData GL.Red GL.UnsignedByte textureData)
+i16 :: Word8 -> Word16
+i16 = fromIntegral
 
-createImageTexture :: GL.TextureObject -> Int -> IO (Ptr Word8)
-createImageTexture texName offset = do
-    GL.textureBinding GL.Texture2D $= Just texName
+asWord16 :: [Word8] -> [Word16]
+asWord16 []                 = []
+asWord16 [_]                = []
+asWord16 (b0 : bs@(b1 : _)) = i16 b0+(i16 b1 `shift` 8) : asWord16 bs
 
-    textureData <- mallocBytes (fromIntegral $ screenWidth*screenHeight) :: IO (Ptr Word8)
-    renderImageTexture texName textureData offset
+runId :: [Word8] -> Evidence -> IO Evidence
+runId bytes evidence = runId' (asWord16 bytes) evidence
 
-    GL.textureFilter   GL.Texture2D   $= ((GL.Nearest, Nothing), GL.Nearest)
-    GL.textureWrapMode GL.Texture2D GL.S $= (GL.Repeated, GL.ClampToEdge)
-    GL.textureWrapMode GL.Texture2D GL.T $= (GL.Repeated, GL.ClampToEdge)
+runId' :: [Word16] -> Evidence -> IO Evidence
+runId' [] evidence = return evidence
+runId' (w : ws) evidence = do
+    evidence' <- wordId (w .&. 0xfff) evidence
+    runId' ws evidence'
 
-    return textureData
+wordId :: Word16 -> Evidence -> IO Evidence
+wordId addr   evidence | addr >= 0xfe0 && addr < 0xff8 = return (evidence & forE0 +~ 2)
+wordId 0x3f85 evidence = return (evidence & for3F +~ 20)
+wordId addr   evidence | addr >= 0xff8 && addr < 0xffa = return (evidence & forF8 +~ 15)
+wordId addr   evidence | addr >= 0xff6 && addr < 0xffa = return (evidence & forF6 +~ 1)
+wordId _      evidence = return evidence
 
-createLUTTexture :: GL.TextureObject -> IO ()
-createLUTTexture texName = do
-    textureData2 <- mallocBytes (fromIntegral $ 4*256) :: IO (Ptr Word32)
-    forM_ [0..255] $ \i ->
-        pokeElemOff textureData2 (fromIntegral $ i) (fromIntegral $ lut!(i `shift` (-1)))
+fromSize :: Int -> Evidence -> Evidence
+fromSize 2048 evidence = evidence & forNo +~ 100 & forE0 -~ 100 & for3F -~ 100 & forF6 -~ 100 & forF8 -~ 100
+fromSize 4096 evidence = evidence & forNo +~ 100 & forE0 -~ 100 & for3F -~ 100 & forF6 -~ 100 & forF8 -~ 100
+fromSize 8192 evidence = evidence & forF8 +~ 1 & forE0 +~ 1 & for3F +~ 5 & forF6 -~ 100 & forNo -~ 100
+fromSize 16384 evidence = evidence & forF6 +~ 100 & forE0 -~ 100 & for3F -~ 100 & forF8 -~ 100 & forNo -~ 100
+fromSize _ _ = error "Weird ROM size"
 
-    GL.textureBinding GL.Texture1D $= Just texName
+data BankType = ForNo | ForF6 | ForF8 | ForE0 | For3F deriving (Read, Show)
 
-    GL.texImage1D
-        GL.Texture1D
-        GL.NoProxy
-        0
-        GL.RGB8
-        (GL.TextureSize1D 256)
-        0
-        (GL.PixelData GL.BGRA GL.UnsignedByte textureData2)
-
-    GL.textureFilter   GL.Texture1D   $= ((GL.Nearest, Nothing), GL.Nearest)
-    GL.textureWrapMode GL.Texture1D GL.S $= (GL.Repeated, GL.ClampToEdge)
-    GL.textureWrapMode GL.Texture1D GL.T $= (GL.Repeated, GL.ClampToEdge)
-
-createShaderProgram :: IO GL.Program
-createShaderProgram = do
-    -- compile vertex shader
-    vs <- GL.createShader GL.VertexShader
-    GL.shaderSourceBS vs $= vsSource
-    GL.compileShader vs
-    vsOK <- GL.get $ GL.compileStatus vs
-    unless vsOK $ do
-        hPutStrLn stderr "Error in vertex shader\n"
-        exitFailure
-
-    -- Do it again for the fragment shader
-    fs <- GL.createShader GL.FragmentShader
-    GL.shaderSourceBS fs $= fsSource
-    GL.compileShader fs
-    fsOK <- GL.get $ GL.compileStatus fs
-    unless fsOK $ do
-        hPutStrLn stderr "Error in fragment shader\n"
-        exitFailure
-
-    program <- GL.createProgram
-    GL.attachShader program vs
-    GL.attachShader program fs
-    GL.attribLocation program "coord2d" $= GL.AttribLocation 0
-    GL.linkProgram program
-    linkOK <- GL.get $ GL.linkStatus program
-
-    print $ linkOK
-
-    unless linkOK $ do
-        hPutStrLn stderr "GL.linkProgram error"
-        plog <- GL.get $ GL.programInfoLog program
-        putStrLn plog
-        exitFailure
-
-    return program
-
-connectProgramToTextures :: GL.Program -> GL.TextureObject -> GL.TextureObject -> IO ()
-connectProgramToTextures program tex tex2 = do
-    GL.currentProgram $= Just program
-    texLoc <- GL.uniformLocation program "texture"
-    print texLoc
-    texLoc2 <- GL.uniformLocation program "table"
-    print texLoc2
-
-    GL.activeTexture $= GL.TextureUnit 0
-    GL.texture GL.Texture2D $= GL.Enabled
-    GL.textureBinding GL.Texture2D $= Just tex
-
-    GL.activeTexture $= GL.TextureUnit 1
-    GL.textureBinding GL.Texture1D $= Just tex2
-    GL.texture GL.Texture1D $= GL.Enabled
-
-    GL.uniform texLoc $= GL.Index1 (0::GL.GLint)
-    GL.uniform texLoc2 $= GL.Index1 (1::GL.GLint)
-
-    GL.validateProgram program
-    status <- GL.get $ GL.validateStatus program
-    print $ status
-    unless status $ do
-        hPutStrLn stderr "GL.linkProgram error"
-        plog <- GL.get $ GL.programInfoLog program
-        putStrLn plog
-        exitFailure
-    GL.currentProgram $= Just program
-
-initResources :: IO (GL.Program, GL.AttribLocation, GL.TextureObject, Ptr Word8)
-initResources = do
-    [tex, tex2] <- GL.genObjectNames 2 :: IO [GL.TextureObject]
-
-    textureData <- createImageTexture tex 0
-    createLUTTexture tex2
-
-    program <- createShaderProgram
-    connectProgramToTextures program tex tex2
-
-    return (program, GL.AttribLocation 0, tex, textureData)
-
-draw :: SDL.Window -> GL.Program -> GL.AttribLocation -> IO ()
-draw window program attrib = do
-    GL.clearColor $= GL.Color4 0 0 0 0
-    GL.clear [GL.ColorBuffer]
-    GL.viewport $= (GL.Position 0 0, GL.Size (fromIntegral windowWidth) (fromIntegral windowHeight))
-
-    GL.currentProgram $= Just program
-    GL.vertexAttribArray attrib $= GL.Enabled
-    V.unsafeWith vertices $ \ptr ->
-        GL.vertexAttribPointer attrib $=
-          (GL.ToFloat, GL.VertexArrayDescriptor 2 GL.Float 0 ptr)
-    GL.drawArrays GL.Triangles 0 6 -- 3 is the number of vertices
-    GL.vertexAttribArray attrib $= GL.Disabled
-    SDL.glSwapWindow window
-
-vsSource, fsSource :: BS.ByteString
-vsSource = BS.intercalate "\n"
-           [
-                "#version 110",
-                "",
-                "attribute vec2 position;",
-                "varying vec2 texcoord;",
-                "",
-                "void main()",
-                "{",
-                "    gl_Position = vec4(position, 0.0, 1.0);",
-                "    texcoord = position * vec2(0.5) + vec2(0.5);",
-                "}"
-           ]
-
-fsSource = BS.intercalate "\n"
-           [
-                "#version 110",
-                "",
-                "uniform sampler2D texture;",
-                "uniform sampler1D table;",
-                "varying vec2 texcoord;",
-                "",
-                "void main()",
-                "{",
-                "",
-                "    vec4 index = texture2D(texture, texcoord);",
-                "    gl_FragColor = texture1D(table, index.x);",
-                "}"
-           ]
-
-vertices :: V.Vector Float
-vertices = V.fromList [ -1.0, -1.0
-                      ,  1.0, -1.0 
-                      ,  1.0,  1.0 
-                      , -1.0, -1.0 
-                      ,  1.0,  1.0 
-                      , -1.0,  1.0
-                      ]
+classify :: Evidence -> BankType
+classify (Evidence fore0 for3f forf6 forf8 forno) =
+    [ForE0, For3F, ForF6, ForF8, ForNo] !! (head (sortOn (\i -> -[fore0, for3f, forf6, forf8, forno]!!i) [0..4]))
 
 main :: IO ()
 main = do
-  SDL.initialize [SDL.InitVideo]
-  -- SDL.HintRenderScaleQuality $= SDL.ScaleLinear
-  -- do renderQuality <- SDL.get SDL.HintRenderScaleQuality
-  --    when (renderQuality /= SDL.ScaleLinear) $
-  --      putStrLn "Warning: Linear texture filtering not enabled!"
-
-  window <-
-    SDL.createWindow
-      "SDL / OpenGL Example"
-      SDL.defaultWindow {SDL.windowInitialSize = V2 windowWidth windowHeight,
-                         SDL.windowOpenGL = Just SDL.defaultOpenGL}
-  SDL.showWindow window
-
-  _ <- SDL.glCreateContext window
-  SDL.swapInterval $= SDL.SynchronizedUpdates
-  (prog, attrib, tex, textureData) <- initResources
-
-  let loop i = do
-        events <- SDL.pollEvents
-        let quit = elem SDL.QuitEvent $ map SDL.eventPayload events
-
-        renderImageTexture tex textureData i
-        draw window prog attrib
-
-        unless quit $ loop (i+1)
-
-  loop 1
-
-  SDL.destroyWindow window
-  SDL.quit
+    --handle <- openBinaryFile "roms/miner.bin" ReadMode
+    handle1 <- openBinaryFile "BANK_TYPES" ReadMode
+    bankDataString <- hGetContents handle1
+    let bankData = read bankDataString :: [(String, BankType)]
+    forM_ bankData $ \(fileName, bankType) -> do
+        --print fileName
+        --args <- getArgs
+        --let [fileName] = args
+        handle <- openBinaryFile ("roms/"++fileName) ReadMode
+        --handle <- openBinaryFile "roms/midnightmagic.bin" ReadMode
+        contents <- hGetContents handle
+        putStrLn $ "file =" ++ fileName ++ " len = " ++ show (length contents)
+        let contents' = map BS.c2w contents
+        let evidence = fromSize (length contents) Evidence { _forE0 = 0, _for3F = 0, _forF6 = 0, _forF8 = 0, _forNo = 0 }
+        evidence' <- runId contents' evidence
+        print (fileName, evidence', bankType, classify evidence')
+    {-
+    let simpleSM = makeSimpleStateMachine $ [
+                    [0xe0, 0xff],   -- 0xffe0 - E0
+                    [0xe1, 0xff],   -- 0xffe0 - E0
+                    [0xe2, 0xff],   -- 0xffe0 - E0
+                    [0xe3, 0xff],   -- 0xffe0 - E0
+                    [0xe4, 0xff],   -- 0xffe0 - E0
+                    [0xe5, 0xff],   -- 0xffe0 - E0
+                    [0xe6, 0xff],   -- 0xffe0 - E0
+                    [0xe7, 0xff],   -- 0xffe0 - E0
+                    [0xe8, 0xff],   -- 0xffe0 - E0
+                    [0xe9, 0xff],   -- 0xffe0 - E0
+                    [0xea, 0xff],   -- 0xffe0 - E0
+                    [0xeb, 0xff],   -- 0xffe0 - E0
+                    [0xec, 0xff],   -- 0xffe0 - E0
+                    [0xed, 0xff],   -- 0xffe0 - E0
+                    [0xee, 0xff],   -- 0xffe0 - E0
+                    [0xf0, 0xff],   -- 0xffe0 - E0
+                    [0xf1, 0xff],   -- 0xffe0 - E0
+                    [0xf2, 0xff],   -- 0xffe0 - E0
+                    [0xf3, 0xff],   -- 0xffe0 - E0
+                    [0xf4, 0xff],   -- 0xffe0 - E0
+                    [0xf5, 0xff],   -- 0xffe0 - E0
+                    [0xf6, 0xff],   -- 0xffe0 - E0
+                    [0xf7, 0xff],   -- 0xffe0 - E0
+                    [0xa9, 0x00, 0x85, 0x3f],   -- lda #0, sta 3f - 3F
+                    [0xa9, 0x01, 0x85, 0x3f],   -- lda #1, sta 3f - 3F
+                    [0xa9, 0x02, 0x85, 0x3f]    -- lda #2, sta 3f - 3F
+                ]
+    mapM_ print $ findAll simpleSM contents'
+    -}

@@ -5,6 +5,5 @@ extra-lib-dirs:
 packages:
 - '.'
 extra-deps:
-- GLUtil-0.9.1.1
-- hpp-0.4.0
+- AhoCorasick-0.0.3
 resolver: lts-7.10

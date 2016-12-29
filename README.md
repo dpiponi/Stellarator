@@ -147,7 +147,7 @@ Lots of games work:
 | Q*Bert                 | Seems to play fine                                                       |
 | Quest for Quintana Roo | Seems to play fine but hard to tell.                                     |
 | Raiders of Lost Ark    | Starts fine. Might need controllers I don't emulate yet.                 |
-| River Patrol           | Fails with illegal instruction. Maybe needs new bank switching method.   |
+| River Patrol           | Use -b 3f. Seems to play fine.                                           |
 | River Raid             | Seems to play fine.                                                      |
 | Sea Hawk               | Seems to play fine.                                                      |
 | Space Canyon           | Has an illegal opcode. It's clearly there in disassembly :-(             |

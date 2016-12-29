@@ -62,33 +62,35 @@ executable stellarator-exe
                      , Stellarator
   default-language:    Haskell2010
 
-executable experiment-exe
-  hs-source-dirs:      experiment
-  main-is:             Main.hs
-  extensions:         
-  ghc-options:         -O5 -Wall -fwarn-missing-signatures -ddump-simpl -ddump-asm 
-  build-depends:       base
-                     , sdl2
-                     , bytestring
-                     , vector
-                     , OpenGL
-                     , array
-                     , mtl
-                     , lens
-                     , binary
-                     , cmdargs
-                     , monad-loops
-                     , parsec
-                     , binary
-                     , random
-                     , haskeline
-                     , containers
-                     , OpenGL
-                     , OpenGLRaw
-                     , distributive
-                     , Stellarator
-  default-language:    Haskell2010
-
+-- executable experiment-exe
+--   hs-source-dirs:      experiment
+--   main-is:             Main.hs
+--   extensions:         
+--   ghc-options:         -O5 -Wall -fwarn-missing-signatures -ddump-simpl -ddump-asm 
+--   build-depends:       base
+--                      , sdl2
+--                      , bytestring
+--                      , vector
+--                      , OpenGL
+--                      , array
+--                      , mtl
+--                      , lens
+--                      , binary
+--                      , cmdargs
+--                      , monad-loops
+--                      , parsec
+--                      , hashable
+--                      , unordered-containers
+--                      , binary
+--                      , random
+--                      , haskeline
+--                      , containers
+--                      , OpenGL
+--                      , OpenGLRaw
+--                      , distributive
+--                      , Stellarator
+--   default-language:    Haskell2010
+-- 
 -- test-suite emu6502-test
 --   type:                exitcode-stdio-1.0
 --   hs-source-dirs:      test
