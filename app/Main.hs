@@ -62,36 +62,37 @@ import System.Random
 import TIAColors
 import Text.Parsec
 import VideoOps
+import Keys
 import qualified Data.ByteString.Internal as BS (c2w, w2c)
 import qualified Data.Map.Strict as Map
 import qualified SDL
 
 --  XXX Do this If reset occurs during horizontal blank, the object will appear at the left side of the television screen
-data Args = Args { file :: String, bank :: String } deriving (Show, Data, Typeable)
+data Args = Args { file :: String, bank :: String, options :: String } deriving (Show, Data, Typeable)
 
 clargs :: Args
-clargs = Args { file = "adventure.bin", bank = "" }
+clargs = Args { file = "adventure.bin", bank = "", options = ".stellarator-options" }
 
 {- INLINE isPressed -}
 isPressed :: InputMotion -> Bool
 isPressed Pressed = True
 isPressed Released = False
 
-handleEvent :: EventPayload -> MonadAtari ()
+handleEvent :: [(Scancode, AtariKey)] -> EventPayload -> MonadAtari ()
 
-handleEvent (MouseButtonEvent (MouseButtonEventData win Pressed device ButtonLeft clicks pos)) = do
+handleEvent atariKeys (MouseButtonEvent (MouseButtonEventData win Pressed device ButtonLeft clicks pos)) = do
     liftIO $ print pos
     let P (V2 x y) = pos
     setBreak (fromIntegral x `div` xscale) (fromIntegral y `div` yscale)
 
-handleEvent (MouseMotionEvent (MouseMotionEventData win device [ButtonLeft] pos rel)) = do
+handleEvent atariKeys (MouseMotionEvent (MouseMotionEventData win device [ButtonLeft] pos rel)) = do
     liftIO $ print pos
     let P (V2 x y) = pos
     setBreak (fromIntegral x `div` xscale) (fromIntegral y `div` yscale)
 
-handleEvent (KeyboardEvent (KeyboardEventData win motion rep sym)) = handleKey motion sym
+handleEvent atariKeys (KeyboardEvent (KeyboardEventData win motion rep sym)) = handleKey atariKeys motion sym
 
-handleEvent _ = return ()
+handleEvent _ _ = return ()
 
 trigger1Pressed :: Bool -> MonadAtari ()
 trigger1Pressed pressed = do
@@ -103,86 +104,46 @@ trigger1Pressed pressed = do
         (True, False) -> return ()
         (True, True ) -> modify inpt4 $ bitAt 7 .~ False
 
-handleKey :: InputMotion -> Keysym -> MonadAtari ()
-handleKey motion sym = do
-    let pressed = isPressed motion
-    case keysymScancode sym of
-        SDL.Scancode1      -> dumpState
-        SDL.ScancodeUp     -> modify swcha $ bitAt 4 .~ not pressed
-        SDL.ScancodeDown   -> modify swcha $ bitAt 5 .~ not pressed
-        SDL.ScancodeLeft   -> modify swcha $ bitAt 6 .~ not pressed
-        SDL.ScancodeRight  -> modify swcha $ bitAt 7 .~ not pressed
-        SDL.ScancodeC      -> modify swchb $ bitAt 1 .~ not pressed
-        SDL.ScancodeV      -> modify swchb $ bitAt 0 .~ not pressed
-        SDL.ScancodeSpace  -> trigger1Pressed pressed
-        SDL.ScancodeQ      -> liftIO $ exitSuccess
-        SDL.ScancodeEscape -> when pressed $ do
-            t <- liftIO $ forkIO $ let spin = SDL.pollEvents >> spin in spin
-            dumpState
-            runDebugger
-            liftIO $ killThread t
-        otherwise -> return ()
+handleKey :: [(Scancode, AtariKey)] -> InputMotion -> Keysym -> MonadAtari ()
+handleKey atariKeys motion sym = do
+    let scancode = keysymScancode sym
+    let mAtariKey = lookup scancode atariKeys
+    case mAtariKey of
+        Nothing -> return ()
+        Just atariKey -> do
+            let pressed = isPressed motion
+            case atariKey of
+                Joystick1Up      -> modify swcha $ bitAt 4 .~ not pressed
+                Joystick1Down    -> modify swcha $ bitAt 5 .~ not pressed
+                Joystick1Left    -> modify swcha $ bitAt 6 .~ not pressed
+                Joystick1Right   -> modify swcha $ bitAt 7 .~ not pressed
+                Joystick1Trigger -> trigger1Pressed pressed
+                GameSelect       -> modify swchb $ bitAt 1 .~ not pressed
+                GameReset        -> modify swchb $ bitAt 0 .~ not pressed
+                DumpState        -> Emulation.dumpState
+                GameQuit         -> liftIO $ exitSuccess
+                EnterDebugger    -> when pressed $ do
+                                        t <- liftIO $ forkIO $ let spin = SDL.pollEvents >> spin in spin
+                                        Emulation.dumpState
+                                        runDebugger
+                                        liftIO $ killThread t
 
 loopUntil :: Int64 -> MonadAtari ()
 loopUntil n = do
     stellaClock' <- useStellaClock id
     when (stellaClock' < n) $ step >> loopUntil n
 
-{-
-sinSamples :: [Int16]
-sinSamples =
-  map (\n ->
-         let t = fromIntegral n / 48000 :: Double
-             freq = 440 * 4
-         in round (fromIntegral (maxBound `div` 2 :: Int16) * sin (t * freq)))
-      [0 :: Integer ..]
-
-audioCB :: IORef [Int16] -> AudioFormat sampleType -> IOVector sampleType -> IO ()
-audioCB samples format buffer =
-  case format of
-    Signed16BitLEAudio ->
-      do samples' <- readIORef samples
-         let n = V.length buffer
-         sequence_ (Prelude.zipWith (write buffer)
-                            [0 ..]
-                            (Prelude.take n samples'))
-         writeIORef samples
-                    (Prelude.drop n samples')
-    _ -> error "Unsupported audio format"
--}
-
-data Options = Options {
-    screenScaleX :: Int,
-    screenScaleY :: Int,
-    topOverscan :: Int,
-    bottomOverscan :: Int,
-    joystick1Left :: String,
-    joystick1Right :: String,
-    joystick1Up :: String,
-    joystick1Down :: String,
-    joystick1Trigger :: String
-} deriving (Show, Read)
-
-defaultOptions :: Options
-defaultOptions = Options {
-    screenScaleX = 5,
-    screenScaleY = 3,
-    topOverscan = 10,
-    bottomOverscan = 10,
-    joystick1Left = "Left",
-    joystick1Right = "Right",
-    joystick1Up = "Up",
-    joystick1Down = "Down",
-    joystick1Trigger = "Space"
-}
-
 main :: IO ()
 main = do
-    optionsString <- readFile ".stellarator-options"
-    let options = read optionsString :: Options
-    print options
-
     args <- cmdArgs clargs
+
+    let optionsFile = options args
+    putStrLn $ "Reading options from '" ++ optionsFile ++ "'"
+    optionsString <- readFile optionsFile
+    let options' = read optionsString :: Options
+    print options'
+    let atariKeys = keysFromOptions options'
+
     --SDL.initialize [SDL.InitVideo, SDL.InitAudio]
     SDL.initializeAll
     window <- SDL.createWindow "Stellarator"
@@ -215,26 +176,11 @@ main = do
     --let style = bank args
     state <- initState ram initBankState rom 0x0000 window prog attrib tex textureData
 
-{-
-    samples <- newIORef sinSamples
-    (device, _) <- SDL.openAudioDevice OpenDeviceSpec {
-        SDL.openDeviceFreq = Mandate 48000,
-        SDL.openDeviceFormat = Mandate Signed16BitNativeAudio,
-        SDL.openDeviceChannels = Mandate Mono,
-        SDL.openDeviceSamples = 4096 * 2,
-        SDL.openDeviceCallback = audioCB samples,
-        SDL.openDeviceUsage = ForPlayback,
-        SDL.openDeviceName = Nothing
-    }
-    setAudioDevicePlaybackState device Play
-    threadDelay 1000000
--}
-
     let loop = do
             events <- liftIO $ SDL.pollEvents
 
             --let quit = elem SDL.QuitEvent $ map SDL.eventPayload events
-            forM_ events (handleEvent . eventPayload)
+            forM_ events $ \event -> handleEvent atariKeys (eventPayload event)
             stellaClock' <- useStellaClock id
             loopUntil (stellaClock' + 1000)
 

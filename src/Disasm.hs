@@ -144,9 +144,10 @@ withData02 bbb useY mne bs = case bbb of
     _ -> error "Unknown addressing mode"
 
 dis_illegal :: Word8 -> [Word8] -> (Int, String, [Word8])
-dis_illegal b bs = (0, "error", bs)
+dis_illegal _ bs = (0, "error", bs)
 
 disasm :: Word16 -> [Word8] -> (Int, String, [Word8])
+disasm _ [] = error "Shouldn't happen"
 disasm pc (b : bs) =
     case b of
         0x00 -> (1, "BRK", bs)
@@ -229,6 +230,7 @@ disasm pc (b : bs) =
                         0b101 -> withData02 bbb True "ldx"  bs
                         0b110 -> withData02 bbb False "dec" bs
                         0b111 -> withData02 bbb False "inc" bs
+                        _     -> error "Impossible"
 
                 _ -> dis_illegal b bs
 

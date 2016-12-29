@@ -153,6 +153,7 @@ stellaResmp1 = do
     store s_mpos1 (playerPosition :: Int)
 -}
 
+{-
 {- INLINE stellaDebugStr -}
 stellaDebugStr :: Int -> String -> MonadAtari ()
 stellaDebugStr n str = do
@@ -170,6 +171,7 @@ stellaDebugStrLn n str = do
         then do
             liftIO $ putStrLn str
         else return ()
+-}
 
 {-# INLINE wrap160 #-}
 wrap160 :: Int -> Int
@@ -600,8 +602,8 @@ renderDisplay = do
     window <- view sdlWindow
     prog <- view glProg
     attrib <- view glAttrib
-    tex <- view tex
+    tex' <- view tex
     ptr <- view textureData
-    liftIO $ updateTexture tex ptr
+    liftIO $ updateTexture tex' ptr
     liftIO $ draw window prog attrib
     return ()

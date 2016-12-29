@@ -12,8 +12,6 @@ TODO
     http://atariage.com/forums/topic/82052-tia-schematics-and-timing/
 27. See what I can do about Cosmic Ark stars
     http://www.biglist.com/lists/stella/archives/199705/msg00024.html
-28. Options file.
-29. Allow keys to be configurable. Otherwise Q*Bert too confusing.
 30. In Raiders of the Lost Ark, Indy initially descends a pixel or two to the right
     of where he does in Stella.
 31. Allow starting in debugger.
@@ -24,6 +22,7 @@ TODO
 36. Simulate paddles
 37. Simulate keypads
 38. Second joystick
+39. Make options more robust. (Not using read :: Options)
 
 Done
 ----
@@ -65,3 +64,5 @@ Done
 33. 3F Tigervision bank switching.
 9. More ROM bank switching styles
    Too open-ended a goal
+29. Allow keys to be configurable. Otherwise Q*Bert too confusing.
+28. Options file.
