@@ -14,97 +14,30 @@ import Asm
 import Atari2600
 import Binary
 import Display
-import Control.Concurrent (threadDelay)
-import Control.Concurrent
-import Data.Int
-import Control.Lens hiding (_last)
 import Control.Monad
 import Control.Monad.Reader
 import Core
 import Data.Array.IO
 import Data.Binary hiding (get)
 import Data.Bits hiding (bit)
-import Data.Bits.Lens
-import Data.Int(Int16)
-import Debugger
+import Data.Int(Int64)
 import Emulation
 import Memory
 import Metrics
 import Numeric
 import Prelude hiding (last)
-import SDL.Audio
 import SDL.Event
-import SDL.Input.Keyboard
 import SDL.Vect
 import System.Console.CmdArgs hiding ((+=))
-import System.Exit
 import Keys
 import qualified SDL
+import Events
 
 --  XXX Do this If reset occurs during horizontal blank, the object will appear at the left side of the television screen
 data Args = Args { file :: String, bank :: String, options :: String } deriving (Show, Data, Typeable)
 
 clargs :: Args
 clargs = Args { file = "adventure.bin", bank = "", options = ".stellarator-options" }
-
-{- INLINE isPressed -}
-isPressed :: InputMotion -> Bool
-isPressed Pressed = True
-isPressed Released = False
-
-handleEvent :: [(Scancode, AtariKey)] -> EventPayload -> MonadAtari ()
-
-handleEvent atariKeys (MouseButtonEvent (MouseButtonEventData win Pressed device ButtonLeft clicks pos)) = do
-    xscale' <- view xscale
-    yscale' <- view yscale
-    liftIO $ print pos
-    let P (V2 x y) = pos
-    setBreak (fromIntegral x `div` xscale') (fromIntegral y `div` yscale')
-
-handleEvent atariKeys (MouseMotionEvent (MouseMotionEventData win device [ButtonLeft] pos rel)) = do
-    xscale' <- view xscale
-    yscale' <- view yscale
-    liftIO $ print pos
-    let P (V2 x y) = pos
-    setBreak (fromIntegral x `div` xscale') (fromIntegral y `div` yscale')
-
-handleEvent atariKeys (KeyboardEvent (KeyboardEventData win motion rep sym)) = handleKey atariKeys motion sym
-
-handleEvent _ _ = return ()
-
-trigger1Pressed :: Bool -> MonadAtari ()
-trigger1Pressed pressed = do
-    store trigger1 pressed
-    vblank' <- load vblank
-    let latch = testBit vblank' 6
-    case (latch, pressed) of
-        (False, _   ) -> modify inpt4 $ bitAt 7 .~ not pressed
-        (True, False) -> return ()
-        (True, True ) -> modify inpt4 $ bitAt 7 .~ False
-
-handleKey :: [(Scancode, AtariKey)] -> InputMotion -> Keysym -> MonadAtari ()
-handleKey atariKeys motion sym = do
-    let scancode = keysymScancode sym
-    let mAtariKey = lookup scancode atariKeys
-    case mAtariKey of
-        Nothing -> return ()
-        Just atariKey -> do
-            let pressed = isPressed motion
-            case atariKey of
-                Joystick1Up      -> modify swcha $ bitAt 4 .~ not pressed
-                Joystick1Down    -> modify swcha $ bitAt 5 .~ not pressed
-                Joystick1Left    -> modify swcha $ bitAt 6 .~ not pressed
-                Joystick1Right   -> modify swcha $ bitAt 7 .~ not pressed
-                Joystick1Trigger -> trigger1Pressed pressed
-                GameSelect       -> modify swchb $ bitAt 1 .~ not pressed
-                GameReset        -> modify swchb $ bitAt 0 .~ not pressed
-                DumpState        -> Emulation.dumpState
-                GameQuit         -> liftIO $ exitSuccess
-                EnterDebugger    -> when pressed $ do
-                                        t <- liftIO $ forkIO $ let spin = SDL.pollEvents >> spin in spin
-                                        Emulation.dumpState
-                                        runDebugger
-                                        liftIO $ killThread t
 
 loopUntil :: Int64 -> MonadAtari ()
 loopUntil n = do
@@ -113,9 +46,9 @@ loopUntil n = do
 
 main :: IO ()
 main = do
-    args <- cmdArgs clargs
+    args' <- cmdArgs clargs
 
-    let optionsFile = options args
+    let optionsFile = options args'
     putStrLn $ "Reading options from '" ++ optionsFile ++ "'"
     optionsString <- readFile optionsFile
     let options' = read optionsString :: Options
@@ -137,10 +70,10 @@ main = do
     --SDL.swapInterval $= SDL.ImmediateUpdates
     (prog, attrib, tex, textureData) <- initResources
 
-    rom <- newArray (0, 0x3fff) 0 :: IO (IOUArray Int Word8)
-    ram <- newArray (0, 0x7f) 0 :: IO (IOUArray Int Word8)
-    bankStyle <- readBinary rom (file args) 0x0000
-    let bankStyle' = case (bank args) of
+    romArray <- newArray (0, 0x3fff) 0 :: IO (IOUArray Int Word8)
+    ramArray <- newArray (0, 0x7f) 0 :: IO (IOUArray Int Word8)
+    bankStyle <- readBinary romArray (file args') 0x0000
+    let bankStyle' = case (bank args') of
                         "f8" -> ModeF8
                         "f6" -> ModeF6
                         "3f" -> Mode3F
@@ -154,7 +87,7 @@ main = do
     print $ "Initial bank state = " ++ show initBankState
 
     --let style = bank args
-    state <- initState screenScaleX' screenScaleY' (screenWidth*screenScaleX') (screenHeight*screenScaleY') ram initBankState rom 0x0000 window prog attrib tex textureData
+    state <- initState screenScaleX' screenScaleY' (screenWidth*screenScaleX') (screenHeight*screenScaleY') ramArray initBankState romArray 0x0000 window prog attrib tex textureData
 
     let loop = do
             events <- liftIO $ SDL.pollEvents
