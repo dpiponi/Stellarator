@@ -149,7 +149,7 @@ Lots of games work:
 | Phoenix                | Seems to work fine.                                                      |
 | Pinball                | Seems to work fine.                                                      |
 | Planet Patrol          | Seems to play fine apart from a bad pixel at top of screen               |
-| Pole Position          | Playable but some clear alignment problems between sprites.              |
+| Pole Position          | Seems to play fine modulo a couple of misrendered pixels.                |
 | Q*Bert                 | Seems to play fine                                                       |
 | Quest for Quintana Roo | Seems to play fine but hard to tell.                                     |
 | Raiders of Lost Ark    | Starts fine. Might need controllers I don't emulate yet.                 |
