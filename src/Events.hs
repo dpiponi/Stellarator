@@ -23,21 +23,21 @@ isPressed Released = False
 
 handleEvent :: [(Scancode, AtariKey)] -> EventPayload -> MonadAtari ()
 
-handleEvent atariKeys (MouseButtonEvent (MouseButtonEventData win Pressed device ButtonLeft clicks pos)) = do
+handleEvent _ (MouseButtonEvent (MouseButtonEventData _ Pressed _ ButtonLeft _ pos)) = do
     xscale' <- view xscale
     yscale' <- view yscale
     liftIO $ print pos
-    let P (V2 x y) = pos
-    setBreak (fromIntegral x `div` xscale') (fromIntegral y `div` yscale')
+    let P (V2 x' y') = pos
+    setBreak (fromIntegral x' `div` xscale') (fromIntegral y' `div` yscale')
 
-handleEvent atariKeys (MouseMotionEvent (MouseMotionEventData win device [ButtonLeft] pos rel)) = do
+handleEvent _ (MouseMotionEvent (MouseMotionEventData _ _ [ButtonLeft] pos _)) = do
     xscale' <- view xscale
     yscale' <- view yscale
     liftIO $ print pos
-    let P (V2 x y) = pos
-    setBreak (fromIntegral x `div` xscale') (fromIntegral y `div` yscale')
+    let P (V2 x' y') = pos
+    setBreak (fromIntegral x' `div` xscale') (fromIntegral y' `div` yscale')
 
-handleEvent atariKeys (KeyboardEvent (KeyboardEventData win motion rep sym)) = handleKey atariKeys motion sym
+handleEvent atariKeys (KeyboardEvent (KeyboardEventData _ motion _ sym)) = handleKey atariKeys motion sym
 
 handleEvent _ _ = return ()
 

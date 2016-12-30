@@ -81,7 +81,7 @@ createLUTTexture texName = do
 
     GL.textureFilter   GL.Texture1D   $= ((GL.Nearest, Nothing), GL.Nearest)
     GL.textureWrapMode GL.Texture1D GL.S $= (GL.Repeated, GL.ClampToEdge)
-    GL.textureWrapMode GL.Texture1D GL.T $= (GL.Repeated, GL.ClampToEdge)
+    --GL.textureWrapMode GL.Texture1D GL.T $= (GL.Repeated, GL.ClampToEdge)
 
 -- | Compile and link vertex and fragment shaders.
 createShaderProgram :: IO GL.Program

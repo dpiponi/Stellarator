@@ -68,7 +68,7 @@ main = do
     _ <- SDL.glCreateContext window
     SDL.swapInterval $= SDL.SynchronizedUpdates
     --SDL.swapInterval $= SDL.ImmediateUpdates
-    (prog, attrib, tex, textureData) <- initResources
+    (prog, attrib, tex', textureData') <- initResources
 
     romArray <- newArray (0, 0x3fff) 0 :: IO (IOUArray Int Word8)
     ramArray <- newArray (0, 0x7f) 0 :: IO (IOUArray Int Word8)
@@ -87,7 +87,7 @@ main = do
     print $ "Initial bank state = " ++ show initBankState
 
     --let style = bank args
-    state <- initState screenScaleX' screenScaleY' (screenWidth*screenScaleX') (screenHeight*screenScaleY') ramArray initBankState romArray 0x0000 window prog attrib tex textureData
+    state <- initState screenScaleX' screenScaleY' (screenWidth*screenScaleX') (screenHeight*screenScaleY') ramArray initBankState romArray 0x0000 window prog attrib tex' textureData'
 
     let loop = do
             events <- liftIO $ SDL.pollEvents

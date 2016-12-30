@@ -74,38 +74,47 @@ make16 lo hi = fromIntegral lo+(fromIntegral hi `shift` 8)
 
 indirectX :: String -> [Word8] -> (Int, String, [Word8])
 indirectX mne (b : bs) = (2, mne ++ " (" ++ inHex8 b ++ ", X)", bs)
-indirectX mne [] = error "Not handled"
+indirectX _   [] = error "Not handled"
 
 zeroPage :: String -> [Word8] -> (Int, String, [Word8])
 zeroPage mne (b : bs) = (2, mne ++ " " ++ address8 b, bs)
-zeroPage mne [] = error "Not handled"
+zeroPage _   [] = error "Not handled"
 
 absolute :: String -> [Word8] -> (Int, String, [Word8])
 absolute mne (blo : bhi : bs) = (3, mne ++ " " ++ inHex16 (make16 blo bhi), bs)
-absolute mne [] = error "Not handled"
+absolute _   []               = error "Not handled"
+absolute _   (_ : _)          = error "Not handled"
 
 indirect :: String -> [Word8] -> (Int, String, [Word8])
 indirect mne (blo : bhi : bs) = (3, mne ++ " (" ++ inHex16 (make16 blo bhi) ++ ")", bs)
-indirect mne [] = error "Not handled"
+indirect _   []               = error "Not handled"
+indirect _   (_ : _)          = error "Not handled"
 
 indirectY :: String -> [Word8] -> (Int, String, [Word8])
 indirectY mne (b : bs) = (2, mne ++ " (" ++ inHex8 b ++ "), Y", bs)
-indirectY mne [] = error "Not handled"
+indirectY _   [] = error "Not handled"
 
 zeroPageX :: String -> [Word8] -> (Int, String, [Word8])
 zeroPageX mne (b : bs) = (2, mne ++ " " ++ inHex8 b ++ ", X", bs)
+zeroPageX _   [] = error "Not handled"
 
 zeroPageY :: String -> [Word8] -> (Int, String, [Word8])
 zeroPageY mne (b : bs) = (2, mne ++ " " ++ inHex8 b ++ ", Y", bs)
+zeroPageY _   [] = error "Not handled"
 
 absoluteY :: String -> [Word8] -> (Int, String, [Word8])
 absoluteY mne (blo : bhi : bs) = (3, mne ++ " " ++ inHex16 (make16 blo bhi) ++ ", Y", bs)
+absoluteY _   [] = error "Not handled"
+absoluteY _   (_ : _)          = error "Not handled"
 
 absoluteX :: String -> [Word8] -> (Int, String, [Word8])
 absoluteX mne (blo : bhi : bs) = (3, mne ++ " " ++ inHex16 (make16 blo bhi) ++ ", X", bs)
+absoluteX _   [] = error "Not handled"
+absoluteX _   (_ : _)          = error "Not handled"
 
 immediate :: String -> [Word8] -> (Int, String, [Word8])
 immediate mne (b : bs) = (2, mne ++ " #" ++ inHex8 b, bs)
+immediate _   [] = error "Not handled"
 
 accumulator :: String -> [Word8] -> (Int, String, [Word8])
 accumulator mne bs = (1, mne ++ " a", bs)
@@ -115,6 +124,7 @@ branch pc mne (b : bs) =
     let offset = fromIntegral (fromIntegral b :: Int8)
         addr = pc+2+offset
     in (2, mne ++ " " ++ inHex16 addr, bs)
+branch _  _   _        = error "Not handled"
 
 withData01 :: Word8 -> String -> [Word8] -> (Int, String, [Word8])
 withData01 bbb = do
@@ -127,6 +137,7 @@ withData01 bbb = do
         0b101 -> zeroPageX
         0b110 -> absoluteY
         0b111 -> absoluteX
+        _     -> error "Impossible"
 
 withData02 :: Word8 -> Bool -> String -> [Word8] -> (Int, String, [Word8])
 withData02 bbb useY mne bs = case bbb of

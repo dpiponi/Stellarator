@@ -16,7 +16,6 @@ module Memory(MemoryType(..),
 import Data.Word
 import Data.Bits
 import Data.Data
-import Control.Lens
 
 --
 -- Decision tree for type of memory
@@ -92,7 +91,7 @@ bankSwitch 0x1ff9 _    (BankF6 _)       = BankF6 0x3000
 -- I switch bank on a read or write at 0x3f.
 -- I don't switch bank on other values.
 bankSwitch 0x3f   bank (Bank3F _)       = Bank3F (i16 bank `shift` 11)
-bankSwitch addr   bank state@(Bank3F _) = state
+bankSwitch _      _    state@(Bank3F _) = state
 
 bankSwitch _      _    state            = state
 
