@@ -33,7 +33,6 @@ import Keys
 import qualified SDL
 import Events
 
---  XXX Do this If reset occurs during horizontal blank, the object will appear at the left side of the television screen
 data Args = Args { file :: String, bank :: String, options :: String } deriving (Show, Data, Typeable)
 
 clargs :: Args
@@ -64,11 +63,9 @@ main = do
                                SDL.defaultWindow {
                                     SDL.windowInitialSize = V2 (fromIntegral $ screenScaleX'*screenWidth)
                                                                (fromIntegral $ screenScaleY'*screenHeight) }
-    --context <- SDL.glCreateContext window
     SDL.showWindow window
     _ <- SDL.glCreateContext window
     SDL.swapInterval $= SDL.SynchronizedUpdates
-    --SDL.swapInterval $= SDL.ImmediateUpdates
     (prog, attrib, tex', textureData') <- initResources
 
     romArray <- newArray (0, 0x3fff) 0 :: IO (IOUArray Int Word8)
@@ -88,12 +85,14 @@ main = do
     print $ "Initial bank state = " ++ show initBankState
 
     --let style = bank args
-    state <- initState screenScaleX' screenScaleY' (screenWidth*screenScaleX') (screenHeight*screenScaleY') ramArray initBankState romArray 0x0000 window prog attrib tex' textureData'
+    state <- initState screenScaleX' screenScaleY'
+                       (screenWidth*screenScaleX') (screenHeight*screenScaleY')
+                       ramArray initBankState romArray
+                       0x0000 window prog attrib tex' textureData'
 
     let loop = do
             events <- liftIO $ SDL.pollEvents
 
-            --let quit = elem SDL.QuitEvent $ map SDL.eventPayload events
             forM_ events $ \event -> handleEvent atariKeys (eventPayload event)
             stellaClock' <- useStellaClock id
             loopUntil (stellaClock' + 1000)
@@ -116,6 +115,5 @@ main = do
             loop
 
     SDL.destroyWindow window
-    --SDL.freeSurface backSurface
     -- XXX Free malloced data?
     SDL.quit
