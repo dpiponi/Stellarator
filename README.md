@@ -10,7 +10,7 @@ Installation
 * It's written in Haskell.
 * If you don't have stack, install it using the instructions here: https://docs.haskellstack.org/en/stable/
 * You'll need to install the SDL libraries somewhere stack can find them.
-* I work on a Mac so I used MacPorts which you can install from here: https://www.macports.org
+ I work on a Mac so I used MacPorts which you can install from here: https://www.macports.org
 
 * Once MacPorts is installed, use
 
@@ -161,9 +161,11 @@ Lots of games work:
 | Star Master            | ?? Lack of aliens to shoot is in Stella too. Half crosshair missing.     |
 | Star Trek: SOS         | Seems to play fine.                                                      |
 | Stargate               | Screen mostly blank?                                                     |
+| Stargunner             | Seems to play fine.                                                      |
 | Strategy X             | Seems to play fine apart from minor sprite misalignment.                 |
 | SW: Empire Strikes Back| Seems to play fine.                                                      |
 | Tank City              | Seems to play fine apart from some misrendered score digits              |
+| Tank Brigade           | Seems to play fine.                                                      |
 | Vanguard               | Seems to play fine                                                       |
 | Xenohpobe              | Seems to play fine                                                       |
 | Xevious                | Seems to play fine.                                                      |
