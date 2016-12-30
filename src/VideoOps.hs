@@ -185,25 +185,45 @@ ball delayBall' oldBall' newBall' ctrlpf' o = do
 missileSize :: Word8 -> Int
 missileSize nusiz = 1 `shift` (fromIntegral ((nusiz `shift` (-4)) .&. 0b11))
 
+data Sprite = COLUBK | COLUB | COLUPF | COLUP0 | COLUP1 | COLUM0 | COLUM1 deriving (Eq, Show)
+
+spriteColour :: Sprite -> TypedIndex Word8
+spriteColour COLUBK = colubk
+spriteColour COLUPF = colupf
+spriteColour COLUB  = colupf
+spriteColour COLUP0 = colup0
+spriteColour COLUP1 = colup1
+spriteColour COLUM0 = colup0
+spriteColour COLUM1 = colup1
+
+debugColour :: Sprite -> Word8
+debugColour COLUBK = 0x00
+debugColour COLUPF = 0x0e
+debugColour COLUB  = 0x08
+debugColour COLUP0 = 0x42
+debugColour COLUP1 = 0x82
+debugColour COLUM0 = 0x4e
+debugColour COLUM1 = 0x8e
+
 --
 --           Pri   sco   pf    ball  m0    m1   p0     p1    pixelx
-chooseColour :: Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Int -> TypedIndex Word8
-chooseColour True   _    _     True  _     _     _     _     _       = colupf
-chooseColour True  True  True  False _     _     _     _     pixelx  = if pixelx < 80 then colup0 else colup1
-chooseColour True  False True  False _     _     _     _     _       = colupf
-chooseColour True  _     False False True  _     _     _     _       = colup0
-chooseColour True  _     False False _     _     True  _     _       = colup0
-chooseColour True  _     False False False True  False _     _       = colup1
-chooseColour True  _     False False False _     False True  _       = colup1
-chooseColour True  _     False False False False False False _       = colubk
-chooseColour False _     _     _     True  _     _     _     _       = colup0
-chooseColour False _     _     _     _     _     True  _     _       = colup0
-chooseColour False _     _     _     False True  False _     _       = colup1
-chooseColour False _     _     _     False _     False True  _       = colup1
-chooseColour False True  True  _     False False False False pixelx  = if pixelx < 80 then colup0 else colup1
-chooseColour False False True  _     False False False False _       = colupf
-chooseColour False _     False True  False False False False _       = colupf
-chooseColour False _     False False False False False False _       = colubk
+chooseColour :: Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Int -> Sprite
+chooseColour True   _    _     True  _     _     _     _     _       = COLUB
+chooseColour True  True  True  False _     _     _     _     pixelx  = if pixelx < 80 then COLUP0 else COLUP1
+chooseColour True  False True  False _     _     _     _     _       = COLUPF
+chooseColour True  _     False False True  _     _     _     _       = COLUM0
+chooseColour True  _     False False _     _     True  _     _       = COLUP0
+chooseColour True  _     False False False True  False _     _       = COLUM1
+chooseColour True  _     False False False _     False True  _       = COLUP1
+chooseColour True  _     False False False False False False _       = COLUBK
+chooseColour False _     _     _     True  _     _     _     _       = COLUM0
+chooseColour False _     _     _     _     _     True  _     _       = COLUP0
+chooseColour False _     _     _     False True  False _     _       = COLUM1
+chooseColour False _     _     _     False _     False True  _       = COLUP1
+chooseColour False True  True  _     False False False False pixelx  = if pixelx < 80 then COLUP0 else COLUP1
+chooseColour False False True  _     False False False False _       = COLUPF
+chooseColour False _     False True  False False False False _       = COLUB
+chooseColour False _     False False False False False False _       = COLUBK
 
 {-# INLINE bit #-}
 bit :: Int -> Bool -> Word8
@@ -268,11 +288,16 @@ compositeAndCollide pixelx hpos' = do
 
     let scoreMode = testBit ctrlpf' 1
     let playfieldPriority = testBit ctrlpf' 2
-    z <- load $ chooseColour playfieldPriority
-                        scoreMode
-                        lplayfield lball
-                        lmissile0 lmissile1
-                        lplayer0 lplayer1 pixelx
+    let sprite = chooseColour playfieldPriority
+                                scoreMode
+                                lplayfield lball
+                                lmissile0 lmissile1
+                                lplayer0 lplayer1 pixelx
+    debugColours' <- load debugColours
+    z <- if debugColours'
+            then return $ debugColour sprite
+            else load $ spriteColour sprite
+
     vpos' <- load vpos
     if vpos' == 174 && hpos' == 175
     then do

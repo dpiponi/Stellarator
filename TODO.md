@@ -23,6 +23,7 @@ TODO
 37. Simulate keypads
 38. Second joystick
 39. Make options more robust. (Not using read :: Options)
+42. Visual debug mode.
 
 Done
 ----

@@ -13,5 +13,6 @@ Options {
     gameQuit = "Q",
     gameSelect = "C",
     gameReset = "V",
-    enterDebugger = "Escape"
+    enterDebugger = "Escape",
+    debugMode = "Backslash"
 }

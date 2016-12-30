@@ -75,3 +75,4 @@ handleKey atariKeys motion sym = do
                                         Emulation.dumpState
                                         runDebugger
                                         liftIO $ killThread t
+                DebugMode        -> when pressed $ modify debugColours not

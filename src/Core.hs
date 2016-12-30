@@ -916,19 +916,23 @@ discard = void
 {-# INLINABLE ins_brk #-}
 ins_brk :: Emu6502 m => m ()
 ins_brk = do
+    tick 1
     p0 <- getPC
     incPC
     discard $ readMemory p0
 
     p1 <- getPC
     incPC
+    tick 1
     push $ hi p1
 
     incPC
+    tick 1
     push $ lo p1
 
     putB True
     incPC
+    tick 1
     getP >>= push . (.|. 0x20) -- always on bit
     putI True
 

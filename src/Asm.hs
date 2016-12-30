@@ -76,9 +76,10 @@ delayBall = 3
 oldBall = 4
 newBall = 5
 pendingHmove = 6
+debugColours = 7
 
 maxBool :: TypedIndex Bool
-maxBool = pendingHmove
+maxBool = debugColours
 
 pf :: TypedIndex Word64
 pf = 0
