@@ -15,13 +15,14 @@ import Data.Bits.Lens
 import System.Exit
 import Control.Concurrent
 import Debugger
+import qualified Data.Map.Strict as M
 
 {- INLINE isPressed -}
 isPressed :: InputMotion -> Bool
 isPressed Pressed = True
 isPressed Released = False
 
-handleEvent :: [(Scancode, AtariKey)] -> EventPayload -> MonadAtari ()
+handleEvent :: AtariKeys -> EventPayload -> MonadAtari ()
 
 handleEvent _ (MouseButtonEvent (MouseButtonEventData _ Pressed _ ButtonLeft _ pos)) = do
     xscale' <- view xscale
@@ -51,10 +52,10 @@ trigger1Pressed pressed = do
         (True, False) -> return ()
         (True, True ) -> modify inpt4 $ bitAt 7 .~ False
 
-handleKey :: [(Scancode, AtariKey)] -> InputMotion -> Keysym -> MonadAtari ()
+handleKey :: AtariKeys -> InputMotion -> Keysym -> MonadAtari ()
 handleKey atariKeys motion sym = do
     let scancode = keysymScancode sym
-    let mAtariKey = lookup scancode atariKeys
+    let mAtariKey = M.lookup scancode atariKeys
     case mAtariKey of
         Nothing -> return ()
         Just atariKey -> do

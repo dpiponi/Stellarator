@@ -23,7 +23,6 @@ TODO
 37. Simulate keypads
 38. Second joystick
 39. Make options more robust. (Not using read :: Options)
-40. Replace key map with an actual Map rather than list.
 
 Done
 ----
@@ -69,3 +68,4 @@ Done
 28. Options file.
 40. Configurable window size
     Via options file
+41. Replace key map with an actual Map rather than list.

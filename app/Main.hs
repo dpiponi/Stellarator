@@ -55,7 +55,8 @@ main = do
     print options'
     let screenScaleX' = screenScaleX options'
     let screenScaleY' = screenScaleY options'
-    let atariKeys = keysFromOptions options'
+    -- XXX Make list of default keys
+    let Just atariKeys = keysFromOptions options'
 
     --SDL.initialize [SDL.InitVideo, SDL.InitAudio]
     SDL.initializeAll
