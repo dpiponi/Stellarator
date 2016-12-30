@@ -128,3 +128,9 @@ class Monad m => Reg t m where
 
 (@=) :: Reg t m => TypedIndex t -> t -> m ()
 (@=) = store
+
+(@->) :: Reg t m => TypedIndex t -> TypedIndex t -> m ()
+(@->) src dst = load src >>= (dst @=)
+
+infixr 2 @= 
+infix 2 @->

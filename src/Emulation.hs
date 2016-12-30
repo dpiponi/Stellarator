@@ -123,7 +123,7 @@ stellaCxclr =
 {- INLINE stellaHmove -}
 stellaHmove :: MonadAtari ()
 stellaHmove = do
-    store pendingHmove True
+    pendingHmove @= True
 
     poffset0 <- load hmp0
     modify ppos0 $ \ppos0' ->  wrap160 (ppos0'-clockMove poffset0)
@@ -561,33 +561,33 @@ writeStella addr v = do
        0x0d -> graphicsDelay 3 >> pf0 @= v >> makePlayfield                  -- PF0
        0x0e -> graphicsDelay 3 >> pf1 @= v >> makePlayfield                  -- PF1
        0x0f -> graphicsDelay 3 >> pf2 @= v >> makePlayfield                  -- PF2
-       0x10 -> graphicsDelay 5 >> load hpos >>= store ppos0 -- RESP0
-       0x11 -> graphicsDelay 5 >> load hpos >>= store ppos1 -- RESP1
-       0x12 -> graphicsDelay 4 >> load hpos >>= store mpos0 -- RESM0
-       0x13 -> graphicsDelay 4 >> load hpos >>= store mpos1 -- RESM1
-       0x14 -> graphicsDelay 4 >> load hpos >>= (return . max (picx+2)) >>= store bpos  -- RESBL
+       0x10 -> graphicsDelay 5 >> hpos @-> ppos0 -- RESP0
+       0x11 -> graphicsDelay 5 >> hpos @-> ppos1 -- RESP1
+       0x12 -> graphicsDelay 4 >> hpos @-> mpos0 -- RESM0
+       0x13 -> graphicsDelay 4 >> hpos @-> mpos1 -- RESM1
+       0x14 -> graphicsDelay 4 >> load hpos >>= (return . max (picx+2)) >>= (bpos @=)  -- RESBL
        -- graphicsDelay of 1 chosen to stop spurious pixel in
        -- "CCE" in Freeway.
        0x1b -> do -- GRP0
                 graphicsDelay 1
-                store newGrp0 v
-                load newGrp1 >>= store oldGrp1
+                newGrp0 @= v
+                newGrp1 @-> oldGrp1
        0x1c -> do -- GRP1
                 graphicsDelay 1
-                store newGrp1 v
-                load newGrp0 >>= store oldGrp0
-                load newBall >>= store oldBall
+                newGrp1 @= v
+                newGrp0 @-> oldGrp0
+                newBall @-> oldBall
        0x1d -> enam0 @= v                -- ENAM0
        0x1e -> enam1 @= v                -- ENAM1
-       0x1f -> store newBall $ testBit v 1   -- ENABL
+       0x1f -> newBall @= testBit v 1   -- ENABL
        0x20 -> hmp0 @= v                 -- HMP0
        0x21 -> hmp1 @= v                 -- HMP1
        0x22 -> hmm0 @= v                 -- HMM0
        0x23 -> hmm1 @= v                 -- HMM1
        0x24 -> hmbl @= v                 -- HMBL
-       0x25 -> store delayP0 $ testBit v 0   -- VDELP0
-       0x26 -> store delayP1 $ testBit v 0   -- VDELP1
-       0x27 -> store delayBall $ testBit v 0   -- VDELBL
+       0x25 -> delayP0 @= testBit v 0   -- VDELP0
+       0x26 -> delayP1 @= testBit v 0   -- VDELP1
+       0x27 -> delayBall @= testBit v 0   -- VDELBL
        0x28 -> resmp0 @= v
        0x29 -> resmp1 @= v
        0x2a -> stellaHmove               -- HMOVE
