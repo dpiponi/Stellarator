@@ -16,7 +16,6 @@ TODO
     of where he does in Stella.
 31. Allow starting in debugger.
 32. Handle UI events in debugger.
-33. Why misalignment in Pole Position?
 34. What's wrong with Stargate?
 35. E8 bank switching
 36. Simulate paddles
@@ -24,6 +23,7 @@ TODO
 38. Second joystick
 39. Make options more robust. (Not using read :: Options)
 42. Visual debug mode.
+43. Some occasional misrenders in Pole Position
 
 Done
 ----
@@ -70,3 +70,7 @@ Done
 40. Configurable window size
     Via options file
 41. Replace key map with an actual Map rather than list.
+33. Why misalignment in Pole Position?
+    I was missing timing code in BRK instruction.
+    See http://www.qotile.net/minidig/docs/2600_advanced_prog_guide.txt
+    for explanation of why this matters.
