@@ -125,3 +125,6 @@ class Monad m => Reg t m where
     store :: TypedIndex t -> t -> m ()
     modify :: TypedIndex t -> (t -> t) -> m ()
     modify r f = do { value <- load r; store r (f value) }
+
+(@=) :: Reg t m => TypedIndex t -> t -> m ()
+(@=) = store

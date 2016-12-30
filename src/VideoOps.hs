@@ -142,8 +142,8 @@ stretchPlayer reflect o sizeCopies bitmap = stretchPlayer' reflect sizeCopies o 
 
 clampMissiles :: Word8 -> Word8 -> MonadAtari ()
 clampMissiles resmp0' resmp1' = do
-    when (testBit resmp0' 1) $ load s_ppos0 >>= store s_mpos0
-    when (testBit resmp1' 1) $ load s_ppos1 >>= store s_mpos1
+    when (testBit resmp0' 1) $ load s_ppos0 >>= (s_ppos0 @=)
+    when (testBit resmp1' 1) $ load s_ppos1 >>= (s_mpos1 @=)
 
 -- Atari2600 programmer's guide p.22
 {- INLINE missile0 -}
@@ -295,8 +295,8 @@ stellaTick n ptr' = do
     ybreak' <- load ybreak
     when ((hpos', vpos') == (xbreak', ybreak')) $ do
         dumpStella
-        store xbreak (-1)
-        store ybreak (-1)
+        xbreak @= (-1)
+        ybreak @= (-1)
 
     when (vpos' >= picy && vpos' < picy+screenScanLines && hpos' >= picx) $ do
         let pixelx = hpos'-picx
@@ -312,9 +312,9 @@ stellaTick n ptr' = do
             else compositeAndCollide pixelx hpos'
         liftIO $ pokeElemOff ptr' pixelAddr pixel
 
-        when (pixelx >= 8) $ store pendingHmove False
+        when (pixelx >= 8) $ pendingHmove @= False
 
     let (hpos'', vpos'') = updatePos hpos' vpos'
-    store hpos hpos''
-    store vpos vpos''
+    hpos @= hpos''
+    vpos @= vpos''
     stellaTick (n-1) ptr'
