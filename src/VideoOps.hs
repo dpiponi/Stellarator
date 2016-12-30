@@ -80,11 +80,11 @@ dumpStella = do
     liftIO $ putStr $ "ENAM0 = " ++ show (testBit enam0' 1)
     liftIO $ putStr $ " ENAM1 = " ++ show (testBit enam1' 1)
     liftIO $ putStrLn $ " ENABL = " ++ show (enablOld, enablNew)
-    mpos0' <- load s_mpos0
-    mpos1' <- load s_mpos1
-    ppos0' <- load s_ppos0
-    ppos1' <- load s_ppos1
-    bpos' <- load s_bpos
+    mpos0' <- load mpos0
+    mpos1' <- load mpos1
+    ppos0' <- load ppos0
+    ppos1' <- load ppos1
+    bpos' <- load bpos
     hmm0' <- load hmm0
     hmm1' <- load hmm1
     hmp0' <- load hmp0
@@ -142,8 +142,8 @@ stretchPlayer reflect o sizeCopies bitmap = stretchPlayer' reflect sizeCopies o 
 
 clampMissiles :: Word8 -> Word8 -> MonadAtari ()
 clampMissiles resmp0' resmp1' = do
-    when (testBit resmp0' 1) $ load s_ppos0 >>= (s_ppos0 @=)
-    when (testBit resmp1' 1) $ load s_ppos1 >>= (s_mpos1 @=)
+    when (testBit resmp0' 1) $ load ppos0 >>= (ppos0 @=)
+    when (testBit resmp1' 1) $ load ppos1 >>= (mpos1 @=)
 
 -- Atari2600 programmer's guide p.22
 {- INLINE missile0 -}
@@ -236,11 +236,11 @@ wrap160' x' = x'
 {- INLINE compositeAndCollide -}
 compositeAndCollide :: Int -> Int -> MonadAtari Word8
 compositeAndCollide pixelx hpos' = do
-    ppos0' <- load s_ppos0
-    ppos1' <- load s_ppos1
-    mpos0' <- load s_mpos0
-    mpos1' <- load s_mpos1
-    bpos' <- load s_bpos
+    ppos0' <- load ppos0
+    ppos1' <- load ppos1
+    mpos0' <- load mpos0
+    mpos1' <- load mpos1
+    bpos' <- load bpos
 
     resmp0' <- load resmp0
     resmp1' <- load resmp1

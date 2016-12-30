@@ -126,33 +126,33 @@ stellaHmove = do
     store pendingHmove True
 
     poffset0 <- load hmp0
-    modify s_ppos0 $ \ppos0' ->  wrap160 (ppos0'-clockMove poffset0)
+    modify ppos0 $ \ppos0' ->  wrap160 (ppos0'-clockMove poffset0)
 
     poffset1 <- load hmp1
-    modify s_ppos1 $ \ppos1' ->  wrap160 (ppos1'-clockMove poffset1)
+    modify ppos1 $ \ppos1' ->  wrap160 (ppos1'-clockMove poffset1)
 
     moffset0 <- load hmm0
-    modify s_mpos0 $ \mpos0' ->  wrap160 (mpos0'-clockMove moffset0)
+    modify mpos0 $ \mpos0' ->  wrap160 (mpos0'-clockMove moffset0)
 
     moffset1 <- load hmm1
-    modify s_mpos1 $ \mpos1' ->  wrap160 (mpos1'-clockMove moffset1)
+    modify mpos1 $ \mpos1' ->  wrap160 (mpos1'-clockMove moffset1)
 
     boffset <- load hmbl
-    modify s_bpos $ \bpos' -> wrap160 (bpos'-clockMove boffset)
+    modify bpos $ \bpos' -> wrap160 (bpos'-clockMove boffset)
 
 {-
 -- Are these needed?
 {- INLINE stellaResmp0 -}
 stellaResmp0 :: MonadAtari ()
 stellaResmp0 = do
-    playerPosition <- load s_ppos0
-    store s_mpos0 (playerPosition :: Int)
+    playerPosition <- load ppos0
+    store mpos0 (playerPosition :: Int)
 
 {- INLINE stellaResmp1 -}
 stellaResmp1 :: MonadAtari ()
 stellaResmp1 = do
-    playerPosition <- load s_ppos1
-    store s_mpos1 (playerPosition :: Int)
+    playerPosition <- load ppos1
+    store mpos1 (playerPosition :: Int)
 -}
 
 {-
@@ -561,11 +561,11 @@ writeStella addr v = do
        0x0d -> graphicsDelay 3 >> pf0 @= v >> makePlayfield                  -- PF0
        0x0e -> graphicsDelay 3 >> pf1 @= v >> makePlayfield                  -- PF1
        0x0f -> graphicsDelay 3 >> pf2 @= v >> makePlayfield                  -- PF2
-       0x10 -> graphicsDelay 5 >> load hpos >>= store s_ppos0 -- RESP0
-       0x11 -> graphicsDelay 5 >> load hpos >>= store s_ppos1 -- RESP1
-       0x12 -> graphicsDelay 4 >> load hpos >>= store s_mpos0 -- RESM0
-       0x13 -> graphicsDelay 4 >> load hpos >>= store s_mpos1 -- RESM1
-       0x14 -> graphicsDelay 4 >> load hpos >>= (return . max (picx+2)) >>= store s_bpos  -- RESBL
+       0x10 -> graphicsDelay 5 >> load hpos >>= store ppos0 -- RESP0
+       0x11 -> graphicsDelay 5 >> load hpos >>= store ppos1 -- RESP1
+       0x12 -> graphicsDelay 4 >> load hpos >>= store mpos0 -- RESM0
+       0x13 -> graphicsDelay 4 >> load hpos >>= store mpos1 -- RESM1
+       0x14 -> graphicsDelay 4 >> load hpos >>= (return . max (picx+2)) >>= store bpos  -- RESBL
        -- graphicsDelay of 1 chosen to stop spurious pixel in
        -- "CCE" in Freeway.
        0x1b -> do -- GRP0

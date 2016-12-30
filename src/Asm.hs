@@ -86,17 +86,17 @@ pf = 0
 maxWord64 :: TypedIndex Word64
 maxWord64 = pf
 
-hpos, vpos, subtimer, interval, s_ppos0, s_ppos1, s_mpos0, s_mpos1, s_bpos :: TypedIndex Int
+hpos, vpos, subtimer, interval, ppos0, ppos1, mpos0, mpos1, bpos :: TypedIndex Int
 debug, ahead, xbreak, ybreak :: TypedIndex Int
 hpos = 0
 vpos = 1
 subtimer = 2
 interval = 3
-s_ppos0 = 4
-s_ppos1 = 5
-s_mpos0 = 6
-s_mpos1 = 7
-s_bpos = 8
+ppos0 = 4
+ppos1 = 5
+mpos0 = 6
+mpos1 = 7
+bpos = 8
 debug = 9
 ahead = 10
 xbreak = 11
