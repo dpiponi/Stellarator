@@ -53,8 +53,12 @@ dumpStella = do
     liftIO $ putStrLn $ "hpos = " ++ show hpos' ++ " (" ++ show (hpos'-picx) ++ ") vpos = " ++ show vpos' ++ " (" ++ show (vpos'-picy) ++ ")"
     grp0' <- load oldGrp0
     grp1' <- load oldGrp1
+    refp0' <- load refp0
+    refp1' <- load refp1
     liftIO $ putStrLn $ "GRP0 = " ++ showHex grp0' "" ++ "(" ++ inBinary 8 grp0' ++ ")"
     liftIO $ putStrLn $ "GRP1 = " ++ showHex grp1' "" ++ "(" ++ inBinary 8 grp1' ++ ")"
+    liftIO $ putStrLn $ "REFP0 = " ++ (if testBit refp0' 3 then "reflected" else " not reflected.")
+    liftIO $ putStrLn $ "REFP1 = " ++ (if testBit refp1' 3 then "reflected" else " not reflected.")
     ctrlpf' <- load ctrlpf
     liftIO $ putStrLn $ "CTRLPF = " ++ showHex ctrlpf' "" ++ ": " ++
                         (if testBit ctrlpf' 0 then "reflected" else "not reflected") ++ ", " ++
@@ -120,19 +124,22 @@ flipIf :: Bool -> Int -> Int
 flipIf True  idx = idx
 flipIf False idx = 7-idx
 
+testReflectedBit :: Word8 -> Bool -> Int -> Bool
+testReflectedBit bitmap reflect o = testBit bitmap (flipIf reflect $ fromIntegral (o .&. 0x07))
+
 {-
  - See http://atarihq.com/danb/files/stella.pdf page 39
  -}
 {- INLINE stretchPlayer' -}
 stretchPlayer' :: Bool -> Word8 -> Int -> Word8 -> Bool
-stretchPlayer' reflect 0b000 o bitmap = o < 8 && testBit bitmap (flipIf reflect $ fromIntegral o)
-stretchPlayer' reflect 0b001 o bitmap = (o < 8 || o >= 16 && o < 24) && testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
-stretchPlayer' reflect 0b010 o bitmap = (o < 8 || o >= 32 && o < 40) && testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
-stretchPlayer' reflect 0b011 o bitmap = (o < 8 || o >= 16 && o < 24 || o >= 32 && o < 40) && testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
-stretchPlayer' reflect 0b100 o bitmap = (o < 8 || o >= 64) && testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
-stretchPlayer' reflect 0b101 o bitmap = o < 16 && testBit bitmap (flipIf reflect $ fromIntegral ((o `shift` (-1)) .&. 7))
-stretchPlayer' reflect 0b110 o bitmap = (o < 8 || o >= 32 && o < 40 || o >= 64) && testBit bitmap (flipIf reflect $ fromIntegral (o .&. 7))
-stretchPlayer' reflect 0b111 o bitmap = o < 32 && testBit bitmap (flipIf reflect $ (fromIntegral ((o `shift` (-2)) .&. 7)))
+stretchPlayer' reflect 0b000 o bitmap = o < 8 && testReflectedBit bitmap reflect o
+stretchPlayer' reflect 0b001 o bitmap = (o < 8 || o >= 16 && o < 24) && testReflectedBit bitmap reflect o
+stretchPlayer' reflect 0b010 o bitmap = (o < 8 || o >= 32 && o < 40) && testReflectedBit bitmap reflect o
+stretchPlayer' reflect 0b011 o bitmap = (o < 8 || o >= 16 && o < 24 || o >= 32 && o < 40) && testReflectedBit bitmap reflect o
+stretchPlayer' reflect 0b100 o bitmap = (o < 8 || o >= 64) && testReflectedBit bitmap reflect o
+stretchPlayer' reflect 0b101 o bitmap = o < 16 && testReflectedBit bitmap reflect (o `shift` (-1))
+stretchPlayer' reflect 0b110 o bitmap = (o < 8 || o >= 32 && o < 40 || o >= 64) && testReflectedBit bitmap reflect o
+stretchPlayer' reflect 0b111 o bitmap = o < 32 && testReflectedBit bitmap reflect (o `shift` (-2))
 stretchPlayer' _       _     _ _      = error "Impossible"
 
 {- INLINE stretchPlayer -}

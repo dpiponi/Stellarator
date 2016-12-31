@@ -24,6 +24,9 @@ TODO
 39. Make options more robust. (Not using read :: Options)
 42. Visual debug mode.
 43. Some occasional misrenders in Pole Position
+44. Figure out timing of REFP0 in Battle Zone.
+    Problem looks like first copy player 0 appears too early.
+    I think delaying GRP0 helps.
 
 Done
 ----

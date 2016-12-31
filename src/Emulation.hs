@@ -553,8 +553,8 @@ writeStella addr v = do
        0x08 -> colupf @= v               -- COLUPF
        0x09 -> colubk @= v               -- COLUBK
        0x0a -> ctrlpf @= v >> makePlayfield               -- COLUPF
-       0x0b -> refp0 @= v               -- REFP0
-       0x0c -> refp1 @= v               -- REFP1
+       0x0b -> graphicsDelay 0 >> refp0 @= v               -- REFP0
+       0x0c -> graphicsDelay 0 >> refp1 @= v               -- REFP1
        -- I'm sure I read delay should be 3 for PF registers
        -- but that doesn't make sense to me.
        -- See docs/adventure_pf_timing.txt

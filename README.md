@@ -125,6 +125,7 @@ Lots of games work:
 | Aquaventure            | seems to play fine.                                                      |
 | Air Sea Battle         | Seems to play fine.                                                      |
 | Asteroids              | Seems to play fine. Flicker is correct behaviour.                        |
+| Battle Zone            | Seems to play fine but radar partly reflected and some mountain issues.  |
 | Centipede              | seems to play fine.                                                      |
 | Chopper Command        | Seems to play fine.                                                      |
 | Circus                 | Seems to play fine. Too fast for me...                                   |

@@ -1,0 +1,77 @@
+hpos = 127 (59) vpos = 53 (23)
+GRP0 = 40(01000000)
+GRP1 = 0(00000000)
+REFP0 =  not reflected.
+REFP1 =  not reflected.
+CTRLPF = 1: reflected, not score mode, player priority
+ball size = 1
+PF = 00000000000000000000
+0000000000000000000000000000000000000000
+NUSIZ0 = 1(two copies - close) NUSIZ1 = 0(one copy)
+ENAM0 = False ENAM1 = False ENABL = (False,False)
+missile0 @ 143(0) missile1 @ 154(0)
+player0 @ 126(0) player1 @ 131(0)
+ball @ 154(0)
+VDELP0 = False VDELP1 = False VDELBL = False
+COLUBK = 0 black-grey
+COLUPF = e black-grey
+COLUP0 = ca green
+COLUP1 = e black-grey
+(PC) = 24 e1 50
+bit 0xe1
+ pc = f3d3 flags = 84(N=1,V=0,B=0,D=0,I=1,Z=0,C=0) A = fc X = dc Y = 5
+ N = ff
+> z=53;u(row==z){s};q=t;u(row>z){p"time=",t-q," row=",row," col=",col," bit=",(col-68)/4," a=",a," x=", x;l;s}
+time=0 row=53 col=0 bit=-17 a=0 x=208
+d094 85 2a    sta 0x2a; HMOVE
+time=3 row=53 col=9 bit=-15 a=0 x=208
+d096 b9 df de lda 0xdedf, Y
+time=7 row=53 col=21 bit=-12 a=64 x=208
+d099 85 1b    sta 0x1b; GRP0
+time=10 row=53 col=31 bit=-10 a=64 x=208
+d09b b1 a2    lda (0xa2), Y
+time=15 row=53 col=45 bit=-6 a=3 x=208
+d09d 85 1c    sta 0x1c; GRP1
+time=18 row=53 col=55 bit=-4 a=3 x=208
+d09f a9 02    lda #0x2
+time=20 row=53 col=60 bit=-2 a=2 x=208
+d0a1 c4 d2    cpy 0xd2
+time=23 row=53 col=69 bit=0 a=2 x=208
+d0a3 f0 03    beq 0xd0a8
+time=25 row=53 col=75 bit=1 a=2 x=208
+d0a5 ea       nop
+time=27 row=53 col=81 bit=3 a=2 x=208
+d0a6 d0 03    bne 0xd0ab
+time=30 row=53 col=90 bit=5 a=2 x=208
+d0ab c4 d3    cpy 0xd3
+time=33 row=53 col=99 bit=7 a=2 x=208
+d0ad f0 03    beq 0xd0b2
+time=35 row=53 col=105 bit=9 a=2 x=208
+d0af ea       nop
+time=37 row=53 col=111 bit=10 a=2 x=208
+d0b0 d0 03    bne 0xd0b5
+time=40 row=53 col=120 bit=13 a=2 x=208
+d0b5 88       dey
+time=42 row=53 col=126 bit=14 a=2 x=208
+d0b6 a9 08    lda #0x8
+time=44 row=53 col=132 bit=16 a=8 x=208
+d0b8 85 2b    sta 0x2b; HMCLR
+time=47 row=53 col=141 bit=18 a=8 x=208
+d0ba 85 0b    sta 0xb; REFP0 or INPT3
+time=50 row=53 col=155 bit=21 a=8 x=208
+d0bc a2 d0    ldx #0xd0
+time=52 row=53 col=156 bit=22 a=8 x=208
+d0be a9 00    lda #0x0
+time=54 row=53 col=162 bit=23 a=0 x=208
+d0c0 85 0b    sta 0xb; REFP0 or INPT3
+time=57 row=53 col=176 bit=27 a=0 x=208
+d0c2 85 1f    sta 0x1f; ENABL
+time=60 row=53 col=180 bit=28 a=0 x=208
+d0c4 85 1e    sta 0x1e; ENAM1
+time=63 row=53 col=189 bit=30 a=0 x=208
+d0c6 c0 01    cpy #0x1
+time=65 row=53 col=195 bit=31 a=0 x=208
+d0c8 b0 c8    bcs 0xd092
+time=68 row=53 col=204 bit=34 a=0 x=208
+d092 85 02    sta 0x2; WSYNC or CXP0FB
+>
