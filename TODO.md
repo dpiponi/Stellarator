@@ -27,6 +27,9 @@ TODO
 44. Figure out timing of REFP0 in Battle Zone.
     Problem looks like first copy player 0 appears too early.
     I think delaying GRP0 helps.
+45. Disassembler needs to be smarter about register names.
+    Eg. Battlezone uses STA 0x111 to spin extra clock cycle writing to 0x11.
+46. Disassembler should output timings.
 
 Done
 ----

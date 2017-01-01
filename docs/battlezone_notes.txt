@@ -1,3 +1,5 @@
+A point on left edge of radar:
+
 hpos = 127 (59) vpos = 53 (23)
 GRP0 = 40(01000000)
 GRP1 = 0(00000000)
@@ -21,57 +23,118 @@ COLUP1 = e black-grey
 bit 0xe1
  pc = f3d3 flags = 84(N=1,V=0,B=0,D=0,I=1,Z=0,C=0) A = fc X = dc Y = 5
  N = ff
-> z=53;u(row==z){s};q=t;u(row>z){p"time=",t-q," row=",row," col=",col," bit=",(col-68)/4," a=",a," x=", x;l;s}
-time=0 row=53 col=0 bit=-17 a=0 x=208
-d094 85 2a    sta 0x2a; HMOVE
-time=3 row=53 col=9 bit=-15 a=0 x=208
+
+A scan line of radar:
+
+> z=53;u(row==z){s};q=t;u(row>z){p"time=",t-q," row=",row," col=",col," a=",a," x=", x;l;s}
+time=0 row=53 col=0 a=0 x=208
+d094 85 2a    sta HMOVE
+time=3 row=53 col=9 a=0 x=208
 d096 b9 df de lda 0xdedf, Y
-time=7 row=53 col=21 bit=-12 a=64 x=208
-d099 85 1b    sta 0x1b; GRP0
-time=10 row=53 col=31 bit=-10 a=64 x=208
+time=7 row=53 col=21 a=64 x=208
+d099 85 1b    sta GRP0
+time=10 row=53 col=31 a=64 x=208
 d09b b1 a2    lda (0xa2), Y
-time=15 row=53 col=45 bit=-6 a=3 x=208
-d09d 85 1c    sta 0x1c; GRP1
-time=18 row=53 col=55 bit=-4 a=3 x=208
+time=15 row=53 col=45 a=3 x=208
+d09d 85 1c    sta GRP1
+time=18 row=53 col=55 a=3 x=208
 d09f a9 02    lda #0x2
-time=20 row=53 col=60 bit=-2 a=2 x=208
+time=20 row=53 col=60 a=2 x=208
 d0a1 c4 d2    cpy 0xd2
-time=23 row=53 col=69 bit=0 a=2 x=208
+time=23 row=53 col=69 a=2 x=208
 d0a3 f0 03    beq 0xd0a8
-time=25 row=53 col=75 bit=1 a=2 x=208
+time=25 row=53 col=75 a=2 x=208
 d0a5 ea       nop
-time=27 row=53 col=81 bit=3 a=2 x=208
+time=27 row=53 col=81 a=2 x=208
 d0a6 d0 03    bne 0xd0ab
-time=30 row=53 col=90 bit=5 a=2 x=208
+time=30 row=53 col=90 a=2 x=208
 d0ab c4 d3    cpy 0xd3
-time=33 row=53 col=99 bit=7 a=2 x=208
+time=33 row=53 col=99 a=2 x=208
 d0ad f0 03    beq 0xd0b2
-time=35 row=53 col=105 bit=9 a=2 x=208
+time=35 row=53 col=105 a=2 x=208
 d0af ea       nop
-time=37 row=53 col=111 bit=10 a=2 x=208
+time=37 row=53 col=111 a=2 x=208
 d0b0 d0 03    bne 0xd0b5
-time=40 row=53 col=120 bit=13 a=2 x=208
+time=40 row=53 col=120 a=2 x=208
 d0b5 88       dey
-time=42 row=53 col=126 bit=14 a=2 x=208
+time=42 row=53 col=126 a=2 x=208
 d0b6 a9 08    lda #0x8
-time=44 row=53 col=132 bit=16 a=8 x=208
-d0b8 85 2b    sta 0x2b; HMCLR
-time=47 row=53 col=141 bit=18 a=8 x=208
-d0ba 85 0b    sta 0xb; REFP0 or INPT3
-time=50 row=53 col=155 bit=21 a=8 x=208
+time=44 row=53 col=132 a=8 x=208
+d0b8 85 2b    sta HMCLR
+time=47 row=53 col=141 a=8 x=208
+d0ba 85 0b    sta REFP0       <-- REFP0 = 0x08
+time=50 row=53 col=155 a=8 x=208
 d0bc a2 d0    ldx #0xd0
-time=52 row=53 col=156 bit=22 a=8 x=208
+time=52 row=53 col=156 a=8 x=208
 d0be a9 00    lda #0x0
-time=54 row=53 col=162 bit=23 a=0 x=208
-d0c0 85 0b    sta 0xb; REFP0 or INPT3
-time=57 row=53 col=176 bit=27 a=0 x=208
-d0c2 85 1f    sta 0x1f; ENABL
-time=60 row=53 col=180 bit=28 a=0 x=208
-d0c4 85 1e    sta 0x1e; ENAM1
-time=63 row=53 col=189 bit=30 a=0 x=208
+time=54 row=53 col=162 a=0 x=208
+d0c0 85 0b    sta REFP0       <-- REFP1 = 0x00
+time=57 row=53 col=176 a=0 x=208
+d0c2 85 1f    sta ENABL
+time=60 row=53 col=180 a=0 x=208
+d0c4 85 1e    sta ENAM1
+time=63 row=53 col=189 a=0 x=208
 d0c6 c0 01    cpy #0x1
-time=65 row=53 col=195 bit=31 a=0 x=208
+time=65 row=53 col=195 a=0 x=208
 d0c8 b0 c8    bcs 0xd092
-time=68 row=53 col=204 bit=34 a=0 x=208
-d092 85 02    sta 0x2; WSYNC or CXP0FB
->
+time=68 row=53 col=204 a=0 x=208
+d092 85 02    sta WSYNC
+
+Top scan line where player position is set:
+
+> z=0;u(row==z){s};q=t;u(row>z){p"time=",t-q," row=",row," col=",col," a=",a," x=", x;l;s}
+time=0 row=0 col=0 a=0 x=255
+f297 a2 2b    ldx #0x2b
+time=2 row=0 col=6 a=0 x=43
+f299 8e 96 02 stx 0x296
+time=6 row=0 col=18 a=0 x=43
+f29c a2 20    ldx #0x20
+time=8 row=0 col=24 a=0 x=32
+f29e 86 20    stx HMP0
+time=11 row=0 col=33 a=0 x=32
+f2a0 a2 80    ldx #0x80
+time=13 row=0 col=39 a=0 x=128
+f2a2 86 21    stx HMP1
+time=16 row=0 col=48 a=0 x=128
+f2a4 85 25    sta VDELP0
+time=19 row=0 col=57 a=0 x=128
+f2a6 85 26    sta VDELP1
+time=22 row=0 col=66 a=0 x=128
+f2a8 85 09    sta 0x9; COLUBK or INPT1
+time=25 row=0 col=75 a=0 x=128
+f2aa a9 05    lda #0x5
+time=27 row=0 col=81 a=5 x=128
+f2ac 85 04    sta 0x4; NUSIZ0 or CXM0FB
+time=30 row=0 col=90 a=5 x=128
+f2ae a9 ca    lda #0xca
+time=32 row=0 col=96 a=202 x=128
+f2b0 85 06    sta COLUP0
+time=35 row=0 col=105 a=202 x=128
+f2b2 8d 11 01 sta 0x111 ; RESP0
+time=39 row=0 col=122 a=202 x=128  
+f2b5 85 10    sta RESP0;       <--- RESP0
+time=42 row=0 col=131 a=202 x=128
+f2b7 24 82    bit 0x82
+time=45 row=0 col=135 a=202 x=128
+f2b9 10 03    BPL 0xf2be
+time=47 row=0 col=141 a=202 x=128
+f2bb 4c b4 f3 jmp 0xf3b4
+time=50 row=0 col=150 a=202 x=128
+f3b4 a6 9f    ldx 0x9f
+time=53 row=0 col=159 a=202 x=1
+f3b6 d0 0c    bne 0xf3c4
+time=56 row=0 col=168 a=202 x=1
+f3c4 a5 80    lda 0x80
+time=59 row=0 col=177 a=101 x=1
+f3c6 4a       lsr a
+time=61 row=0 col=183 a=50 x=1
+f3c7 90 03    bcc 0xf3cc
+time=63 row=0 col=189 a=50 x=1
+f3c9 4c 47 f4 jmp 0xf447
+time=66 row=0 col=198 a=50 x=1
+f447 a5 d5    lda 0xd5
+time=69 row=0 col=207 a=50 x=1
+f449 a2 d6    ldx #0xd6
+time=71 row=0 col=213 a=50 x=214
+f44b 20 f7 f8 jsr 0xf8f7
+

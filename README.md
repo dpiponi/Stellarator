@@ -8,18 +8,23 @@ It'll run Adventure if you have the rom.
 Installation
 ------------
 * It's written in Haskell.
-* If you don't have stack, install it using the instructions here: https://docs.haskellstack.org/en/stable/
-* You'll need to install the SDL libraries somewhere stack can find them.
- I work on a Mac so I used MacPorts which you can install from here: https://www.macports.org
 
-* Once MacPorts is installed, use
+* Before doing anything else, you'll need to install the SDL libraries somewhere the Haskell
+  package manager Stack can find them.  I work on a Mac so I used MacPorts which you can install
+  from here: https://www.macports.org
+
+  Once MacPorts was installed I used
 
     port install libsdl2
 
-* Now you can build Stellarator with:
+  Getting SDL2 installed seems to be the main stumbling block.
+
+* If you don't have Stack, install it using the instructions here: https://docs.haskellstack.org/en/stable/
+
+* Now clone the project into a directory. In that directory use:
 
     stack build
-    
+
 * Run it with a commmand like
 
     stack exec Stellarator-exe -- -f ADVNTURE.BIN

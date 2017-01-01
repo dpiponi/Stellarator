@@ -561,11 +561,11 @@ writeStella addr v = do
        0x0d -> graphicsDelay 3 >> pf0 @= v >> makePlayfield                  -- PF0
        0x0e -> graphicsDelay 3 >> pf1 @= v >> makePlayfield                  -- PF1
        0x0f -> graphicsDelay 3 >> pf2 @= v >> makePlayfield                  -- PF2
-       0x10 -> graphicsDelay 5 >> hpos @-> ppos0 -- RESP0
-       0x11 -> graphicsDelay 5 >> hpos @-> ppos1 -- RESP1
-       0x12 -> graphicsDelay 4 >> hpos @-> mpos0 -- RESM0
-       0x13 -> graphicsDelay 4 >> hpos @-> mpos1 -- RESM1
-       0x14 -> graphicsDelay 4 >> load hpos >>= (return . max (picx+2)) >>= (bpos @=)  -- RESBL
+       0x10 -> (pcStep @-> pcResp0) >> graphicsDelay 5 >> hpos @-> ppos0 -- RESP0
+       0x11 -> (pcStep @-> pcResp1) >> graphicsDelay 5 >> hpos @-> ppos1 -- RESP1
+       0x12 -> (pcStep @-> pcResm0) >> graphicsDelay 4 >> hpos @-> mpos0 -- RESM0
+       0x13 -> (pcStep @-> pcResm1) >> graphicsDelay 4 >> hpos @-> mpos1 -- RESM1
+       0x14 -> (pcStep @-> pcResbl) >> graphicsDelay 4 >> load hpos >>= (return . max (picx+2)) >>= (bpos @=)  -- RESBL
        -- graphicsDelay of 1 chosen to stop spurious pixel in
        -- "CCE" in Freeway.
        0x1b -> do -- GRP0

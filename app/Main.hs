@@ -41,7 +41,7 @@ clargs = Args { file = "adventure.bin", bank = "", options = ".stellarator-optio
 loopUntil :: Int64 -> MonadAtari ()
 loopUntil n = do
     stellaClock' <- useStellaClock id
-    when (stellaClock' < n) $ step >> loopUntil n
+    when (stellaClock' < n) $ (pc @-> pcStep) >> step >> loopUntil n
 
 main :: IO ()
 main = do

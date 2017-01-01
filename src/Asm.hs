@@ -68,7 +68,7 @@ swchb = 0x300+0x82
 maxWord8 :: TypedIndex Word8
 maxWord8 = swchb
 
-trigger1, delayP0, delayP1, delayBall, oldBall, newBall, pendingHmove :: TypedIndex Bool
+trigger1, delayP0, delayP1, delayBall, oldBall, newBall, pendingHmove, debugColours :: TypedIndex Bool
 trigger1 = 0
 delayP0 = 1
 delayP1 = 2
@@ -103,9 +103,15 @@ ahead = 10
 xbreak = 11
 ybreak = 12
 
-pc, bankOffset :: TypedIndex Word16
+pc, bankOffset, pcStep, pcResp0, pcResp1, pcResm0, pcResm1, pcResbl :: TypedIndex Word16
 pc = 0
 bankOffset = 1
+pcStep = 2
+pcResp0 = 3
+pcResp1 = 4
+pcResm0 = 5
+pcResm1 = 6
+pcResbl = 7
 
 {-# INLINE ld #-}
 ld :: MArray IOUArray a IO => IOUArray (TypedIndex a) a -> TypedIndex a -> IO a

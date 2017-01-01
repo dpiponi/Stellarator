@@ -157,7 +157,7 @@ execCommand cmd =
             liftIO $ putStrLn "Continuing..."
             return Continue
         DumpGraphics -> dumpStella >> return KeepDebugging
-        Step -> step >> return KeepDebugging
+        Step -> (pc @-> pcStep) >> step >> return KeepDebugging
         Print es -> execPrint es
         Until cond repeatedCmd -> execUntil cond repeatedCmd
         Execute cmdExpr -> execute cmdExpr
