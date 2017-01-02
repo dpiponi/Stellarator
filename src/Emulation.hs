@@ -306,7 +306,7 @@ stellaVsync :: Word8 -> MonadAtari ()
 stellaVsync v = do
     oldv <- load vsync
     when (testBit oldv 1 && not (testBit v 1)) $ do
-        hpos @= 0
+        hpos @= 16
         vpos @= 0
         renderDisplay
     vsync @= v

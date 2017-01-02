@@ -84,47 +84,47 @@ Top scan line where player position is set:
 
 > z=0;u(row==z){s};q=t;u(row>z){p"time=",t-q," row=",row," col=",col," a=",a," x=", x;l;s}
 time=0 row=0 col=0 a=0 x=255
-f297 a2 2b    ldx #0x2b
+f297 a2 2b    ldx #0x2b; 2
 time=2 row=0 col=6 a=0 x=43
-f299 8e 96 02 stx 0x296
+f299 8e 96 02 stx 0x296; 4
 time=6 row=0 col=18 a=0 x=43
-f29c a2 20    ldx #0x20
+f29c a2 20    ldx #0x20l 2
 time=8 row=0 col=24 a=0 x=32
-f29e 86 20    stx HMP0
+f29e 86 20    stx HMP0; 3
 time=11 row=0 col=33 a=0 x=32
-f2a0 a2 80    ldx #0x80
+f2a0 a2 80    ldx #0x80; 2
 time=13 row=0 col=39 a=0 x=128
-f2a2 86 21    stx HMP1
+f2a2 86 21    stx HMP1; 3
 time=16 row=0 col=48 a=0 x=128
-f2a4 85 25    sta VDELP0
+f2a4 85 25    sta VDELP0; 3
 time=19 row=0 col=57 a=0 x=128
-f2a6 85 26    sta VDELP1
+f2a6 85 26    sta VDELP1; 3
 time=22 row=0 col=66 a=0 x=128
-f2a8 85 09    sta 0x9; COLUBK or INPT1
+f2a8 85 09    sta 0x9; 3; COLUBK or INPT1
 time=25 row=0 col=75 a=0 x=128
-f2aa a9 05    lda #0x5
+f2aa a9 05    lda #0x5; 2
 time=27 row=0 col=81 a=5 x=128
-f2ac 85 04    sta 0x4; NUSIZ0 or CXM0FB
+f2ac 85 04    sta 0x4; 3; NUSIZ0 or CXM0FB
 time=30 row=0 col=90 a=5 x=128
-f2ae a9 ca    lda #0xca
+f2ae a9 ca    lda #0xca; 2
 time=32 row=0 col=96 a=202 x=128
-f2b0 85 06    sta COLUP0
+f2b0 85 06    sta COLUP0; 3
 time=35 row=0 col=105 a=202 x=128
-f2b2 8d 11 01 sta 0x111 ; RESP0
+f2b2 8d 11 01 sta 0x111 ; 4; RESP1
 time=39 row=0 col=122 a=202 x=128  
-f2b5 85 10    sta RESP0;       <--- RESP0
+f2b5 85 10    sta RESP0; 3;       <--- RESP0
 time=42 row=0 col=131 a=202 x=128
-f2b7 24 82    bit 0x82
+f2b7 24 82    bit 0x82; 3
 time=45 row=0 col=135 a=202 x=128
-f2b9 10 03    BPL 0xf2be
+f2b9 10 03    BPL 0xf2be; 2
 time=47 row=0 col=141 a=202 x=128
-f2bb 4c b4 f3 jmp 0xf3b4
+f2bb 4c b4 f3 jmp 0xf3b4; 3
 time=50 row=0 col=150 a=202 x=128
-f3b4 a6 9f    ldx 0x9f
+f3b4 a6 9f    ldx 0x9f; 3
 time=53 row=0 col=159 a=202 x=1
-f3b6 d0 0c    bne 0xf3c4
+f3b6 d0 0c    bne 0xf3c4; 3
 time=56 row=0 col=168 a=202 x=1
-f3c4 a5 80    lda 0x80
+f3c4 a5 80    lda 0x80; 3
 time=59 row=0 col=177 a=101 x=1
 f3c6 4a       lsr a
 time=61 row=0 col=183 a=50 x=1
