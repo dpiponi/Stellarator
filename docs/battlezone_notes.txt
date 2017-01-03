@@ -138,3 +138,107 @@ f449 a2 d6    ldx #0xd6
 time=71 row=0 col=213 a=50 x=214
 f44b 20 f7 f8 jsr 0xf8f7
 
+This row seems to have different reflection to:
+
+> z=38;u(row==z){s};q=t;u(row>z){p"time=",t-q," row=",row," col=",col," bit=",(col-68)/4," a=",a," x=", x;l;s}
+time=0 row=38 col=0 bit=-17 a=3 x=14
+d067 85 2a    sta 0x2a; HMOVE
+time=3 row=38 col=9 bit=-15 a=3 x=14
+d069 a9 24    lda #0x24
+time=5 row=38 col=15 bit=-14 a=36 x=14
+d06b 85 1b    sta 0x1b; GRP0
+time=8 row=38 col=25 bit=-11 a=36 x=14
+d06d b1 a2    lda (0xa2), Y
+time=13 row=38 col=39 bit=-8 a=0 x=14
+d06f 85 1c    sta 0x1c; GRP1
+time=16 row=38 col=49 bit=-5 a=0 x=14
+d071 a9 02    lda #0x2
+time=18 row=38 col=54 bit=-4 a=2 x=14
+d073 c4 d2    cpy 0xd2
+time=21 row=38 col=63 bit=-2 a=2 x=14
+d075 d0 02    bne 0xd079
+time=24 row=38 col=72 bit=1 a=2 x=14
+d079 c4 d3    cpy 0xd3
+time=27 row=38 col=81 bit=3 a=2 x=14
+d07b d0 02    bne 0xd07f
+time=30 row=38 col=90 bit=5 a=2 x=14
+d07f 88       dey
+time=32 row=38 col=96 bit=7 a=2 x=14
+d080 85 2b    sta 0x2b; HMCLR
+time=35 row=38 col=105 bit=9 a=2 x=14
+d082 a9 30    lda #0x30
+time=37 row=38 col=111 bit=10 a=48 x=14
+d084 85 20    sta 0x20; HMP0
+time=40 row=38 col=120 bit=13 a=48 x=14
+d086 48       pha
+time=43 row=38 col=129 bit=15 a=48 x=14
+d087 68       pla
+time=47 row=38 col=141 bit=18 a=48 x=14
+d088 ea       nop
+time=49 row=38 col=147 bit=19 a=48 x=14
+d089 a2 01    ldx #0x1
+time=51 row=38 col=153 bit=21 a=48 x=1
+d08b 86 04    stx 0x4; NUSIZ0 or CXM0FB
+time=54 row=38 col=162 bit=23 a=48 x=1
+d08d ca       dex
+time=56 row=38 col=168 bit=25 a=48 x=0
+d08e 86 1f    stx 0x1f; ENABL
+time=59 row=38 col=177 bit=27 a=48 x=0
+d090 86 1e    stx 0x1e; ENAM1
+time=62 row=38 col=186 bit=29 a=48 x=0
+d092 85 02    sta 0x2; WSYNC or CXP0FB
+
+This row:
+> z=39;u(row==z){s};q=t;u(row>z){p"time=",t-q," row=",row," col=",col," bit=",(col-68)/4," a=",a," x=", x;l;s}
+time=0 row=39 col=0 bit=-17 a=48 x=0
+d094 85 2a    sta 0x2a; HMOVE
+time=3 row=39 col=9 bit=-15 a=48 x=0
+d096 b9 df de lda 0xdedf, Y
+time=7 row=39 col=21 bit=-12 a=3 x=0
+d099 85 1b    sta 0x1b; GRP0
+time=10 row=39 col=31 bit=-10 a=3 x=0
+d09b b1 a2    lda (0xa2), Y
+time=15 row=39 col=45 bit=-6 a=0 x=0
+d09d 85 1c    sta 0x1c; GRP1
+time=18 row=39 col=55 bit=-4 a=0 x=0
+d09f a9 02    lda #0x2
+time=20 row=39 col=60 bit=-2 a=2 x=0
+d0a1 c4 d2    cpy 0xd2
+time=23 row=39 col=69 bit=0 a=2 x=0
+d0a3 f0 03    beq 0xd0a8
+time=25 row=39 col=75 bit=1 a=2 x=0
+d0a5 ea       nop
+time=27 row=39 col=81 bit=3 a=2 x=0
+d0a6 d0 03    bne 0xd0ab
+time=30 row=39 col=90 bit=5 a=2 x=0
+d0ab c4 d3    cpy 0xd3
+time=33 row=39 col=99 bit=7 a=2 x=0
+d0ad f0 03    beq 0xd0b2
+time=35 row=39 col=105 bit=9 a=2 x=0
+d0af ea       nop
+time=37 row=39 col=111 bit=10 a=2 x=0
+d0b0 d0 03    bne 0xd0b5
+time=40 row=39 col=120 bit=13 a=2 x=0
+d0b5 88       dey
+time=42 row=39 col=126 bit=14 a=2 x=0
+d0b6 a9 08    lda #0x8
+time=44 row=39 col=132 bit=16 a=8 x=0
+d0b8 85 2b    sta 0x2b; HMCLR
+time=47 row=39 col=141 bit=18 a=8 x=0
+d0ba 85 0b    sta 0xb; REFP0 or INPT3
+time=50 row=39 col=150 bit=20 a=8 x=0
+d0bc a2 d0    ldx #0xd0
+time=52 row=39 col=156 bit=22 a=8 x=208
+d0be a9 00    lda #0x0
+time=54 row=39 col=162 bit=23 a=0 x=208
+d0c0 85 0b    sta 0xb; REFP0 or INPT3
+time=57 row=39 col=171 bit=25 a=0 x=208
+d0c2 85 1f    sta 0x1f; ENABL
+time=60 row=39 col=180 bit=28 a=0 x=208
+d0c4 85 1e    sta 0x1e; ENAM1
+time=63 row=39 col=189 bit=30 a=0 x=208
+d0c6 c0 01    cpy #0x1
+time=65 row=39 col=195 bit=31 a=0 x=208
+d0c8 b0 c8    bcs 0xd092
+time=68 row=39 col=204 bit=34 a=0 x=208
+d092 85 02    sta 0x2; WSYNC or CXP0FB

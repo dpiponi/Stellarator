@@ -545,7 +545,7 @@ writeStella addr v = do
        0x00 -> stellaVsync v             -- VSYNC
        0x01 -> stellaVblank v            -- VBLANK
        0x02 -> stellaWsync               -- WSYNC
-       0x04 -> nusiz0 @= v        -- NUSIZ0
+       0x04 -> graphicsDelay 4 >> nusiz0 @= v        -- NUSIZ0
        0x05 -> nusiz1 @= v        -- NUSIZ1
        0x06 -> colup0 @= v               -- COLUP0
        0x07 -> colup1 @= v               -- COLUP1
