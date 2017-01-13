@@ -109,6 +109,14 @@ The debug command history is kept in the file .stellarator
 UI events to the main window are ignored while single stepping though
 I'll probably fix that eventually.
 
+Goals
+-----
+I've pretty much done what I want with this project. I wanted to get Adventure to work. Turned out to be pretty easy. I'm pleased I could get other games to work but I don't plan to get every last pixel rendered correctly because the hardware goes down a deep rabbit hole that you ultimately need to understand at the transistor level.
+
+I'll probably add audio when I can get simultaneous audio and video to not crash in Haskell.
+
+I also learnt how to make Haskell with lots of mutable state run fast.
+
 Notes
 -----
 
