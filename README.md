@@ -5,6 +5,12 @@ Work in progress...
 
 It'll run Adventure if you have the rom.
 
+Screenshots
+-----------
+![Adventure screenshot](docs/adventure.gif?raw=true "Adventure Screenshot")
+
+![Pitfall screenshot](docs/pitfall.gif?raw=true "Pitfall Screenshot")
+
 Installation
 ------------
 * It's written in Haskell.
@@ -30,12 +36,6 @@ Installation
     stack exec Stellarator-exe -- -f ADVNTURE.BIN
 
 You'll need to obtain ADVNTURE.BIN from somewhere like https://www.atariage.com/system_items.html?SystemID=2600&ItemTypeID=ROM
-
-Screenshots
------------
-![Adventure screenshot](docs/adventure.gif?raw=true "Adventure Screenshot")
-
-![Pitfall screenshot](docs/pitfall.gif?raw=true "Pitfall Screenshot")
 
 Instructions
 ------------
