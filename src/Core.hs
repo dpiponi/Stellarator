@@ -1120,7 +1120,7 @@ step = do
         0x16 -> op_asl 0b101
         0x18 -> ins_set putC False
         0x19 -> op_ora 0b110
-        0x1d -> op_ora 0b111 ---
+        0x1d -> op_ora 0b111
         0x20 -> ins_jsr
         0x21 -> op_and 0b000
         0x25 -> op_and 0b001
@@ -1134,6 +1134,7 @@ step = do
         0x36 -> op_rol 0b101
         0x38 -> ins_set putC True
         0x39 -> op_and 0b110
+        0x3d -> op_and 0b111
         0x40 -> ins_rti
         0x41 -> op_xor 0b000
         0x45 -> op_xor 0b001
@@ -1147,6 +1148,7 @@ step = do
         0x56 -> op_lsr 0b101
         0x58 -> ins_set putI False
         0x59 -> op_xor 0b110
+        0x5d -> op_xor 0b111
         0x60 -> ins_rts
         0x61 -> op_adc 0b000
         0x65 -> op_adc 0b001
@@ -1160,6 +1162,7 @@ step = do
         0x76 -> op_ror 0b101
         0x78 -> ins_set putI True
         0x79 -> op_adc 0b110
+        0x7d -> op_adc 0b111
         0x81 -> op_sta 0b000
         0x85 -> op_sta 0b001
         0x86 -> op_stx 0b001
@@ -1172,6 +1175,7 @@ step = do
         0x98 -> ins_transfer getY putA
         0x99 -> op_sta 0b110
         0x9a -> ins_txs
+        0x9d -> op_sta 0b111
         0xa1 -> op_lda 0b000
         0xa5 -> op_lda 0b001
         0xa6 -> op_ldx 0b001
@@ -1184,6 +1188,7 @@ step = do
         0xb8 -> ins_set putV False
         0xb9 -> op_lda 0b110
         0xba -> ins_transfer getS putX
+        0xbd -> op_lda 0b111
         0xc1 -> op_cmp 0b000
         0xc5 -> op_cmp 0b001
         0xc6 -> op_dec 0b001
@@ -1195,6 +1200,7 @@ step = do
         0xd6 -> op_dec 0b101
         0xd8 -> ins_set putD False
         0xd9 -> op_cmp 0b110
+        0xdd -> op_cmp 0b111
         0xe1 -> op_sbc 0b000
         0xe5 -> op_sbc 0b001
         0xe6 -> op_inc 0b001
@@ -1206,6 +1212,7 @@ step = do
         0xf6 -> op_inc 0b101
         0xf8 -> ins_set putD True
         0xf9 -> op_sbc 0b110
+        0xfd -> op_sbc 0b111
 
         _ -> do
             let cc = i .&. 0b11
