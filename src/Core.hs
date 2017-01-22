@@ -1151,6 +1151,7 @@ step = do
         0x4d -> op_xor 0b011
         0x4e -> op_lsr 0b011
         0x50 -> ins_bra getV False
+        0x51 -> op_xor 0b100
         0x55 -> op_xor 0b101
         0x56 -> op_lsr 0b101
         0x58 -> ins_set putI False
@@ -1167,6 +1168,7 @@ step = do
         0x6d -> op_adc 0b011
         0x6e -> op_ror 0b011
         0x70 -> ins_bra getV True
+        0x71 -> op_adc 0b100
         0x75 -> op_adc 0b101
         0x76 -> op_ror 0b101
         0x78 -> ins_set putI True
@@ -1183,6 +1185,7 @@ step = do
         0x8d -> op_sta 0b011
         0x8e -> op_stx 0b011
         0x90 -> ins_bra getC False
+        0x91 -> op_sta 0b100
         0x95 -> op_sta 0b101
         0x96 -> op_stx 0b101
         0x98 -> ins_transfer getY putA
