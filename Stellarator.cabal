@@ -88,19 +88,25 @@ executable experiment-exe
                      , Stellarator
   default-language:    Haskell2010
  
--- test-suite emu6502-test
---   type:                exitcode-stdio-1.0
---   hs-source-dirs:      test
---   main-is:             Main.hs
---   build-depends:       base
---                      , emu6502
---                      , HUnit
---                      , array
---                      , mtl
---                      , lens
---                      , monad-loops
---   ghc-options:         -O5 -rtsopts -with-rtsopts=-N
---   default-language:    Haskell2010
+test-suite emu6502-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Main.hs
+  other-modules:       Intel, Vanilla
+  build-depends:       base
+                     , HUnit
+                     , array
+                     , mtl
+                     , lens
+                     , monad-loops
+                     , bytestring
+                     , binary
+                     , parsec
+                     , cmdargs
+                     , haskeline
+                     , Stellarator
+  ghc-options:         -O5
+  default-language:    Haskell2010
 
 source-repository head
   type:     git
