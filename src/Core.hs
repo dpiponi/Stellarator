@@ -1119,6 +1119,7 @@ step = do
         0x15 -> op_ora 0b101
         0x16 -> op_asl 0b101
         0x18 -> ins_set putC False
+        0x19 -> op_ora 0b110 --
         0x20 -> ins_jsr
         0x21 -> op_and 0b000
         0x25 -> op_and 0b001
