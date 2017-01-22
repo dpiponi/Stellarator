@@ -1,0 +1,1 @@
+docker run --rm -v /Users:/opt/Users -w /opt/Users/dan/Dropbox/Development/Haskell/Stellarator -it ggrandes/ubuntu32 /opt/Users/dan/Dropbox/Development/Haskell/Stellarator/as65 $*

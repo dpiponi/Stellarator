@@ -1,0 +1,1 @@
+./run_as65 -l -m -s2 -w -h0 6502test.a65
