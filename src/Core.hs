@@ -1150,6 +1150,7 @@ step = do
         0xa5 -> op_lda 0b001
         0xa6 -> op_ldx 0b001
         0xa8 -> ins_transfer getA putY
+        0xa9 -> op_lda 0b010
         0xaa -> ins_transfer getA putX
         0xb0 -> ins_bra getC True
         0xb8 -> ins_set putV False
@@ -1158,6 +1159,7 @@ step = do
         0xc5 -> op_cmp 0b001
         0xc6 -> op_dec 0b001
         0xc8 -> ins_incr getY putY
+        0xc9 -> op_cmp 0b010
         0xca -> ins_decr getX putX
         0xd0 -> ins_bra getZ False
         0xd8 -> ins_set putD False
@@ -1165,6 +1167,7 @@ step = do
         0xe5 -> op_sbc 0b001
         0xe6 -> op_inc 0b001
         0xe8 -> ins_incr getX putX
+        0xe9 -> op_sbc 0b010
         0xea -> ins_nop
         0xf0 -> ins_bra getZ True
         0xf8 -> ins_set putD True
