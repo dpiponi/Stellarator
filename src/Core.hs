@@ -1134,6 +1134,7 @@ step = do
         0x2d -> op_and 0b011
         0x2e -> op_rol 0b011
         0x30 -> ins_bra getN True
+        0x31 -> op_and 0b100
         0x35 -> op_and 0b101
         0x36 -> op_rol 0b101
         0x38 -> ins_set putC True
