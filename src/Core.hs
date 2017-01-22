@@ -1197,6 +1197,7 @@ step = do
         0x9d -> op_sta 0b111
         0xa0 -> op_ldy 0b000
         0xa1 -> op_lda 0b000
+        0xa2 -> op_ldx 0b000
         0xa4 -> op_ldy 0b001
         0xa5 -> op_lda 0b001
         0xa6 -> op_ldx 0b001
@@ -1205,6 +1206,7 @@ step = do
         0xaa -> ins_transfer getA putX
         0xac -> op_ldy 0b011
         0xad -> op_lda 0b011
+        0xae -> op_ldx 0b011
         0xb0 -> ins_bra getC True
         0xb4 -> op_ldy 0b101
         0xb5 -> op_lda 0b101
@@ -1224,6 +1226,7 @@ step = do
         0xca -> ins_decr getX putX
         0xcc -> op_cpy 0b011
         0xcd -> op_cmp 0b011
+        0xce -> op_dec 0b011
         0xd0 -> ins_bra getZ False
         0xd5 -> op_cmp 0b101
         0xd6 -> op_dec 0b101
@@ -1241,6 +1244,7 @@ step = do
         0xea -> ins_nop
         0xec -> op_cpx 0b011
         0xed -> op_sbc 0b011
+        0xee -> op_inc 0b011
         0xf0 -> ins_bra getZ True
         0xf5 -> op_sbc 0b101
         0xf6 -> op_inc 0b101
