@@ -1208,6 +1208,7 @@ step = do
         0xad -> op_lda 0b011
         0xae -> op_ldx 0b011
         0xb0 -> ins_bra getC True
+        0xb1 -> op_lda 0b100
         0xb4 -> op_ldy 0b101
         0xb5 -> op_lda 0b101
         0xb6 -> op_ldx 0b101
