@@ -1106,36 +1106,44 @@ step = do
     incPC
     case i of
         0x00 -> ins_brk
+        0x01 -> op_ora 0b000
         0x04 -> void $ readZeroPage -- XXX undocumented "DOP" nop
         0x08 -> ins_php
         0x10 -> ins_bra getN False
         0x18 -> ins_set putC False
         0x20 -> ins_jsr
+        0x21 -> op_and 0b000
         0x28 -> ins_plp
         0x30 -> ins_bra getN True
         0x38 -> ins_set putC True
         0x40 -> ins_rti
+        0x41 -> op_xor 0b000
         0x48 -> ins_pha
         0x50 -> ins_bra getV False
         0x58 -> ins_set putI False
         0x60 -> ins_rts
+        0x61 -> op_adc 0b000
         0x68 -> ins_pla
         0x70 -> ins_bra getV True
         0x78 -> ins_set putI True
+        0x81 -> op_sta 0b000
         0x88 -> ins_decr getY putY
         0x8a -> ins_transfer getX putA
         0x90 -> ins_bra getC False
         0x98 -> ins_transfer getY putA
         0x9a -> ins_txs
+        0xa1 -> op_lda 0b000
         0xa8 -> ins_transfer getA putY
         0xaa -> ins_transfer getA putX
         0xb0 -> ins_bra getC True
         0xb8 -> ins_set putV False
         0xba -> ins_transfer getS putX
+        0xc1 -> op_cmp 0b000
         0xc8 -> ins_incr getY putY
         0xca -> ins_decr getX putX
         0xd0 -> ins_bra getZ False
         0xd8 -> ins_set putD False
+        0xe1 -> op_sbc 0b000
         0xe8 -> ins_incr getX putX
         0xea -> ins_nop
         0xf0 -> ins_bra getZ True
