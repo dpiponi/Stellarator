@@ -817,9 +817,9 @@ op_ror bbb = withData02 bbb False $ \src -> do
     let new = (src `shift` (-1))+if fc then 0x80 else 0x00
     setNZ new
 
-{-# INLINABLE ins_stx #-}
-ins_stx :: Emu6502 m => Word8 -> m ()
-ins_stx bbb = getX >>= putData02 bbb True
+{-# INLINABLE op_stx #-}
+op_stx :: Emu6502 m => Word8 -> m ()
+op_stx bbb = getX >>= putData02 bbb True
 
 {-# INLINABLE op_ldx #-}
 op_ldx :: Emu6502 m => Word8 -> m ()
@@ -1157,13 +1157,13 @@ step = do
         0x78 -> ins_set putI True
         0x81 -> op_sta 0b000
         0x85 -> op_sta 0b001
-        0x86 -> ins_stx 0b001
+        0x86 -> op_stx 0b001
         0x88 -> ins_decr getY putY
         0x8a -> ins_transfer getX putA
-        0x8e -> ins_stx 0b011
+        0x8e -> op_stx 0b011
         0x90 -> ins_bra getC False
         0x95 -> op_sta 0b101
-        0x96 -> ins_stx 0b101 --
+        0x96 -> op_stx 0b101
         0x98 -> ins_transfer getY putA
         0x9a -> ins_txs
         0xa1 -> op_lda 0b000
@@ -1174,6 +1174,7 @@ step = do
         0xaa -> ins_transfer getA putX
         0xb0 -> ins_bra getC True
         0xb5 -> op_lda 0b101
+        0xb6 -> op_ldx 0b101
         0xb8 -> ins_set putV False
         0xba -> ins_transfer getS putX
         0xc1 -> op_cmp 0b000
@@ -1184,6 +1185,7 @@ step = do
         0xca -> ins_decr getX putX
         0xd0 -> ins_bra getZ False
         0xd5 -> op_cmp 0b101
+        0xd6 -> op_dec 0b101
         0xd8 -> ins_set putD False
         0xe1 -> op_sbc 0b000
         0xe5 -> op_sbc 0b001
@@ -1193,6 +1195,7 @@ step = do
         0xea -> ins_nop
         0xf0 -> ins_bra getZ True
         0xf5 -> op_sbc 0b101
+        0xf6 -> op_inc 0b101
         0xf8 -> ins_set putD True
 
         _ -> do
@@ -1236,7 +1239,7 @@ step = do
                         0b001 -> op_rol bbb
                         0b010 -> op_lsr bbb
                         0b011 -> op_ror bbb
-                        0b100 -> ins_stx bbb
+                        0b100 -> op_stx bbb
                         0b101 -> op_ldx bbb
                         0b110 -> op_dec bbb
                         0b111 -> op_inc bbb
