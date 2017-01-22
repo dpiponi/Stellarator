@@ -1116,23 +1116,27 @@ step = do
         0x20 -> ins_jsr
         0x21 -> op_and 0b000
         0x25 -> op_and 0b001
+        0x26 -> op_rol 0b001
         0x28 -> ins_plp
         0x30 -> ins_bra getN True
         0x38 -> ins_set putC True
         0x40 -> ins_rti
         0x41 -> op_xor 0b000
         0x45 -> op_xor 0b001
+        0x46 -> op_lsr 0b001
         0x48 -> ins_pha
         0x50 -> ins_bra getV False
         0x58 -> ins_set putI False
         0x60 -> ins_rts
         0x61 -> op_adc 0b000
         0x65 -> op_adc 0b001
+        0x66 -> op_ror 0b001
         0x68 -> ins_pla
         0x70 -> ins_bra getV True
         0x78 -> ins_set putI True
         0x81 -> op_sta 0b000
         0x85 -> op_sta 0b001
+        0x86 -> ins_stx 0b001
         0x88 -> ins_decr getY putY
         0x8a -> ins_transfer getX putA
         0x90 -> ins_bra getC False
@@ -1140,6 +1144,7 @@ step = do
         0x9a -> ins_txs
         0xa1 -> op_lda 0b000
         0xa5 -> op_lda 0b001
+        0xa6 -> op_ldx 0b001
         0xa8 -> ins_transfer getA putY
         0xaa -> ins_transfer getA putX
         0xb0 -> ins_bra getC True
@@ -1147,12 +1152,14 @@ step = do
         0xba -> ins_transfer getS putX
         0xc1 -> op_cmp 0b000
         0xc5 -> op_cmp 0b001
+        0xc6 -> op_dec 0b001
         0xc8 -> ins_incr getY putY
         0xca -> ins_decr getX putX
         0xd0 -> ins_bra getZ False
         0xd8 -> ins_set putD False
         0xe1 -> op_sbc 0b000
         0xe5 -> op_sbc 0b001
+        0xe6 -> op_inc 0b001
         0xe8 -> ins_incr getX putX
         0xea -> ins_nop
         0xf0 -> ins_bra getZ True
