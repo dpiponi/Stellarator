@@ -843,9 +843,9 @@ op_bit bbb = getData02 bbb False $ \src -> do
     putV $ src .&. 0x40 > 0
     setZ $ ra .&. src
 
-{-# INLINABLE ins_sty #-}
-ins_sty :: Emu6502 m => Word8 -> m ()
-ins_sty bbb = getY >>= putData02 bbb False
+{-# INLINABLE op_sty #-}
+op_sty :: Emu6502 m => Word8 -> m ()
+op_sty bbb = getY >>= putData02 bbb False
 
 {-# INLINABLE op_ldy #-}
 op_ldy :: Emu6502 m => Word8 -> m ()
@@ -1124,6 +1124,7 @@ step = do
         0x1e -> op_asl 0b111
         0x20 -> ins_jsr
         0x21 -> op_and 0b000
+        0x24 -> op_bit 0b001
         0x25 -> op_and 0b001
         0x26 -> op_rol 0b001
         0x28 -> ins_plp
@@ -1168,6 +1169,7 @@ step = do
         0x7d -> op_adc 0b111
         0x7e -> op_ror 0b111
         0x81 -> op_sta 0b000
+        0x84 -> op_sty 0b001
         0x85 -> op_sta 0b001
         0x86 -> op_stx 0b001
         0x88 -> ins_decr getY putY
@@ -1181,6 +1183,7 @@ step = do
         0x9a -> ins_txs
         0x9d -> op_sta 0b111
         0xa1 -> op_lda 0b000
+        0xa4 -> op_ldy 0b001
         0xa5 -> op_lda 0b001
         0xa6 -> op_ldx 0b001
         0xa8 -> ins_transfer getA putY
@@ -1195,6 +1198,7 @@ step = do
         0xbd -> op_lda 0b111
         0xbe -> op_ldx 0b111
         0xc1 -> op_cmp 0b000
+        0xc4 -> op_cpy 0b001
         0xc5 -> op_cmp 0b001
         0xc6 -> op_dec 0b001
         0xc8 -> ins_incr getY putY
@@ -1208,6 +1212,7 @@ step = do
         0xdd -> op_cmp 0b111
         0xde -> op_dec 0b111
         0xe1 -> op_sbc 0b000
+        0xe4 -> op_cpx 0b001
         0xe5 -> op_sbc 0b001
         0xe6 -> op_inc 0b001
         0xe8 -> ins_incr getX putX
@@ -1231,7 +1236,7 @@ step = do
                         0b001 -> op_bit bbb
                         0b010 -> ins_jmp
                         0b011 -> ins_jmp_indirect
-                        0b100 -> ins_sty bbb
+                        0b100 -> op_sty bbb
                         0b101 -> op_ldy bbb
                         0b110 -> op_cpy bbb
                         0b111 -> op_cpx bbb
