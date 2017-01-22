@@ -1148,6 +1148,7 @@ step = do
         0x48 -> ins_pha
         0x49 -> op_xor 0b010
         0x4a -> op_lsr 0b010
+        0x4c -> ins_jmp
         0x4d -> op_xor 0b011
         0x4e -> op_lsr 0b011
         0x50 -> ins_bra getV False
@@ -1165,6 +1166,7 @@ step = do
         0x68 -> ins_pla
         0x69 -> op_adc 0b010
         0x6a -> op_ror 0b010
+        0x6c -> ins_jmp_indirect
         0x6d -> op_adc 0b011
         0x6e -> op_ror 0b011
         0x70 -> ins_bra getV True
@@ -1186,6 +1188,7 @@ step = do
         0x8e -> op_stx 0b011
         0x90 -> ins_bra getC False
         0x91 -> op_sta 0b100
+        0x94 -> op_sty 0b101
         0x95 -> op_sta 0b101
         0x96 -> op_stx 0b101
         0x98 -> ins_transfer getY putA
