@@ -1109,6 +1109,7 @@ step = do
         0x01 -> op_ora 0b000
         0x04 -> void $ readZeroPage -- XXX undocumented "DOP" nop
         0x05 -> op_ora 0b001
+        0x06 -> op_asl 0b001
         0x08 -> ins_php
         0x10 -> ins_bra getN False
         0x18 -> ins_set putC False
