@@ -1152,6 +1152,7 @@ step = do
         0x86 -> ins_stx 0b001
         0x88 -> ins_decr getY putY
         0x8a -> ins_transfer getX putA
+        0x8e -> ins_stx 0b011
         0x90 -> ins_bra getC False
         0x98 -> ins_transfer getY putA
         0x9a -> ins_txs
