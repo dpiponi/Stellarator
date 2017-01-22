@@ -1114,6 +1114,7 @@ step = do
         0x09 -> op_ora 0b010
         0x0a -> op_asl 0b010
         0x0d -> op_ora 0b011
+        0x0e -> op_asl 0b011
         0x10 -> ins_bra getN False
         0x18 -> ins_set putC False
         0x20 -> ins_jsr
@@ -1123,6 +1124,7 @@ step = do
         0x28 -> ins_plp
         0x29 -> op_and 0b010
         0x2a -> op_rol 0b010
+        0x2e -> op_rol 0b011
         0x30 -> ins_bra getN True
         0x38 -> ins_set putC True
         0x40 -> ins_rti
@@ -1132,6 +1134,7 @@ step = do
         0x48 -> ins_pha
         0x49 -> op_xor 0b010
         0x4a -> op_lsr 0b010
+        0x4e -> op_lsr 0b011
         0x50 -> ins_bra getV False
         0x58 -> ins_set putI False
         0x60 -> ins_rts
@@ -1141,6 +1144,7 @@ step = do
         0x68 -> ins_pla
         0x69 -> op_adc 0b010
         0x6a -> op_ror 0b010
+        0x6e -> op_ror 0b011
         0x70 -> ins_bra getV True
         0x78 -> ins_set putI True
         0x81 -> op_sta 0b000
