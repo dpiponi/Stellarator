@@ -1116,6 +1116,7 @@ step = do
         0x0d -> op_ora 0b011
         0x0e -> op_asl 0b011
         0x10 -> ins_bra getN False
+        0x11 -> op_ora 0b100
         0x15 -> op_ora 0b101
         0x16 -> op_asl 0b101
         0x18 -> ins_set putC False
@@ -1257,6 +1258,9 @@ step = do
         0xfd -> op_sbc 0b111
         0xfe -> op_inc 0b111
 
+        _ -> illegal i
+
+{-
         _ -> do
             let cc = i .&. 0b11
             case cc of
@@ -1306,5 +1310,6 @@ step = do
                         _ -> error "Impossible"
 
                 _ -> illegal i
+    -}
     dumpState
     return ()
