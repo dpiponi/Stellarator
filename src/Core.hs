@@ -714,8 +714,8 @@ lda :: Emu6502 m => m Word8 -> m ()
 lda mode = mode >>= setNZ >>= putA
 
 {-# INLINABLE sta #-}
-sta :: Emu6502 m => Word8 -> m ()
-sta bbb = getA >>= putData01 bbb
+sta :: Emu6502 m => (Word8 -> m()) -> m ()
+sta mode = getA >>= mode
 
 {-# INLINABLE adc #-}
 adc :: Emu6502 m => m Word8 -> m ()
@@ -826,8 +826,8 @@ ldx mode = do
     setNZ_ src
 
 {-# INLINABLE dec #-}
-dec :: Emu6502 m => Word8 -> m ()
-dec bbb = withData02 bbb False $ \src -> setNZ (src-1)
+dec :: Emu6502 m => ((Word8 -> m Word8) -> m ()) -> m ()
+dec mode = mode $ \src -> setNZ (src-1)
 
 {-# INLINABLE inc #-}
 inc :: Emu6502 m => ((Word8 -> m Word8) -> m ()) -> m ()
@@ -1180,24 +1180,24 @@ step = do
         0x79 -> adc readAbsoluteY
         0x7d -> adc readAbsoluteX
         0x7e -> ror withAbsoluteX
-        0x81 -> sta 0b000
+        0x81 -> sta writeIndirectX
         0x84 -> sty writeZeroPage
-        0x85 -> sta 0b001
+        0x85 -> sta writeZeroPage
         0x86 -> stx writeZeroPage
         0x88 -> decr getY putY
         0x8a -> transfer getX putA
         0x8c -> sty writeAbsolute
-        0x8d -> sta 0b011
+        0x8d -> sta writeAbsolute
         0x8e -> stx writeAbsolute
         0x90 -> bra getC False
-        0x91 -> sta 0b100
+        0x91 -> sta writeIndirectY
         0x94 -> sty writeZeroPageX
-        0x95 -> sta 0b101
+        0x95 -> sta writeZeroPageX
         0x96 -> stx writeZeroPageY
         0x98 -> transfer getY putA
-        0x99 -> sta 0b110
+        0x99 -> sta writeAbsoluteY
         0x9a -> txs
-        0x9d -> sta 0b111
+        0x9d -> sta writeAbsoluteX
         0xa0 -> ldy readImmediate
         0xa1 -> lda readIndirectX
         0xa2 -> ldx readImmediate
@@ -1225,21 +1225,21 @@ step = do
         0xc1 -> cmp readIndirectX
         0xc4 -> cpy readZeroPage
         0xc5 -> cmp readZeroPage
-        0xc6 -> dec 0b001
+        0xc6 -> dec withZeroPage
         0xc8 -> incr getY putY
         0xc9 -> cmp readImmediate
         0xca -> decr getX putX
         0xcc -> cpy readAbsolute
         0xcd -> cmp readAbsolute
-        0xce -> dec 0b011
+        0xce -> dec withAbsolute
         0xd0 -> bra getZ False
         0xd1 -> cmp readIndirectY
         0xd5 -> cmp readZeroPageX
-        0xd6 -> dec 0b101
+        0xd6 -> dec withZeroPageX
         0xd8 -> set putD False
         0xd9 -> cmp readAbsoluteY
         0xdd -> cmp readAbsoluteX
-        0xde -> dec 0b111
+        0xde -> dec withAbsoluteX
         0xe0 -> cpx readImmediate
         0xe1 -> sbc readIndirectX
         0xe4 -> cpx readZeroPage
