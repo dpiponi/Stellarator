@@ -603,22 +603,6 @@ withAbsoluteY op = do
     dst <- op src
     writeMemory addrY dst
 
-{-
-{-# INLINABLE getData01 #-}
-getData01 :: Emu6502 m => Word8 -> m Word8
-getData01 bbb = do
-    case bbb of
-        0b000 -> readIndirectX
-        0b001 -> readZeroPage
-        0b010 -> readImmediate
-        0b011 -> readAbsolute
-        0b100 -> readIndirectY
-        0b101 -> readZeroPageX
-        0b110 -> readAbsoluteY
-        0b111 -> readAbsoluteX
-        _ -> error "Impossible"
--}
-
 {-# INLINABLE getData02 #-}
 getData02 :: Emu6502 m =>
               Word8 -> Bool ->
@@ -859,22 +843,25 @@ sty :: Emu6502 m => Word8 -> m ()
 sty bbb = getY >>= putData02 bbb False
 
 {-# INLINABLE ldy #-}
-ldy :: Emu6502 m => Word8 -> m ()
-ldy bbb = getData02 bbb False $ \src -> do
+ldy :: Emu6502 m => m Word8 -> m ()
+ldy mode = do
+    src <- mode
     putY src
     setNZ_ src
 
 {-# INLINABLE cpx #-}
-cpx :: Emu6502 m => Word8 -> m ()
-cpx bbb = getData02 bbb False $ \src -> do
+cpx :: Emu6502 m => m Word8 -> m ()
+cpx mode = do
+    src <- mode
     rx <- getX
     let new = i16 rx-i16 src
     discard $ setNZ $ i8 new
     putC $ new < 0x100
 
 {-# INLINABLE cpy #-}
-cpy :: Emu6502 m => Word8 -> m ()
-cpy bbb = getData02 bbb False $ \src -> do
+cpy :: Emu6502 m => m Word8 -> m ()
+cpy mode = do
+    src <- mode
     ry <- getY
     let new = i16 ry-i16 src
     putC $ new < 0x100
@@ -1207,38 +1194,38 @@ step = do
         0x99 -> sta 0b110
         0x9a -> txs
         0x9d -> sta 0b111
-        0xa0 -> ldy 0b000
+        0xa0 -> ldy readImmediate
         0xa1 -> lda readIndirectX
         0xa2 -> ldx readImmediate
-        0xa4 -> ldy 0b001
+        0xa4 -> ldy readZeroPage
         0xa5 -> lda readZeroPage
         0xa6 -> ldx readZeroPage
         0xa8 -> transfer getA putY
         0xa9 -> lda readImmediate
         0xaa -> transfer getA putX
-        0xac -> ldy 0b011
+        0xac -> ldy readAbsolute
         0xad -> lda readAbsolute
         0xae -> ldx readAbsolute
         0xb0 -> bra getC True
         0xb1 -> lda readIndirectY
-        0xb4 -> ldy 0b101
+        0xb4 -> ldy readZeroPageX
         0xb5 -> lda readZeroPageX
         0xb6 -> ldx readZeroPageY
         0xb8 -> set putV False
         0xb9 -> lda readAbsoluteY
         0xba -> transfer getS putX
-        0xbc -> ldy 0b111
+        0xbc -> ldy readAbsoluteX
         0xbd -> lda readAbsoluteX
         0xbe -> ldx readAbsoluteY
-        0xc0 -> cpy 0b000
+        0xc0 -> cpy readImmediate
         0xc1 -> cmp readIndirectX
-        0xc4 -> cpy 0b001
+        0xc4 -> cpy readZeroPage
         0xc5 -> cmp readZeroPage
         0xc6 -> dec 0b001
         0xc8 -> incr getY putY
         0xc9 -> cmp readImmediate
         0xca -> decr getX putX
-        0xcc -> cpy 0b011
+        0xcc -> cpy readAbsolute
         0xcd -> cmp readAbsolute
         0xce -> dec 0b011
         0xd0 -> bra getZ False
@@ -1249,15 +1236,15 @@ step = do
         0xd9 -> cmp readAbsoluteY
         0xdd -> cmp readAbsoluteX
         0xde -> dec 0b111
-        0xe0 -> cpx 0b000
+        0xe0 -> cpx readImmediate
         0xe1 -> sbc readIndirectX
-        0xe4 -> cpx 0b001
+        0xe4 -> cpx readZeroPage
         0xe5 -> sbc readZeroPage
         0xe6 -> inc withZeroPage
         0xe8 -> incr getX putX
         0xe9 -> sbc readImmediate
         0xea -> nop
-        0xec -> cpx 0b011
+        0xec -> cpx readAbsolute
         0xed -> sbc readAbsolute
         0xee -> inc withAbsolute
         0xf0 -> bra getZ True
