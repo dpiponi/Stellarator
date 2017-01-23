@@ -808,8 +808,8 @@ op_rol mode = mode $ \src -> do
     setNZ new
 
 {-# INLINABLE op_lsr #-}
-op_lsr :: Emu6502 m => Word8 -> m ()
-op_lsr bbb = withData02 bbb False $ \src -> do
+op_lsr :: Emu6502 m => ((Word8 -> m Word8) -> m ()) -> m ()
+op_lsr mode = mode $ \src -> do
     putC $ src .&. 0x01 > 0
     let new = src `shift` (-1)
     putN False
@@ -1153,21 +1153,21 @@ step = do
         0x40 -> ins_rti
         0x41 -> op_xor readIndirectX
         0x45 -> op_xor readZeroPage
-        0x46 -> op_lsr 0b001
+        0x46 -> op_lsr withZeroPage
         0x48 -> ins_pha
         0x49 -> op_xor readImmediate
-        0x4a -> op_lsr 0b010
+        0x4a -> op_lsr withAccumulator
         0x4c -> ins_jmp
         0x4d -> op_xor readAbsolute
-        0x4e -> op_lsr 0b011
+        0x4e -> op_lsr withAbsolute
         0x50 -> ins_bra getV False
         0x51 -> op_xor readIndirectY
         0x55 -> op_xor readZeroPageX
-        0x56 -> op_lsr 0b101
+        0x56 -> op_lsr withZeroPageX
         0x58 -> ins_set putI False
         0x59 -> op_xor readAbsoluteY
         0x5d -> op_xor readAbsoluteX
-        0x5e -> op_lsr 0b111
+        0x5e -> op_lsr withAbsoluteX
         0x60 -> ins_rts
         0x61 -> op_adc 0b000
         0x65 -> op_adc 0b001
