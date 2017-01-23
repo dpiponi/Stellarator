@@ -10,9 +10,10 @@
 module Core(Emu6502(..), step, i8, i16, make16, irq, nmi) where
 --module Core where
 
+import Prelude hiding (and)
 import Data.Word
 import Control.Monad.State
-import Data.Bits
+import Data.Bits hiding (bit)
 import Numeric
 
 class (Monad m, MonadIO m) => Emu6502 m where
@@ -406,9 +407,9 @@ readAbsoluteY = do
     readMemory addrY
 
 -- 2-4 clock cycles
-{-# INLINABLE ins_bra #-}
-ins_bra :: Emu6502 m => m Bool -> Bool -> m ()
-ins_bra getFlag value = do
+{-# INLINABLE bra #-}
+bra :: Emu6502 m => m Bool -> Bool -> m ()
+bra getFlag value = do
     tick 1
     offset <- getPC >>= readMemory
     f <- getFlag
@@ -426,42 +427,42 @@ ins_bra getFlag value = do
         putPC addr
 
 -- 2 clock cycles
-{-# INLINABLE ins_set #-}
-ins_set :: Emu6502 m => (Bool -> m ()) -> Bool -> m ()
-ins_set putFlag value = do
+{-# INLINABLE set #-}
+set :: Emu6502 m => (Bool -> m ()) -> Bool -> m ()
+set putFlag value = do
     tick 1
     discard $ getPC >>= readMemory
     putFlag value
 
 -- 2 clock cycles
-{-# INLINABLE ins_nop #-}
-ins_nop :: Emu6502 m => m ()
-ins_nop = do
+{-# INLINABLE nop #-}
+nop :: Emu6502 m => m ()
+nop = do
     tick 1
     discard $ getPC >>= readMemory
 
 {-
 -- 3 clock cycles. Undocumented.
-{-# INLINABLE ins_nop #-}
-ins_dop :: Emu6502 m => m ()
-ins_nop = do
+{-# INLINABLE nop #-}
+dop :: Emu6502 m => m ()
+nop = do
     tick 1
     discard $ getPC >>= readMemory
 -}
 
 -- 3 clock cycles
-{-# INLINABLE ins_jmp #-}
-ins_jmp :: Emu6502 m => m ()
-ins_jmp = getPC >>= read16tick >>= putPC
+{-# INLINABLE jmp #-}
+jmp :: Emu6502 m => m ()
+jmp = getPC >>= read16tick >>= putPC
 
 -- 5 clock cycles
 -- NB address wraps around in page XXX
 -- Not correct here.
 -- Looks like the torture test might not catch this.
 -- Aha! That's why ALIGN is used before addresses!
-{-# INLINABLE ins_jmp_indirect #-}
-ins_jmp_indirect :: Emu6502 m => m ()
-ins_jmp_indirect = do
+{-# INLINABLE jmp_indirect #-}
+jmp_indirect :: Emu6502 m => m ()
+jmp_indirect = do
     getPC >>= read16tick >>= read16tick >>= putPC
 
 {-# INLINABLE uselessly #-}
@@ -602,6 +603,7 @@ withAbsoluteY op = do
     dst <- op src
     writeMemory addrY dst
 
+{-
 {-# INLINABLE getData01 #-}
 getData01 :: Emu6502 m => Word8 -> m Word8
 getData01 bbb = do
@@ -615,6 +617,7 @@ getData01 bbb = do
         0b110 -> readAbsoluteY
         0b111 -> readAbsoluteX
         _ -> error "Impossible"
+-}
 
 {-# INLINABLE getData02 #-}
 getData02 :: Emu6502 m =>
@@ -694,41 +697,41 @@ setNZ r = setN r >> setZ r >> return r
 setNZ_ :: Emu6502 m => Word8 -> m ()
 setNZ_ r = setN r >> setZ r
 
-{-# INLINABLE op_ora #-}
-op_ora :: Emu6502 m => m Word8 -> m ()
-op_ora mode = do
+{-# INLINABLE ora #-}
+ora :: Emu6502 m => m Word8 -> m ()
+ora mode = do
     src <- mode
     oldA <- getA
     let newA = oldA .|. src
     putA newA
     setNZ_ newA
 
-{-# INLINABLE op_and #-}
-op_and :: Emu6502 m => m Word8 -> m ()
-op_and mode = do
+{-# INLINABLE and #-}
+and :: Emu6502 m => m Word8 -> m ()
+and mode = do
     src <- mode
     getA >>= setNZ . (src .&.) >>= putA
 
-{-# INLINABLE op_eor #-}
-op_eor :: Emu6502 m => m Word8 -> m ()
-op_eor mode = do
+{-# INLINABLE eor #-}
+eor :: Emu6502 m => m Word8 -> m ()
+eor mode = do
     src <- mode
     oldA <- getA
     let newA = oldA `xor` src
     putA newA
     void $ setNZ newA
 
-{-# INLINABLE op_lda #-}
-op_lda :: Emu6502 m => m Word8 -> m ()
-op_lda mode = mode >>= setNZ >>= putA
+{-# INLINABLE lda #-}
+lda :: Emu6502 m => m Word8 -> m ()
+lda mode = mode >>= setNZ >>= putA
 
-{-# INLINABLE op_sta #-}
-op_sta :: Emu6502 m => Word8 -> m ()
-op_sta bbb = getA >>= putData01 bbb
+{-# INLINABLE sta #-}
+sta :: Emu6502 m => Word8 -> m ()
+sta bbb = getA >>= putData01 bbb
 
-{-# INLINABLE op_adc #-}
-op_adc :: Emu6502 m => m Word8 -> m ()
-op_adc mode = do
+{-# INLINABLE adc #-}
+adc :: Emu6502 m => m Word8 -> m ()
+adc mode = do
     src <- mode
     oldA <- getA
     carry <- getC
@@ -751,9 +754,9 @@ op_adc mode = do
             putC $ newA > 0xff
             putA $ fromIntegral (newA .&. 0xff)
 
-{-# INLINABLE op_sbc #-}
-op_sbc :: Emu6502 m => m Word8 -> m ()
-op_sbc mode = do
+{-# INLINABLE sbc #-}
+sbc :: Emu6502 m => m Word8 -> m ()
+sbc mode = do
     src <- mode
     oldA <- getA
     carry <- getC
@@ -775,130 +778,130 @@ op_sbc mode = do
             putA $ fromIntegral (newA .&. 0xff)
             putC $ newA < 0x100
 
-{-# INLINABLE op_cmp #-}
-op_cmp :: Emu6502 m => Word8 -> m ()
-op_cmp bbb = do
-    src <- getData01 bbb
+{-# INLINABLE cmp #-}
+cmp :: Emu6502 m => m Word8 -> m ()
+cmp mode = do
+    src <- mode
     oldA <- getA
     let new = i16 oldA-i16 src
     putC $ new < 0x100
     setNZ_ $ i8 new
 
-{-# INLINABLE op_asl #-}
+{-# INLINABLE asl #-}
 {-
-op_asl :: Emu6502 m => Word8 -> m ()
-op_asl bbb = withData02 bbb False $ \src -> do
+asl :: Emu6502 m => Word8 -> m ()
+asl bbb = withData02 bbb False $ \src -> do
     putC $ src .&. 0x80 > 0
     let new = src `shift` 1
     setNZ new
 -}
-op_asl :: Emu6502 m => ((Word8 -> m Word8) -> m ()) -> m ()
-op_asl mode = mode $ \src -> do
+asl :: Emu6502 m => ((Word8 -> m Word8) -> m ()) -> m ()
+asl mode = mode $ \src -> do
     putC $ src .&. 0x80 > 0
     let new = src `shift` 1
     setNZ new
 
-{-# INLINABLE op_rol #-}
-op_rol :: Emu6502 m => ((Word8 -> m Word8) -> m ()) -> m ()
-op_rol mode = mode $ \src -> do
+{-# INLINABLE rol #-}
+rol :: Emu6502 m => ((Word8 -> m Word8) -> m ()) -> m ()
+rol mode = mode $ \src -> do
     fc <- getC
     putC $ src .&. 0x80 > 0
     let new = (src `shift` 1) + if fc then 1 else 0
     setNZ new
 
-{-# INLINABLE op_lsr #-}
-op_lsr :: Emu6502 m => ((Word8 -> m Word8) -> m ()) -> m ()
-op_lsr mode = mode $ \src -> do
+{-# INLINABLE lsr #-}
+lsr :: Emu6502 m => ((Word8 -> m Word8) -> m ()) -> m ()
+lsr mode = mode $ \src -> do
     putC $ src .&. 0x01 > 0
     let new = src `shift` (-1)
     putN False
     setZ new
     return new
 
-{-# INLINABLE op_ror #-}
-op_ror :: Emu6502 m => Word8 -> m ()
-op_ror bbb = withData02 bbb False $ \src -> do
+{-# INLINABLE ror #-}
+ror :: Emu6502 m => Word8 -> m ()
+ror bbb = withData02 bbb False $ \src -> do
     fc <- getC
     putC $ src .&. 0x01 > 0
     let new = (src `shift` (-1))+if fc then 0x80 else 0x00
     setNZ new
 
-{-# INLINABLE op_stx #-}
-op_stx :: Emu6502 m => (Word8 -> m()) -> m ()
-op_stx mode = getX >>= mode
+{-# INLINABLE stx #-}
+stx :: Emu6502 m => (Word8 -> m()) -> m ()
+stx mode = getX >>= mode
 
-{-# INLINABLE op_ldx #-}
-op_ldx :: Emu6502 m => m Word8 -> m ()
-op_ldx mode = do
+{-# INLINABLE ldx #-}
+ldx :: Emu6502 m => m Word8 -> m ()
+ldx mode = do
     src <- mode
     putX src
     setNZ_ src
 
-{-# INLINABLE op_dec #-}
-op_dec :: Emu6502 m => Word8 -> m ()
-op_dec bbb = withData02 bbb False $ \src -> setNZ (src-1)
+{-# INLINABLE dec #-}
+dec :: Emu6502 m => Word8 -> m ()
+dec bbb = withData02 bbb False $ \src -> setNZ (src-1)
 
-{-# INLINABLE op_inc #-}
-op_inc :: Emu6502 m => ((Word8 -> m Word8) -> m ()) -> m ()
-op_inc mode = mode $ \src -> setNZ (src+1)
+{-# INLINABLE inc #-}
+inc :: Emu6502 m => ((Word8 -> m Word8) -> m ()) -> m ()
+inc mode = mode $ \src -> setNZ (src+1)
 
-{-# INLINABLE op_bit #-}
-op_bit :: Emu6502 m => m Word8 -> m ()
-op_bit mode = do
+{-# INLINABLE bit #-}
+bit :: Emu6502 m => m Word8 -> m ()
+bit mode = do
     src <- mode
     ra <- getA
     setN src
     putV $ src .&. 0x40 > 0
     setZ $ ra .&. src
 
-{-# INLINABLE op_sty #-}
-op_sty :: Emu6502 m => Word8 -> m ()
-op_sty bbb = getY >>= putData02 bbb False
+{-# INLINABLE sty #-}
+sty :: Emu6502 m => Word8 -> m ()
+sty bbb = getY >>= putData02 bbb False
 
-{-# INLINABLE op_ldy #-}
-op_ldy :: Emu6502 m => Word8 -> m ()
-op_ldy bbb = getData02 bbb False $ \src -> do
+{-# INLINABLE ldy #-}
+ldy :: Emu6502 m => Word8 -> m ()
+ldy bbb = getData02 bbb False $ \src -> do
     putY src
     setNZ_ src
 
-{-# INLINABLE op_cpx #-}
-op_cpx :: Emu6502 m => Word8 -> m ()
-op_cpx bbb = getData02 bbb False $ \src -> do
+{-# INLINABLE cpx #-}
+cpx :: Emu6502 m => Word8 -> m ()
+cpx bbb = getData02 bbb False $ \src -> do
     rx <- getX
     let new = i16 rx-i16 src
     discard $ setNZ $ i8 new
     putC $ new < 0x100
 
-{-# INLINABLE op_cpy #-}
-op_cpy :: Emu6502 m => Word8 -> m ()
-op_cpy bbb = getData02 bbb False $ \src -> do
+{-# INLINABLE cpy #-}
+cpy :: Emu6502 m => Word8 -> m ()
+cpy bbb = getData02 bbb False $ \src -> do
     ry <- getY
     let new = i16 ry-i16 src
     putC $ new < 0x100
     setNZ_ $ i8 new
 
 -- 2 clock cycles
-{-# INLINABLE ins_txs #-}
-ins_txs :: Emu6502 m => m ()
-ins_txs = do
+{-# INLINABLE txs #-}
+txs :: Emu6502 m => m ()
+txs = do
     tick 1
     discard $ getPC >>= readMemory
     getX >>= putS
 
 -- 2 clock cycles
-{-# INLINABLE ins_transfer #-}
-ins_transfer :: Emu6502 m =>
+{-# INLINABLE transfer #-}
+transfer :: Emu6502 m =>
                      m Word8 -> (Word8 -> m ()) ->
                      m ()
-ins_transfer getReg putReg = do
+transfer getReg putReg = do
     tick 1
     discard $ getPC >>= readMemory
     getReg >>= setNZ >>= putReg
 
 -- 2 clock cycles
-{-# INLINABLE ins_incr #-}
-ins_incr :: Emu6502 m => m Word8 -> (Word8 -> m ()) -> m ()
-ins_incr getReg putReg = do
+{-# INLINABLE incr #-}
+incr :: Emu6502 m => m Word8 -> (Word8 -> m ()) -> m ()
+incr getReg putReg = do
     tick 1
     discard $ getPC >>= readMemory
     v0 <- getReg
@@ -907,9 +910,9 @@ ins_incr getReg putReg = do
     putReg v1
 
 -- 2 clock cycles
-{-# INLINABLE ins_decr #-}
-ins_decr :: Emu6502 m => m Word8 -> (Word8 -> m ()) -> m ()
-ins_decr getReg putReg = do
+{-# INLINABLE decr #-}
+decr :: Emu6502 m => m Word8 -> (Word8 -> m ()) -> m ()
+decr getReg putReg = do
     tick 1
     discard $ getPC >>= readMemory
     v0 <- getReg
@@ -921,9 +924,9 @@ discard :: Emu6502 m => m Word8 -> m ()
 discard = void
 
 -- 7 clock cycles
-{-# INLINABLE ins_brk #-}
-ins_brk :: Emu6502 m => m ()
-ins_brk = do
+{-# INLINABLE brk #-}
+brk :: Emu6502 m => m ()
+brk = do
     tick 1
     p0 <- getPC
     incPC
@@ -972,9 +975,9 @@ pull = do
     readMemory (0x100+i16 sp')
 
 -- 3 clock cycles
-{-# INLINABLE ins_pha #-}
-ins_pha ::Emu6502 m => m ()
-ins_pha = do
+{-# INLINABLE pha #-}
+pha ::Emu6502 m => m ()
+pha = do
     tick 1
     discard $ getPC >>= readMemory
 
@@ -982,9 +985,9 @@ ins_pha = do
     getA >>= push
 
 -- 3 clock cycles
-{-# INLINABLE ins_php #-}
-ins_php :: Emu6502 m => m ()
-ins_php = do
+{-# INLINABLE php #-}
+php :: Emu6502 m => m ()
+php = do
     tick 1
     discard $ getPC >>= readMemory
 
@@ -992,9 +995,9 @@ ins_php = do
     getP >>= push . (.|. 0x30)
 
 -- 4 clock cycles
-{-# INLINABLE ins_plp #-}
-ins_plp :: Emu6502 m => m ()
-ins_plp = do
+{-# INLINABLE plp #-}
+plp :: Emu6502 m => m ()
+plp = do
     tick 1
     p0 <- getPC
     discard $ readMemory p0
@@ -1007,9 +1010,9 @@ ins_plp = do
     pull >>= putP
 
 -- 4 clock cycles
-{-# INLINABLE ins_pla #-}
-ins_pla :: Emu6502 m => m ()
-ins_pla = do
+{-# INLINABLE pla #-}
+pla :: Emu6502 m => m ()
+pla = do
     tick 1
     p0 <- getPC
     discard $ readMemory p0
@@ -1042,9 +1045,9 @@ nmi sw = do
     tick 7
 
 -- 6 clock cycles
-{-# INLINABLE ins_rti #-}
-ins_rti :: Emu6502 m => m ()
-ins_rti = do
+{-# INLINABLE rti #-}
+rti :: Emu6502 m => m ()
+rti = do
     tick 1
     p0 <- getPC
     void $ readMemory p0
@@ -1059,9 +1062,9 @@ ins_rti = do
     make16 <$> (tick 1 >> pull) <*> (tick 1 >> pull) >>= putPC
 
 -- 6 clock cycles
-{-# INLINABLE ins_jsr #-}
-ins_jsr :: Emu6502 m => m ()
-ins_jsr = do
+{-# INLINABLE jsr #-}
+jsr :: Emu6502 m => m ()
+jsr = do
     tick 1
     p0 <- getPC
     pcl <- readMemory p0
@@ -1085,9 +1088,9 @@ ins_jsr = do
     putPC $ make16 pcl pch
 
 -- 6 clock cycles
-{-# INLINABLE ins_rts #-}
-ins_rts :: Emu6502 m => m ()
-ins_rts = do
+{-# INLINABLE rts #-}
+rts :: Emu6502 m => m ()
+rts = do
     tick 1
     discard $ getPC >>= readMemory
 
@@ -1113,158 +1116,158 @@ step = do
     i <- readMemory p0
     incPC
     case i of
-        0x00 -> ins_brk
-        0x01 -> op_ora readIndirectX
+        0x00 -> brk
+        0x01 -> ora readIndirectX
         0x04 -> void $ readZeroPage -- XXX undocumented "DOP" nop
-        0x05 -> op_ora readZeroPage
-        0x06 -> op_asl withZeroPage
-        0x08 -> ins_php
-        0x09 -> op_ora readImmediate
-        0x0a -> op_asl withAccumulator
-        0x0d -> op_ora readAbsolute
-        0x0e -> op_asl withAbsolute
-        0x10 -> ins_bra getN False
-        0x11 -> op_ora readIndirectY
-        0x15 -> op_ora readZeroPageX
-        0x16 -> op_asl withZeroPageX
-        0x18 -> ins_set putC False
-        0x19 -> op_ora readAbsoluteY
-        0x1d -> op_ora readAbsoluteX
-        0x1e -> op_asl withAbsoluteX
-        0x20 -> ins_jsr
-        0x21 -> op_and readIndirectX
-        0x24 -> op_bit readZeroPage
-        0x25 -> op_and readZeroPage
-        0x26 -> op_rol withZeroPage
-        0x28 -> ins_plp
-        0x29 -> op_and readImmediate
-        0x2a -> op_rol withAccumulator
-        0x2c -> op_bit readAbsolute
-        0x2d -> op_and readAbsolute
-        0x2e -> op_rol withAbsolute
-        0x30 -> ins_bra getN True
-        0x31 -> op_and readIndirectY
-        0x35 -> op_and readZeroPageX
-        0x36 -> op_rol withZeroPageX
-        0x38 -> ins_set putC True
-        0x39 -> op_and readAbsoluteY
-        0x3d -> op_and readAbsoluteX
-        0x3e -> op_rol withAbsoluteX
-        0x40 -> ins_rti
-        0x41 -> op_eor readIndirectX
-        0x45 -> op_eor readZeroPage
-        0x46 -> op_lsr withZeroPage
-        0x48 -> ins_pha
-        0x49 -> op_eor readImmediate
-        0x4a -> op_lsr withAccumulator
-        0x4c -> ins_jmp
-        0x4d -> op_eor readAbsolute
-        0x4e -> op_lsr withAbsolute
-        0x50 -> ins_bra getV False
-        0x51 -> op_eor readIndirectY
-        0x55 -> op_eor readZeroPageX
-        0x56 -> op_lsr withZeroPageX
-        0x58 -> ins_set putI False
-        0x59 -> op_eor readAbsoluteY
-        0x5d -> op_eor readAbsoluteX
-        0x5e -> op_lsr withAbsoluteX
-        0x60 -> ins_rts
-        0x61 -> op_adc readIndirectX
-        0x65 -> op_adc readZeroPage
-        0x66 -> op_ror 0b001
-        0x68 -> ins_pla
-        0x69 -> op_adc readImmediate
-        0x6a -> op_ror 0b010
-        0x6c -> ins_jmp_indirect
-        0x6d -> op_adc readAbsolute
-        0x6e -> op_ror 0b011
-        0x70 -> ins_bra getV True
-        0x71 -> op_adc readIndirectY
-        0x75 -> op_adc readZeroPageX
-        0x76 -> op_ror 0b101
-        0x78 -> ins_set putI True
-        0x79 -> op_adc readAbsoluteY
-        0x7d -> op_adc readAbsoluteX
-        0x7e -> op_ror 0b111
-        0x81 -> op_sta 0b000
-        0x84 -> op_sty 0b001
-        0x85 -> op_sta 0b001
-        0x86 -> op_stx writeZeroPage
-        0x88 -> ins_decr getY putY
-        0x8a -> ins_transfer getX putA
-        0x8c -> op_sty 0b011
-        0x8d -> op_sta 0b011
-        0x8e -> op_stx writeAbsolute
-        0x90 -> ins_bra getC False
-        0x91 -> op_sta 0b100
-        0x94 -> op_sty 0b101
-        0x95 -> op_sta 0b101
-        0x96 -> op_stx writeZeroPageY
-        0x98 -> ins_transfer getY putA
-        0x99 -> op_sta 0b110
-        0x9a -> ins_txs
-        0x9d -> op_sta 0b111
-        0xa0 -> op_ldy 0b000
-        0xa1 -> op_lda readIndirectX
-        0xa2 -> op_ldx readImmediate
-        0xa4 -> op_ldy 0b001
-        0xa5 -> op_lda readZeroPage
-        0xa6 -> op_ldx readZeroPage
-        0xa8 -> ins_transfer getA putY
-        0xa9 -> op_lda readImmediate
-        0xaa -> ins_transfer getA putX
-        0xac -> op_ldy 0b011
-        0xad -> op_lda readAbsolute
-        0xae -> op_ldx readAbsolute
-        0xb0 -> ins_bra getC True
-        0xb1 -> op_lda readIndirectY
-        0xb4 -> op_ldy 0b101
-        0xb5 -> op_lda readZeroPageX
-        0xb6 -> op_ldx readZeroPageY
-        0xb8 -> ins_set putV False
-        0xb9 -> op_lda readAbsoluteY
-        0xba -> ins_transfer getS putX
-        0xbc -> op_ldy 0b111
-        0xbd -> op_lda readAbsoluteX
-        0xbe -> op_ldx readAbsoluteY
-        0xc0 -> op_cpy 0b000
-        0xc1 -> op_cmp 0b000
-        0xc4 -> op_cpy 0b001
-        0xc5 -> op_cmp 0b001
-        0xc6 -> op_dec 0b001
-        0xc8 -> ins_incr getY putY
-        0xc9 -> op_cmp 0b010
-        0xca -> ins_decr getX putX
-        0xcc -> op_cpy 0b011
-        0xcd -> op_cmp 0b011
-        0xce -> op_dec 0b011
-        0xd0 -> ins_bra getZ False
-        0xd1 -> op_cmp 0b100
-        0xd5 -> op_cmp 0b101
-        0xd6 -> op_dec 0b101
-        0xd8 -> ins_set putD False
-        0xd9 -> op_cmp 0b110
-        0xdd -> op_cmp 0b111
-        0xde -> op_dec 0b111
-        0xe0 -> op_cpx 0b000
-        0xe1 -> op_sbc readIndirectX
-        0xe4 -> op_cpx 0b001
-        0xe5 -> op_sbc readZeroPage
-        0xe6 -> op_inc withZeroPage
-        0xe8 -> ins_incr getX putX
-        0xe9 -> op_sbc readImmediate
-        0xea -> ins_nop
-        0xec -> op_cpx 0b011
-        0xed -> op_sbc readAbsolute
-        0xee -> op_inc withAbsolute
-        0xf0 -> ins_bra getZ True
-        0xf1 -> op_sbc readIndirectY
-        0xf5 -> op_sbc readZeroPageX
-        0xf6 -> op_inc withZeroPageX
-        0xf8 -> ins_set putD True
-        0xf9 -> op_sbc readAbsoluteY
-        0xfd -> op_sbc readAbsoluteX
-        0xfe -> op_inc withAbsoluteX
+        0x05 -> ora readZeroPage
+        0x06 -> asl withZeroPage
+        0x08 -> php
+        0x09 -> ora readImmediate
+        0x0a -> asl withAccumulator
+        0x0d -> ora readAbsolute
+        0x0e -> asl withAbsolute
+        0x10 -> bra getN False
+        0x11 -> ora readIndirectY
+        0x15 -> ora readZeroPageX
+        0x16 -> asl withZeroPageX
+        0x18 -> set putC False
+        0x19 -> ora readAbsoluteY
+        0x1d -> ora readAbsoluteX
+        0x1e -> asl withAbsoluteX
+        0x20 -> jsr
+        0x21 -> and readIndirectX
+        0x24 -> bit readZeroPage
+        0x25 -> and readZeroPage
+        0x26 -> rol withZeroPage
+        0x28 -> plp
+        0x29 -> and readImmediate
+        0x2a -> rol withAccumulator
+        0x2c -> bit readAbsolute
+        0x2d -> and readAbsolute
+        0x2e -> rol withAbsolute
+        0x30 -> bra getN True
+        0x31 -> and readIndirectY
+        0x35 -> and readZeroPageX
+        0x36 -> rol withZeroPageX
+        0x38 -> set putC True
+        0x39 -> and readAbsoluteY
+        0x3d -> and readAbsoluteX
+        0x3e -> rol withAbsoluteX
+        0x40 -> rti
+        0x41 -> eor readIndirectX
+        0x45 -> eor readZeroPage
+        0x46 -> lsr withZeroPage
+        0x48 -> pha
+        0x49 -> eor readImmediate
+        0x4a -> lsr withAccumulator
+        0x4c -> jmp
+        0x4d -> eor readAbsolute
+        0x4e -> lsr withAbsolute
+        0x50 -> bra getV False
+        0x51 -> eor readIndirectY
+        0x55 -> eor readZeroPageX
+        0x56 -> lsr withZeroPageX
+        0x58 -> set putI False
+        0x59 -> eor readAbsoluteY
+        0x5d -> eor readAbsoluteX
+        0x5e -> lsr withAbsoluteX
+        0x60 -> rts
+        0x61 -> adc readIndirectX
+        0x65 -> adc readZeroPage
+        0x66 -> ror 0b001
+        0x68 -> pla
+        0x69 -> adc readImmediate
+        0x6a -> ror 0b010
+        0x6c -> jmp_indirect
+        0x6d -> adc readAbsolute
+        0x6e -> ror 0b011
+        0x70 -> bra getV True
+        0x71 -> adc readIndirectY
+        0x75 -> adc readZeroPageX
+        0x76 -> ror 0b101
+        0x78 -> set putI True
+        0x79 -> adc readAbsoluteY
+        0x7d -> adc readAbsoluteX
+        0x7e -> ror 0b111
+        0x81 -> sta 0b000
+        0x84 -> sty 0b001
+        0x85 -> sta 0b001
+        0x86 -> stx writeZeroPage
+        0x88 -> decr getY putY
+        0x8a -> transfer getX putA
+        0x8c -> sty 0b011
+        0x8d -> sta 0b011
+        0x8e -> stx writeAbsolute
+        0x90 -> bra getC False
+        0x91 -> sta 0b100
+        0x94 -> sty 0b101
+        0x95 -> sta 0b101
+        0x96 -> stx writeZeroPageY
+        0x98 -> transfer getY putA
+        0x99 -> sta 0b110
+        0x9a -> txs
+        0x9d -> sta 0b111
+        0xa0 -> ldy 0b000
+        0xa1 -> lda readIndirectX
+        0xa2 -> ldx readImmediate
+        0xa4 -> ldy 0b001
+        0xa5 -> lda readZeroPage
+        0xa6 -> ldx readZeroPage
+        0xa8 -> transfer getA putY
+        0xa9 -> lda readImmediate
+        0xaa -> transfer getA putX
+        0xac -> ldy 0b011
+        0xad -> lda readAbsolute
+        0xae -> ldx readAbsolute
+        0xb0 -> bra getC True
+        0xb1 -> lda readIndirectY
+        0xb4 -> ldy 0b101
+        0xb5 -> lda readZeroPageX
+        0xb6 -> ldx readZeroPageY
+        0xb8 -> set putV False
+        0xb9 -> lda readAbsoluteY
+        0xba -> transfer getS putX
+        0xbc -> ldy 0b111
+        0xbd -> lda readAbsoluteX
+        0xbe -> ldx readAbsoluteY
+        0xc0 -> cpy 0b000
+        0xc1 -> cmp readIndirectX
+        0xc4 -> cpy 0b001
+        0xc5 -> cmp readZeroPage
+        0xc6 -> dec 0b001
+        0xc8 -> incr getY putY
+        0xc9 -> cmp readImmediate
+        0xca -> decr getX putX
+        0xcc -> cpy 0b011
+        0xcd -> cmp readAbsolute
+        0xce -> dec 0b011
+        0xd0 -> bra getZ False
+        0xd1 -> cmp readIndirectY
+        0xd5 -> cmp readZeroPageX
+        0xd6 -> dec 0b101
+        0xd8 -> set putD False
+        0xd9 -> cmp readAbsoluteY
+        0xdd -> cmp readAbsoluteX
+        0xde -> dec 0b111
+        0xe0 -> cpx 0b000
+        0xe1 -> sbc readIndirectX
+        0xe4 -> cpx 0b001
+        0xe5 -> sbc readZeroPage
+        0xe6 -> inc withZeroPage
+        0xe8 -> incr getX putX
+        0xe9 -> sbc readImmediate
+        0xea -> nop
+        0xec -> cpx 0b011
+        0xed -> sbc readAbsolute
+        0xee -> inc withAbsolute
+        0xf0 -> bra getZ True
+        0xf1 -> sbc readIndirectY
+        0xf5 -> sbc readZeroPageX
+        0xf6 -> inc withZeroPageX
+        0xf8 -> set putD True
+        0xf9 -> sbc readAbsoluteY
+        0xfd -> sbc readAbsoluteX
+        0xfe -> inc withAbsoluteX
 
         _ -> illegal i
 
