@@ -839,8 +839,8 @@ op_dec :: Emu6502 m => Word8 -> m ()
 op_dec bbb = withData02 bbb False $ \src -> setNZ (src-1)
 
 {-# INLINABLE op_inc #-}
-op_inc :: Emu6502 m => Word8 -> m ()
-op_inc bbb = withData02 bbb False $ \src -> setNZ (src+1)
+op_inc :: Emu6502 m => ((Word8 -> m Word8) -> m ()) -> m ()
+op_inc mode = mode $ \src -> setNZ (src+1)
 
 {-# INLINABLE op_bit #-}
 op_bit :: Emu6502 m => m Word8 -> m ()
@@ -1250,21 +1250,21 @@ step = do
         0xe1 -> op_sbc 0b000
         0xe4 -> op_cpx 0b001
         0xe5 -> op_sbc 0b001
-        0xe6 -> op_inc 0b001
+        0xe6 -> op_inc withZeroPage
         0xe8 -> ins_incr getX putX
         0xe9 -> op_sbc 0b010
         0xea -> ins_nop
         0xec -> op_cpx 0b011
         0xed -> op_sbc 0b011
-        0xee -> op_inc 0b011
+        0xee -> op_inc withAbsolute
         0xf0 -> ins_bra getZ True
         0xf1 -> op_sbc 0b100
         0xf5 -> op_sbc 0b101
-        0xf6 -> op_inc 0b101
+        0xf6 -> op_inc withZeroPageX
         0xf8 -> ins_set putD True
         0xf9 -> op_sbc 0b110
         0xfd -> op_sbc 0b111
-        0xfe -> op_inc 0b111
+        0xfe -> op_inc withAbsoluteX
 
         _ -> illegal i
 
