@@ -709,9 +709,9 @@ op_and mode = do
     src <- mode
     getA >>= setNZ . (src .&.) >>= putA
 
-{-# INLINABLE op_xor #-}
-op_xor :: Emu6502 m => m Word8 -> m ()
-op_xor mode = do
+{-# INLINABLE op_eor #-}
+op_eor :: Emu6502 m => m Word8 -> m ()
+op_eor mode = do
     src <- mode
     oldA <- getA
     let newA = oldA `xor` src
@@ -829,8 +829,9 @@ op_stx :: Emu6502 m => (Word8 -> m()) -> m ()
 op_stx mode = getX >>= mode
 
 {-# INLINABLE op_ldx #-}
-op_ldx :: Emu6502 m => Word8 -> m ()
-op_ldx bbb = getData02 bbb True $ \src -> do
+op_ldx :: Emu6502 m => m Word8 -> m ()
+op_ldx mode = do
+    src <- mode
     putX src
     setNZ_ src
 
@@ -1151,22 +1152,22 @@ step = do
         0x3d -> op_and readAbsoluteX
         0x3e -> op_rol withAbsoluteX
         0x40 -> ins_rti
-        0x41 -> op_xor readIndirectX
-        0x45 -> op_xor readZeroPage
+        0x41 -> op_eor readIndirectX
+        0x45 -> op_eor readZeroPage
         0x46 -> op_lsr withZeroPage
         0x48 -> ins_pha
-        0x49 -> op_xor readImmediate
+        0x49 -> op_eor readImmediate
         0x4a -> op_lsr withAccumulator
         0x4c -> ins_jmp
-        0x4d -> op_xor readAbsolute
+        0x4d -> op_eor readAbsolute
         0x4e -> op_lsr withAbsolute
         0x50 -> ins_bra getV False
-        0x51 -> op_xor readIndirectY
-        0x55 -> op_xor readZeroPageX
+        0x51 -> op_eor readIndirectY
+        0x55 -> op_eor readZeroPageX
         0x56 -> op_lsr withZeroPageX
         0x58 -> ins_set putI False
-        0x59 -> op_xor readAbsoluteY
-        0x5d -> op_xor readAbsoluteX
+        0x59 -> op_eor readAbsoluteY
+        0x5d -> op_eor readAbsoluteX
         0x5e -> op_lsr withAbsoluteX
         0x60 -> ins_rts
         0x61 -> op_adc readIndirectX
@@ -1206,27 +1207,27 @@ step = do
         0x9d -> op_sta 0b111
         0xa0 -> op_ldy 0b000
         0xa1 -> op_lda 0b000
-        0xa2 -> op_ldx 0b000
+        0xa2 -> op_ldx readImmediate
         0xa4 -> op_ldy 0b001
         0xa5 -> op_lda 0b001
-        0xa6 -> op_ldx 0b001
+        0xa6 -> op_ldx readZeroPage
         0xa8 -> ins_transfer getA putY
         0xa9 -> op_lda 0b010
         0xaa -> ins_transfer getA putX
         0xac -> op_ldy 0b011
         0xad -> op_lda 0b011
-        0xae -> op_ldx 0b011
+        0xae -> op_ldx readAbsolute
         0xb0 -> ins_bra getC True
         0xb1 -> op_lda 0b100
         0xb4 -> op_ldy 0b101
         0xb5 -> op_lda 0b101
-        0xb6 -> op_ldx 0b101
+        0xb6 -> op_ldx readZeroPageY
         0xb8 -> ins_set putV False
         0xb9 -> op_lda 0b110
         0xba -> ins_transfer getS putX
         0xbc -> op_ldy 0b111
         0xbd -> op_lda 0b111
-        0xbe -> op_ldx 0b111
+        0xbe -> op_ldx readAbsoluteY
         0xc0 -> op_cpy 0b000
         0xc1 -> op_cmp 0b000
         0xc4 -> op_cpy 0b001
@@ -1268,56 +1269,5 @@ step = do
 
         _ -> illegal i
 
-{-
-        _ -> do
-            let cc = i .&. 0b11
-            case cc of
-                0b00 -> do
-                    let aaa = (i `shift` (-5)) .&. 0b111
-                    let bbb = (i `shift` (-2)) .&. 0b111
-                    case aaa of
-                        0b001 -> op_bit bbb
-                        0b010 -> ins_jmp
-                        0b011 -> ins_jmp_indirect
-                        0b100 -> op_sty bbb
-                        0b101 -> op_ldy bbb
-                        0b110 -> op_cpy bbb
-                        0b111 -> op_cpx bbb
-
-                        _ -> illegal i
-
-                0b01 -> do
-                    let aaa = (i `shift` (-5)) .&. 0b111
-                    let bbb = (i `shift` (-2)) .&. 0b111
-                    case aaa of
-
-                        0b000 -> op_ora bbb
-                        0b001 -> op_and bbb
-                        0b010 -> op_xor bbb
-                        0b011 -> op_adc bbb
-                        0b100 -> op_sta bbb
-                        0b101 -> op_lda bbb
-                        0b110 -> op_cmp bbb
-                        0b111 -> op_sbc bbb
-
-                        _ -> error "Impossible"
-                0b10 -> do
-                    let aaa = (i `shift` (-5)) .&. 0b111
-                    let bbb = (i `shift` (-2)) .&. 0b111
-                    case aaa of
-
-                        0b000 -> op_asl bbb
-                        0b001 -> op_rol bbb
-                        0b010 -> op_lsr bbb
-                        0b011 -> op_ror bbb
-                        0b100 -> op_stx bbb
-                        0b101 -> op_ldx bbb
-                        0b110 -> op_dec bbb
-                        0b111 -> op_inc bbb
-
-                        _ -> error "Impossible"
-
-                _ -> illegal i
-    -}
     dumpState
     return ()
