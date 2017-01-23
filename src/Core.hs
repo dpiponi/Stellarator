@@ -843,8 +843,9 @@ op_inc :: Emu6502 m => Word8 -> m ()
 op_inc bbb = withData02 bbb False $ \src -> setNZ (src+1)
 
 {-# INLINABLE op_bit #-}
-op_bit :: Emu6502 m => Word8 -> m ()
-op_bit bbb = getData02 bbb False $ \src -> do
+op_bit :: Emu6502 m => m Word8 -> m ()
+op_bit mode = do
+    src <- mode
     ra <- getA
     setN src
     putV $ src .&. 0x40 > 0
@@ -1132,13 +1133,13 @@ step = do
         0x1e -> op_asl withAbsoluteX
         0x20 -> ins_jsr
         0x21 -> op_and readIndirectX
-        0x24 -> op_bit 0b001
+        0x24 -> op_bit readZeroPage
         0x25 -> op_and readZeroPage
         0x26 -> op_rol 0b001
         0x28 -> ins_plp
         0x29 -> op_and readImmediate
         0x2a -> op_rol 0b010
-        0x2c -> op_bit 0b011
+        0x2c -> op_bit readAbsolute
         0x2d -> op_and readAbsolute
         0x2e -> op_rol 0b011
         0x30 -> ins_bra getN True
