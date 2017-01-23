@@ -710,9 +710,9 @@ op_and mode = do
     getA >>= setNZ . (src .&.) >>= putA
 
 {-# INLINABLE op_xor #-}
-op_xor :: Emu6502 m => Word8 -> m ()
-op_xor bbb = do
-    src <- getData01 bbb
+op_xor :: Emu6502 m => m Word8 -> m ()
+op_xor mode = do
+    src <- mode
     oldA <- getA
     let newA = oldA `xor` src
     putA newA
@@ -800,8 +800,8 @@ op_asl mode = mode $ \src -> do
     setNZ new
 
 {-# INLINABLE op_rol #-}
-op_rol :: Emu6502 m => Word8 -> m ()
-op_rol bbb = withData02 bbb False $ \src -> do
+op_rol :: Emu6502 m => ((Word8 -> m Word8) -> m ()) -> m ()
+op_rol mode = mode $ \src -> do
     fc <- getC
     putC $ src .&. 0x80 > 0
     let new = (src `shift` 1) + if fc then 1 else 0
@@ -1135,38 +1135,38 @@ step = do
         0x21 -> op_and readIndirectX
         0x24 -> op_bit readZeroPage
         0x25 -> op_and readZeroPage
-        0x26 -> op_rol 0b001
+        0x26 -> op_rol withZeroPage
         0x28 -> ins_plp
         0x29 -> op_and readImmediate
-        0x2a -> op_rol 0b010
+        0x2a -> op_rol withAccumulator
         0x2c -> op_bit readAbsolute
         0x2d -> op_and readAbsolute
-        0x2e -> op_rol 0b011
+        0x2e -> op_rol withAbsolute
         0x30 -> ins_bra getN True
         0x31 -> op_and readIndirectY
         0x35 -> op_and readZeroPageX
-        0x36 -> op_rol 0b101
+        0x36 -> op_rol withZeroPageX
         0x38 -> ins_set putC True
         0x39 -> op_and readAbsoluteY
         0x3d -> op_and readAbsoluteX
-        0x3e -> op_rol 0b111
+        0x3e -> op_rol withAbsoluteX
         0x40 -> ins_rti
-        0x41 -> op_xor 0b000
-        0x45 -> op_xor 0b001
+        0x41 -> op_xor readIndirectX
+        0x45 -> op_xor readZeroPage
         0x46 -> op_lsr 0b001
         0x48 -> ins_pha
-        0x49 -> op_xor 0b010
+        0x49 -> op_xor readImmediate
         0x4a -> op_lsr 0b010
         0x4c -> ins_jmp
-        0x4d -> op_xor 0b011
+        0x4d -> op_xor readAbsolute
         0x4e -> op_lsr 0b011
         0x50 -> ins_bra getV False
-        0x51 -> op_xor 0b100
-        0x55 -> op_xor 0b101
+        0x51 -> op_xor readIndirectY
+        0x55 -> op_xor readZeroPageX
         0x56 -> op_lsr 0b101
         0x58 -> ins_set putI False
-        0x59 -> op_xor 0b110
-        0x5d -> op_xor 0b111
+        0x59 -> op_xor readAbsoluteY
+        0x5d -> op_xor readAbsoluteX
         0x5e -> op_lsr 0b111
         0x60 -> ins_rts
         0x61 -> op_adc 0b000
