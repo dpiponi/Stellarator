@@ -603,6 +603,7 @@ withAbsoluteY op = do
     dst <- op src
     writeMemory addrY dst
 
+{-
 {-# INLINABLE getData02 #-}
 getData02 :: Emu6502 m =>
               Word8 -> Bool ->
@@ -621,6 +622,7 @@ getData02 bbb useY op = case bbb of
             else readAbsoluteX >>= op
 
     _ -> error "Unknown addressing mode"
+-}
 
 -- Need to separate W and (RW/R) XXX XXX XXX
 {-# INLINABLE withData02 #-}
@@ -638,6 +640,7 @@ withData02 bbb useY op = case bbb of
 
     _ -> error "Unknown addressing mode"
 
+{-
 {-# INLINABLE putData02 #-}
 putData02 :: Emu6502 m => Word8 -> Bool -> Word8 -> m ()
 putData02 bbb useY src = case bbb of
@@ -649,6 +652,7 @@ putData02 bbb useY src = case bbb of
     0b111 -> if useY then writeAbsoluteY src else writeAbsoluteX src
 
     _ -> error "Unknown addressing mode"
+-}
 
 {-# INLINABLE putData01 #-}
 putData01 :: Emu6502 m => Word8 -> Word8 -> m ()
@@ -839,8 +843,8 @@ bit mode = do
     setZ $ ra .&. src
 
 {-# INLINABLE sty #-}
-sty :: Emu6502 m => Word8 -> m ()
-sty bbb = getY >>= putData02 bbb False
+sty :: Emu6502 m => (Word8 -> m ()) -> m ()
+sty mode = getY >>= mode
 
 {-# INLINABLE ldy #-}
 ldy :: Emu6502 m => m Word8 -> m ()
@@ -1177,17 +1181,17 @@ step = do
         0x7d -> adc readAbsoluteX
         0x7e -> ror 0b111
         0x81 -> sta 0b000
-        0x84 -> sty 0b001
+        0x84 -> sty writeZeroPage
         0x85 -> sta 0b001
         0x86 -> stx writeZeroPage
         0x88 -> decr getY putY
         0x8a -> transfer getX putA
-        0x8c -> sty 0b011
+        0x8c -> sty writeAbsolute
         0x8d -> sta 0b011
         0x8e -> stx writeAbsolute
         0x90 -> bra getC False
         0x91 -> sta 0b100
-        0x94 -> sty 0b101
+        0x94 -> sty writeZeroPageX
         0x95 -> sta 0b101
         0x96 -> stx writeZeroPageY
         0x98 -> transfer getY putA
