@@ -1229,6 +1229,7 @@ step = do
         0xcd -> op_cmp 0b011
         0xce -> op_dec 0b011
         0xd0 -> ins_bra getZ False
+        0xd1 -> op_cmp 0b100
         0xd5 -> op_cmp 0b101
         0xd6 -> op_dec 0b101
         0xd8 -> ins_set putD False
@@ -1247,6 +1248,7 @@ step = do
         0xed -> op_sbc 0b011
         0xee -> op_inc 0b011
         0xf0 -> ins_bra getZ True
+        0xf1 -> op_sbc 0b100
         0xf5 -> op_sbc 0b101
         0xf6 -> op_inc 0b101
         0xf8 -> ins_set putD True
