@@ -532,28 +532,6 @@ withZeroPageX op = do
     dst <- op src
     writeMemory (i16 addrX) dst
     incPC
-
--- 6 clock cycles
-withZeroPageY :: Emu6502 m => (Word8 -> m Word8) -> m ()
-withZeroPageY op = do
-    tick 1
-    index <- getY
-    addr <- getPC >>= readMemory
-    let addrY = addr+index
-
-    tick 1
-    discard $ readMemory (i16 addr)
-
-    tick 1
-    src <- readMemory (i16 addrY)
-
-    tick 1
-    writeMemory (i16 addrY) src
-
-    tick 1
-    dst <- op src
-    writeMemory (i16 addrY) dst
-    incPC
  
 -- 7 clock cycles
 {-# INLINE withAbsoluteX #-}
@@ -578,96 +556,6 @@ withAbsoluteX op = do
     addPC 2
     dst <- op src
     writeMemory addrX dst
-
--- 7 clock cycles
-{-# INLINE withAbsoluteY #-}
-withAbsoluteY :: Emu6502 m => (Word8 -> m Word8) -> m ()
-withAbsoluteY op = do
-    p0 <- getPC
-    index <- getY
-    addr <- read16tick p0
-
-    let (halfAddrY, addrY) = halfSum addr index
-
-    tick 1
-    discard $ readMemory halfAddrY
-
-    tick 1
-    src <- readMemory addrY
-
-    tick 1
-    uselessly $ writeMemory addrY src
-
-    tick 1
-    addPC 2
-    dst <- op src
-    writeMemory addrY dst
-
-{-
-{-# INLINABLE getData02 #-}
-getData02 :: Emu6502 m =>
-              Word8 -> Bool ->
-              (Word8 -> m ()) ->
-              m ()
-getData02 bbb useY op = case bbb of
-    0b000 -> readImmediate >>= op
-    0b001 -> readZeroPage >>= op
-    0b010 -> error "Must write back to A"
-    0b011 -> readAbsolute >>= op
-    0b101 -> if useY
-                then readZeroPageY >>= op
-                else readZeroPageX >>= op
-    0b111 -> if useY
-            then readAbsoluteY >>= op
-            else readAbsoluteX >>= op
-
-    _ -> error "Unknown addressing mode"
--}
-
--- Need to separate W and (RW/R) XXX XXX XXX
-{-# INLINABLE withData02 #-}
-withData02 :: Emu6502 m =>
-              Word8 -> Bool ->
-              (Word8 -> m Word8) ->
-              m ()
-withData02 bbb useY op = case bbb of
-    0b000 -> getPC >>= readMemory . ((-) 1) >>= illegal -- XXX reread mem. Should check in caller.
-    0b001 -> withZeroPage op
-    0b010 -> withAccumulator op
-    0b011 -> withAbsolute op
-    0b101 -> if useY then withZeroPageY op else withZeroPageX op
-    0b111 -> if useY then withAbsoluteY op else withAbsoluteX op
-
-    _ -> error "Unknown addressing mode"
-
-{-
-{-# INLINABLE putData02 #-}
-putData02 :: Emu6502 m => Word8 -> Bool -> Word8 -> m ()
-putData02 bbb useY src = case bbb of
-    0b000 -> error "No write immediate"
-    0b001 -> writeZeroPage src
-    0b010 -> error "No write accumulator"
-    0b011 -> writeAbsolute src
-    0b101 -> if useY then writeZeroPageY src else writeZeroPageX src
-    0b111 -> if useY then writeAbsoluteY src else writeAbsoluteX src
-
-    _ -> error "Unknown addressing mode"
--}
-
-{-# INLINABLE putData01 #-}
-putData01 :: Emu6502 m => Word8 -> Word8 -> m ()
-putData01 bbb src = do
-    p0 <- getPC
-    case bbb of
-        0b000 -> writeIndirectX src -- (zero page, X)
-        0b001 -> writeZeroPage src
-        0b010 -> readMemory (p0-1) >>= illegal -- XXX imm. check in caller
-        0b011 -> writeAbsolute src
-        0b100 -> writeIndirectY src -- (zero page), Y
-        0b101 -> writeZeroPageX src
-        0b110 -> writeAbsoluteY src
-        0b111 -> writeAbsoluteX src
-        _     -> error "Impossible"
 
 {-# INLINABLE setN #-}
 setN :: Emu6502 m => Word8 -> m ()
@@ -776,13 +664,6 @@ cmp mode = do
     setNZ_ $ i8 new
 
 {-# INLINABLE asl #-}
-{-
-asl :: Emu6502 m => Word8 -> m ()
-asl bbb = withData02 bbb False $ \src -> do
-    putC $ src .&. 0x80 > 0
-    let new = src `shift` 1
-    setNZ new
--}
 asl :: Emu6502 m => ((Word8 -> m Word8) -> m ()) -> m ()
 asl mode = mode $ \src -> do
     putC $ src .&. 0x80 > 0
@@ -848,10 +729,7 @@ sty mode = getY >>= mode
 
 {-# INLINABLE ldy #-}
 ldy :: Emu6502 m => m Word8 -> m ()
-ldy mode = do
-    src <- mode
-    putY src
-    setNZ_ src
+ldy mode = mode >>= setNZ >>= putY
 
 {-# INLINABLE cpx #-}
 cpx :: Emu6502 m => m Word8 -> m ()
