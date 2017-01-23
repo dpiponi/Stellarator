@@ -825,8 +825,8 @@ op_ror bbb = withData02 bbb False $ \src -> do
     setNZ new
 
 {-# INLINABLE op_stx #-}
-op_stx :: Emu6502 m => Word8 -> m ()
-op_stx bbb = getX >>= putData02 bbb True
+op_stx :: Emu6502 m => (Word8 -> m()) -> m ()
+op_stx mode = getX >>= mode
 
 {-# INLINABLE op_ldx #-}
 op_ldx :: Emu6502 m => Word8 -> m ()
@@ -1189,17 +1189,17 @@ step = do
         0x81 -> op_sta 0b000
         0x84 -> op_sty 0b001
         0x85 -> op_sta 0b001
-        0x86 -> op_stx 0b001
+        0x86 -> op_stx writeZeroPage
         0x88 -> ins_decr getY putY
         0x8a -> ins_transfer getX putA
         0x8c -> op_sty 0b011
         0x8d -> op_sta 0b011
-        0x8e -> op_stx 0b011
+        0x8e -> op_stx writeAbsolute
         0x90 -> ins_bra getC False
         0x91 -> op_sta 0b100
         0x94 -> op_sty 0b101
         0x95 -> op_sta 0b101
-        0x96 -> op_stx 0b101
+        0x96 -> op_stx writeZeroPageY
         0x98 -> ins_transfer getY putA
         0x99 -> op_sta 0b110
         0x9a -> ins_txs
