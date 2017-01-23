@@ -704,9 +704,9 @@ op_ora mode = do
     setNZ_ newA
 
 {-# INLINABLE op_and #-}
-op_and :: Emu6502 m => Word8 -> m ()
-op_and bbb = do
-    src <- getData01 bbb
+op_and :: Emu6502 m => m Word8 -> m ()
+op_and mode = do
+    src <- mode
     getA >>= setNZ . (src .&.) >>= putA
 
 {-# INLINABLE op_xor #-}
@@ -1131,23 +1131,23 @@ step = do
         0x1d -> op_ora readAbsoluteX
         0x1e -> op_asl withAbsoluteX
         0x20 -> ins_jsr
-        0x21 -> op_and 0b000
+        0x21 -> op_and readIndirectX
         0x24 -> op_bit 0b001
-        0x25 -> op_and 0b001
+        0x25 -> op_and readZeroPage
         0x26 -> op_rol 0b001
         0x28 -> ins_plp
-        0x29 -> op_and 0b010
+        0x29 -> op_and readImmediate
         0x2a -> op_rol 0b010
         0x2c -> op_bit 0b011
-        0x2d -> op_and 0b011
+        0x2d -> op_and readAbsolute
         0x2e -> op_rol 0b011
         0x30 -> ins_bra getN True
-        0x31 -> op_and 0b100
-        0x35 -> op_and 0b101
+        0x31 -> op_and readIndirectY
+        0x35 -> op_and readZeroPageX
         0x36 -> op_rol 0b101
         0x38 -> ins_set putC True
-        0x39 -> op_and 0b110
-        0x3d -> op_and 0b111
+        0x39 -> op_and readAbsoluteY
+        0x3d -> op_and readAbsoluteX
         0x3e -> op_rol 0b111
         0x40 -> ins_rti
         0x41 -> op_xor 0b000
