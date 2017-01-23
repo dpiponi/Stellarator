@@ -719,9 +719,8 @@ op_eor mode = do
     void $ setNZ newA
 
 {-# INLINABLE op_lda #-}
-op_lda :: Emu6502 m => Word8 -> m ()
-op_lda bbb = do
-    getData01 bbb >>= setNZ >>= putA
+op_lda :: Emu6502 m => m Word8 -> m ()
+op_lda mode = mode >>= setNZ >>= putA
 
 {-# INLINABLE op_sta #-}
 op_sta :: Emu6502 m => Word8 -> m ()
@@ -753,9 +752,9 @@ op_adc mode = do
             putA $ fromIntegral (newA .&. 0xff)
 
 {-# INLINABLE op_sbc #-}
-op_sbc :: Emu6502 m => Word8 -> m ()
-op_sbc bbb = do
-    src <- getData01 bbb
+op_sbc :: Emu6502 m => m Word8 -> m ()
+op_sbc mode = do
+    src <- mode
     oldA <- getA
     carry <- getC
     let newA = fromIntegral oldA-fromIntegral src-if carry then 0 else 1 :: Word16
@@ -1206,27 +1205,27 @@ step = do
         0x9a -> ins_txs
         0x9d -> op_sta 0b111
         0xa0 -> op_ldy 0b000
-        0xa1 -> op_lda 0b000
+        0xa1 -> op_lda readIndirectX
         0xa2 -> op_ldx readImmediate
         0xa4 -> op_ldy 0b001
-        0xa5 -> op_lda 0b001
+        0xa5 -> op_lda readZeroPage
         0xa6 -> op_ldx readZeroPage
         0xa8 -> ins_transfer getA putY
-        0xa9 -> op_lda 0b010
+        0xa9 -> op_lda readImmediate
         0xaa -> ins_transfer getA putX
         0xac -> op_ldy 0b011
-        0xad -> op_lda 0b011
+        0xad -> op_lda readAbsolute
         0xae -> op_ldx readAbsolute
         0xb0 -> ins_bra getC True
-        0xb1 -> op_lda 0b100
+        0xb1 -> op_lda readIndirectY
         0xb4 -> op_ldy 0b101
-        0xb5 -> op_lda 0b101
+        0xb5 -> op_lda readZeroPageX
         0xb6 -> op_ldx readZeroPageY
         0xb8 -> ins_set putV False
-        0xb9 -> op_lda 0b110
+        0xb9 -> op_lda readAbsoluteY
         0xba -> ins_transfer getS putX
         0xbc -> op_ldy 0b111
-        0xbd -> op_lda 0b111
+        0xbd -> op_lda readAbsoluteX
         0xbe -> op_ldx readAbsoluteY
         0xc0 -> op_cpy 0b000
         0xc1 -> op_cmp 0b000
@@ -1248,23 +1247,23 @@ step = do
         0xdd -> op_cmp 0b111
         0xde -> op_dec 0b111
         0xe0 -> op_cpx 0b000
-        0xe1 -> op_sbc 0b000
+        0xe1 -> op_sbc readIndirectX
         0xe4 -> op_cpx 0b001
-        0xe5 -> op_sbc 0b001
+        0xe5 -> op_sbc readZeroPage
         0xe6 -> op_inc withZeroPage
         0xe8 -> ins_incr getX putX
-        0xe9 -> op_sbc 0b010
+        0xe9 -> op_sbc readImmediate
         0xea -> ins_nop
         0xec -> op_cpx 0b011
-        0xed -> op_sbc 0b011
+        0xed -> op_sbc readAbsolute
         0xee -> op_inc withAbsolute
         0xf0 -> ins_bra getZ True
-        0xf1 -> op_sbc 0b100
-        0xf5 -> op_sbc 0b101
+        0xf1 -> op_sbc readIndirectY
+        0xf5 -> op_sbc readZeroPageX
         0xf6 -> op_inc withZeroPageX
         0xf8 -> ins_set putD True
-        0xf9 -> op_sbc 0b110
-        0xfd -> op_sbc 0b111
+        0xf9 -> op_sbc readAbsoluteY
+        0xfd -> op_sbc readAbsoluteX
         0xfe -> op_inc withAbsoluteX
 
         _ -> illegal i
