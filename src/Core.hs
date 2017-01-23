@@ -728,9 +728,9 @@ op_sta :: Emu6502 m => Word8 -> m ()
 op_sta bbb = getA >>= putData01 bbb
 
 {-# INLINABLE op_adc #-}
-op_adc :: Emu6502 m => Word8 -> m ()
-op_adc bbb = do
-    src <- getData01 bbb
+op_adc :: Emu6502 m => m Word8 -> m ()
+op_adc mode = do
+    src <- mode
     oldA <- getA
     carry <- getC
     let newA = fromIntegral oldA+fromIntegral src+if carry then 1 else 0 :: Word16
@@ -1169,22 +1169,22 @@ step = do
         0x5d -> op_xor readAbsoluteX
         0x5e -> op_lsr withAbsoluteX
         0x60 -> ins_rts
-        0x61 -> op_adc 0b000
-        0x65 -> op_adc 0b001
+        0x61 -> op_adc readIndirectX
+        0x65 -> op_adc readZeroPage
         0x66 -> op_ror 0b001
         0x68 -> ins_pla
-        0x69 -> op_adc 0b010
+        0x69 -> op_adc readImmediate
         0x6a -> op_ror 0b010
         0x6c -> ins_jmp_indirect
-        0x6d -> op_adc 0b011
+        0x6d -> op_adc readAbsolute
         0x6e -> op_ror 0b011
         0x70 -> ins_bra getV True
-        0x71 -> op_adc 0b100
-        0x75 -> op_adc 0b101
+        0x71 -> op_adc readIndirectY
+        0x75 -> op_adc readZeroPageX
         0x76 -> op_ror 0b101
         0x78 -> ins_set putI True
-        0x79 -> op_adc 0b110
-        0x7d -> op_adc 0b111
+        0x79 -> op_adc readAbsoluteY
+        0x7d -> op_adc readAbsoluteX
         0x7e -> op_ror 0b111
         0x81 -> op_sta 0b000
         0x84 -> op_sty 0b001
