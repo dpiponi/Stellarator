@@ -1215,6 +1215,7 @@ step = do
         0xb8 -> ins_set putV False
         0xb9 -> op_lda 0b110
         0xba -> ins_transfer getS putX
+        0xbc -> op_ldy 0b111
         0xbd -> op_lda 0b111
         0xbe -> op_ldx 0b111
         0xc0 -> op_cpy 0b000
