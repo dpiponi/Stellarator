@@ -807,8 +807,8 @@ lsr mode = mode $ \src -> do
     return new
 
 {-# INLINABLE ror #-}
-ror :: Emu6502 m => Word8 -> m ()
-ror bbb = withData02 bbb False $ \src -> do
+ror :: Emu6502 m => ((Word8 -> m Word8) -> m ()) -> m ()
+ror mode = mode $ \src -> do
     fc <- getC
     putC $ src .&. 0x01 > 0
     let new = (src `shift` (-1))+if fc then 0x80 else 0x00
@@ -1165,21 +1165,21 @@ step = do
         0x60 -> rts
         0x61 -> adc readIndirectX
         0x65 -> adc readZeroPage
-        0x66 -> ror 0b001
+        0x66 -> ror withZeroPage
         0x68 -> pla
         0x69 -> adc readImmediate
-        0x6a -> ror 0b010
+        0x6a -> ror withAccumulator
         0x6c -> jmp_indirect
         0x6d -> adc readAbsolute
-        0x6e -> ror 0b011
+        0x6e -> ror withAbsolute
         0x70 -> bra getV True
         0x71 -> adc readIndirectY
         0x75 -> adc readZeroPageX
-        0x76 -> ror 0b101
+        0x76 -> ror withZeroPageX
         0x78 -> set putI True
         0x79 -> adc readAbsoluteY
         0x7d -> adc readAbsoluteX
-        0x7e -> ror 0b111
+        0x7e -> ror withAbsoluteX
         0x81 -> sta 0b000
         0x84 -> sty writeZeroPage
         0x85 -> sta 0b001
