@@ -695,9 +695,18 @@ setNZ_ :: Emu6502 m => Word8 -> m ()
 setNZ_ r = setN r >> setZ r
 
 {-# INLINABLE op_ora #-}
+{-
 op_ora :: Emu6502 m => Word8 -> m ()
 op_ora bbb = do
     src <- getData01 bbb
+    oldA <- getA
+    let newA = oldA .|. src
+    putA newA
+    setNZ_ newA
+-}
+op_ora :: Emu6502 m => m Word8 -> m ()
+op_ora mode = do
+    src <- mode
     oldA <- getA
     let newA = oldA .|. src
     putA newA
@@ -1106,22 +1115,22 @@ step = do
     incPC
     case i of
         0x00 -> ins_brk
-        0x01 -> op_ora 0b000
+        0x01 -> op_ora readIndirectX
         0x04 -> void $ readZeroPage -- XXX undocumented "DOP" nop
-        0x05 -> op_ora 0b001
+        0x05 -> op_ora readZeroPage
         0x06 -> op_asl 0b001
         0x08 -> ins_php
-        0x09 -> op_ora 0b010
+        0x09 -> op_ora readImmediate
         0x0a -> op_asl 0b010
-        0x0d -> op_ora 0b011
+        0x0d -> op_ora readAbsolute
         0x0e -> op_asl 0b011
         0x10 -> ins_bra getN False
-        0x11 -> op_ora 0b100
-        0x15 -> op_ora 0b101
+        0x11 -> op_ora readIndirectY
+        0x15 -> op_ora readZeroPageX
         0x16 -> op_asl 0b101
         0x18 -> ins_set putC False
-        0x19 -> op_ora 0b110
-        0x1d -> op_ora 0b111
+        0x19 -> op_ora readAbsoluteY
+        0x1d -> op_ora readAbsoluteX
         0x1e -> op_asl 0b111
         0x20 -> ins_jsr
         0x21 -> op_and 0b000
