@@ -3,6 +3,10 @@
 An Atari 2600 emulator.
 Work in progress...
 
+Bad news: the current build with SDL 2.0.5 and ghc 8.0.1 doesn't run Adventure.
+My guess is SDL has changed.
+Working on it...
+
 It'll run Adventure if you have the rom.
 
 Screenshots
