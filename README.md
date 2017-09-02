@@ -154,6 +154,7 @@ Lots of games work:
 | Frogger 2              | Uses E8 bank switching. Not implemented.                                 |
 | Fun with Numbers       | Works. Pity the kids that learnt mathematics using this.                 |
 | Galaxians              | Seems to play fine except for an extra column of aliens!                 |
+| Haunted House          | Blank screen :-(                                                         |
 | Ikari Warriors         | Seems to play fine                                                       |
 | Indy 500               | Steering doesn't seem to work. Maybe expects different controller.       |
 | Midnight Magic         | Seems to work fine.                                                      |
