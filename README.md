@@ -1,7 +1,8 @@
 # Stellarator
 
 An Atari 2600 emulator.
-Work in progress...
+
+(Status: See Goals below. This project is as complete as I want to make it for now.)
 
 Bad news: the current build with SDL 2.0.5 and ghc 8.0.1 has bad colours.
 I wonder if SDL has changed significantly.
