@@ -4,8 +4,7 @@ An Atari 2600 emulator.
 
 (Status: See Goals below. This project is as complete as I want to make it for now.)
 
-Bad news: the current build with SDL 2.0.5 and ghc 8.0.1 has bad colours.
-I wonder if SDL has changed significantly.
+Some combinations of ghc and SDL may produce slightly wrong colours. I saw this problem once but it seems to have gone away again.
 
 It'll run Adventure if you have the rom.
 
@@ -23,11 +22,17 @@ Installation
   package manager Stack can find them.  I work on a Mac so I used MacPorts which you can install
   from here: https://www.macports.org
 
-  Once MacPorts was installed I used
+  Once MacPorts was installed I used:
 
     port install libsdl2
+    port install libsdl2_image
+    
+  I've had success with homebrew as well, in which case I think you can use:
 
-  Getting SDL2 installed seems to be the main stumbling block.
+    brew install sdl2
+    brew install sdl2_image
+
+Getting SDL2 installed seems to be the main stumbling block.
 
 * If you don't have Stack, install it using the instructions here: https://docs.haskellstack.org/en/stable/
 
@@ -40,6 +45,8 @@ Installation
     stack exec Stellarator-exe -- -f ADVNTURE.BIN
 
 You'll need to obtain ADVNTURE.BIN from somewhere like https://www.atariage.com/system_items.html?SystemID=2600&ItemTypeID=ROM
+
+* If you started with ADVNTURE.BIN then hit `v` and start using the cursor keys. Have fun!
 
 Instructions
 ------------
