@@ -22,11 +22,17 @@ Installation
   package manager Stack can find them.  I work on a Mac so I used MacPorts which you can install
   from here: https://www.macports.org
 
-  Once MacPorts was installed I used
+  Once MacPorts was installed I used:
 
     port install libsdl2
+    port install libsdl2_image
+    
+  I've had success with homebrew as well, in which case I think you can use:
 
-  Getting SDL2 installed seems to be the main stumbling block.
+    brew install sdl2
+    brew install sdl2_image
+
+Getting SDL2 installed seems to be the main stumbling block.
 
 * If you don't have Stack, install it using the instructions here: https://docs.haskellstack.org/en/stable/
 
