@@ -159,8 +159,8 @@ Lots of games work:
 | Cosmic Ark             | Seems to play fine but star rendering is replaced by ugly vertical line. |
 | Defender:              | Seems to play fine.                                                      |
 | Demon Attack           | Seems to play fine.                                                      |
-| Donkey Kong            | Seems to play fine.                                                      |
-| Dukes if Hazzard       | Seems to play fine.                                                      |
+| Donkey Kong            | Seems to play fine. Amazing implementation.                                                     |
+| Dukes of Hazzard       | Seems to play fine.                                                      |
 | Freeway                | Seems to play fine.                                                      |
 | Frogger 2              | Uses E8 bank switching. Not implemented.                                 |
 | Fun with Numbers       | Works. Pity the kids that learnt mathematics using this.                 |
