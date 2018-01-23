@@ -70,6 +70,7 @@ main = do
 
     romArray <- newArray (0, 0x3fff) 0 :: IO (IOUArray Int Word8)
     ramArray <- newArray (0, 0x7f) 0 :: IO (IOUArray Int Word8)
+    recordArray <- newArray ((0, 999999), (0, 0x7f)) 0 :: IO (IOUArray (Int, Int) Word8)
     bankStyle <- readBinary romArray (file args') 0x0000
     let bankStyle' = case (bank args') of
                         "f8" -> ModeF8
@@ -87,7 +88,7 @@ main = do
     --let style = bank args
     state <- initState screenScaleX' screenScaleY'
                        (screenWidth*screenScaleX') (screenHeight*screenScaleY')
-                       ramArray initBankState romArray
+                       ramArray recordArray initBankState romArray
                        0x0000 window prog attrib tex' textureData'
 
     let loop = do

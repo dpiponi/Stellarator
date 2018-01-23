@@ -17,14 +17,10 @@ module Atari2600(
                  modifyClock,
                  useStellaClock,
                  bankState,
-                 --getBackSurface,
                  ram,
                  rom,
-                 --useMemory,
                  useClock,
                  putStellaDebug,
-                 --getFrontSurface,
-                 --getFrontWindow,
                  sdlWindow,
                  textureData,
                  windowWidth,
@@ -51,7 +47,6 @@ import Foreign.Ptr
 import DebugState
 import Memory
 import qualified Graphics.Rendering.OpenGL as GL
---import SDL.Video
 import Asm
 
 data Atari2600 = Atari2600 {
@@ -62,6 +57,7 @@ data Atari2600 = Atari2600 {
     _stellaDebug :: IORef DebugState,
 
     _ram :: IOUArray Int Word8,
+    _record :: IOUArray (Int, Int) Word8,
     _rom :: IOUArray Int Word8,
     _boolArray :: Segment Bool,
     _intArray :: Segment Int,

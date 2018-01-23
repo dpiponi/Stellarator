@@ -63,6 +63,7 @@ startIntervalTimerN n v = do
 
 initState :: Int -> Int -> Int -> Int ->
              IOUArray Int Word8 ->
+             IOUArray (Int, Int) Word8 ->
              BankState ->
              IOUArray Int Word8 ->
              Word16 ->
@@ -72,7 +73,7 @@ initState :: Int -> Int -> Int -> Int ->
              GL.TextureObject ->
              Ptr Word8 ->
              IO Atari2600
-initState xscale' yscale' width height ram' initBankState rom' initialPC window prog attrib initTex initTextureData = do
+initState xscale' yscale' width height ram' record' initBankState rom' initialPC window prog attrib initTex initTextureData = do
           stellaDebug' <- newIORef DebugState.start
           bankState' <- newIORef initBankState
           clock' <- newIORef 0
@@ -90,6 +91,7 @@ initState xscale' yscale' width height ram' initBankState rom' initialPC window 
               _windowWidth = width,
               _windowHeight = height,
               _rom = rom',
+              _record = record',
               _ram = ram',
               _stellaDebug = stellaDebug',
               _bankState = bankState',
