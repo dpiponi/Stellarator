@@ -18,6 +18,8 @@ module Atari2600(
                  useStellaClock,
                  bankState,
                  ram,
+                 record,
+                 recordPtr,
                  rom,
                  useClock,
                  putStellaDebug,
@@ -38,6 +40,7 @@ module Atari2600(
 import Control.Lens
 import Control.Monad.Reader
 import Data.Array.Base
+import Data.Array.Storable
 import Data.Array.IO
 import Data.IORef
 import Data.Int
@@ -57,7 +60,8 @@ data Atari2600 = Atari2600 {
     _stellaDebug :: IORef DebugState,
 
     _ram :: IOUArray Int Word8,
-    _record :: IOUArray (Int, Int) Word8,
+    _record :: StorableArray Int Word8,
+    _recordPtr :: IORef Int,
     _rom :: IOUArray Int Word8,
     _boolArray :: Segment Bool,
     _intArray :: Segment Int,

@@ -11,9 +11,12 @@ import Control.Monad.Reader
 import Control.Lens
 import Asm
 import Data.Bits
+import Data.IORef
 import Data.Bits.Lens
 import System.Exit
 import Control.Concurrent
+import System.IO
+import Data.Array.Storable
 import Debugger
 import qualified Data.Map.Strict as M
 
@@ -76,3 +79,13 @@ handleKey atariKeys motion sym = do
                                         runDebugger
                                         liftIO $ killThread t
                 DebugMode        -> when pressed $ modify debugColours not
+                WriteRecord      -> when pressed $ do
+                                        liftIO $ print "Write record!"
+                                        atari <- ask
+                                        let m = atari ^. record
+                                        endPtr <- liftIO $ readIORef (atari ^. recordPtr)
+                                        liftIO $ withStorableArray m $ \ptr -> do
+                                            handle <- openBinaryFile "trace.record" WriteMode
+                                            hPutBuf handle ptr endPtr
+                                            hClose handle
+

@@ -199,7 +199,8 @@ data Options = Options {
     gameSelect :: String,
     gameReset :: String,
     enterDebugger :: String,
-    debugMode :: String
+    debugMode :: String,
+    writeRecord :: String
 } deriving (Show, Read)
 
 defaultOptions :: Options
@@ -219,12 +220,14 @@ defaultOptions = Options {
     gameSelect = "C",
     gameReset = "V",
     enterDebugger = "Escape",
-    debugMode = "Backslash"
+    debugMode = "Backslash",
+    writeRecord = "W"
 }
 
 data AtariKey = Joystick1Left | Joystick1Right | Joystick1Up | Joystick1Down | Joystick1Trigger
               | GameSelect | GameReset
               | GameQuit | DumpState | EnterDebugger | DebugMode
+              | WriteRecord
                 deriving (Eq, Show)
 
 type AtariKeys = M.Map Scancode AtariKey
@@ -242,7 +245,8 @@ keysFromOptions options = do
                     gameSelect options,
                     gameReset options,
                     enterDebugger options,
-                    debugMode options
+                    debugMode options,
+                    writeRecord options
                 ]
     let atariKeys = [
                     Joystick1Left,
@@ -255,6 +259,7 @@ keysFromOptions options = do
                     GameSelect,
                     GameReset,
                     EnterDebugger,
-                    DebugMode
+                    DebugMode,
+                    WriteRecord
                 ]
     return $ M.fromList $ zip scancodes atariKeys

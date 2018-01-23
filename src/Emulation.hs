@@ -27,6 +27,7 @@ import Core
 import Data.Array.IO
 import Data.Bits hiding (bit)
 import Data.Bits.Lens
+import Data.Array.Storable
 import Data.IORef
 import Data.Int
 import Data.Word
@@ -63,7 +64,7 @@ startIntervalTimerN n v = do
 
 initState :: Int -> Int -> Int -> Int ->
              IOUArray Int Word8 ->
-             IOUArray (Int, Int) Word8 ->
+             StorableArray Int Word8 ->
              BankState ->
              IOUArray Int Word8 ->
              Word16 ->
@@ -79,6 +80,7 @@ initState xscale' yscale' width height ram' record' initBankState rom' initialPC
           clock' <- newIORef 0
           -- debug' <- newIORef 8
           stellaClock' <- newIORef 0
+          recordPtr' <- newIORef 0
           boolArray' <- newArray (0, maxBool) False
           intArray' <- newArray (0, 127) 0      -- Overkill
           word64Array' <- newArray (0, maxWord64) 0
@@ -92,14 +94,12 @@ initState xscale' yscale' width height ram' record' initBankState rom' initialPC
               _windowHeight = height,
               _rom = rom',
               _record = record',
+              _recordPtr = recordPtr',
               _ram = ram',
               _stellaDebug = stellaDebug',
               _bankState = bankState',
               _clock = clock',
               _stellaClock = stellaClock',
-              --_sdlBackSurface = helloWorld,
-              --_sdlFrontSurface = screenSurface,
-              --_sdlFrontWindow = window,
               _boolArray = boolArray',
               _intArray = intArray',
               _word64Array = word64Array',
@@ -391,7 +391,13 @@ pureWriteMemory ROM  _    _ = return ()
 pureWriteMemory RAM  addr v = do
     atari <- ask
     let m = atari ^. ram
-    liftIO $ writeArray m (iz addr .&. 0x7f) v
+    let r = atari ^. record
+    i <- liftIO $ readIORef (atari ^. recordPtr)
+    let realAddress = iz addr .&. 0x7f
+    liftIO $ writeArray m realAddress v
+    liftIO $ writeArray r i (i8 realAddress)
+    liftIO $ writeArray r (i+1) v
+    liftIO $ writeIORef (atari ^. recordPtr) (i+2)
 
 instance Emu6502 MonadAtari where
     {-# INLINE readMemory #-}

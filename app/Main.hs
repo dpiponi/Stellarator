@@ -21,6 +21,7 @@ import Data.Array.IO
 import Data.Binary hiding (get)
 import Data.Bits hiding (bit)
 import Data.Int(Int64)
+import Data.Array.Storable
 import Emulation
 import Memory
 import Metrics
@@ -70,7 +71,7 @@ main = do
 
     romArray <- newArray (0, 0x3fff) 0 :: IO (IOUArray Int Word8)
     ramArray <- newArray (0, 0x7f) 0 :: IO (IOUArray Int Word8)
-    recordArray <- newArray ((0, 999999), (0, 0x7f)) 0 :: IO (IOUArray (Int, Int) Word8)
+    recordArray <- newArray (0, 2^24-1) 0 :: IO (StorableArray Int Word8)
     bankStyle <- readBinary romArray (file args') 0x0000
     let bankStyle' = case (bank args') of
                         "f8" -> ModeF8

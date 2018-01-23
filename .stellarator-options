@@ -14,5 +14,6 @@ Options {
     gameSelect = "C",
     gameReset = "V",
     enterDebugger = "Escape",
-    debugMode = "Backslash"
+    debugMode = "Backslash",
+    writeRecord = "W"
 }
