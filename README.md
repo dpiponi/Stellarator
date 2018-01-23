@@ -133,7 +133,7 @@ Notes
 
 Credits
 -------
-1. The primary source of information was http://web.atari.org/stellaes.pdf
+1. The primary source of information was https://alienbill.com/2600/101/docs/stella.html
 2. This was a great secondary source with subtle details: http://www.atarihq.com/danb/files/TIA_HW_Notes.txt
 3. I've used Stella as my reference "hardware". I've had tiny peeks at Stella's source but I don't want
    to do that too much as it removes some of the fun :-) (http://stella.sourceforge.net)
