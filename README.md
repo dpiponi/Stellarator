@@ -1,6 +1,6 @@
 # Stellarator
 
-An Atari 2600 emulator.
+An Atari 2600 emulator. It's meant to be for "research" but I haven't done any yet.
 
 (Status: See Goals below. This project is as complete as I want to make it for now.)
 
