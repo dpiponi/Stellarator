@@ -61,6 +61,10 @@ void savebmp(const char *filename, int height, int width,
     for (int y = height-1; y >= 0; --y) {     // BMP image format is written from bottom to top...
         for (int x = 0; x < width; ++x) {
             int bit = data[width*y+x]*255/vscale;
+
+            //
+            // Logarithmic scale
+            //
             float business = log(float(1+activity[y*width+x]));
             if (business > 1.0f) {
                 business = 1.0f;
