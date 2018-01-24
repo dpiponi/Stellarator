@@ -95,10 +95,10 @@ int main() {
     std::streamsize size = file.tellg();
     file.seekg(0, std::ios::beg);
 
-    std::vector<char> buffer(size);
-    std::vector<char> ram(1024, 0);
+    std::vector<char> trace(size);
+    std::vector<bool> ram(1024, 0);
 
-    if (file.read(buffer.data(), size)) {
+    if (file.read(trace.data(), size)) {
         const int vscale = 512;
         int vsize = (size/2+vscale-1)/vscale;
 
@@ -121,18 +121,19 @@ int main() {
                       data.begin()+row,
                       [](int a, int b) -> int { return a+b; });
             
-            int address = buffer[2*i];
-            int value = buffer[2*i+1];
+            int address = trace[2*i];
+            int value = trace[2*i+1];
 
-            for (int k = 0; k < 8; ++k) {
+            for (int bit = 0; bit < 8; ++bit) {
                 //
                 // The direction is somewhat arbitrary as bitmaps
                 // can run either way on VCS.
                 // But you could argue that the default is high bit first
                 // https://alienbill.com/2600/101/docs/stella.html#GRP
                 //
-                ram[8*address+k] = value & (1 << (7-k)) ? 1 : 0;
-                ++activity[row+8*address+k];
+                int offset = 8*address+bit;
+                ram[offset] = value & (1 << (7-bit)) ? 1 : 0;
+                ++activity[row+offset];
             }
         }
         savebmp("trace.bmp", vsize, 1024, data, activity, vscale);
