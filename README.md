@@ -26,13 +26,17 @@ Installation
 
   Once MacPorts was installed I used:
 
+```
     port install libsdl2
     port install libsdl2_image
-    
+```
+
   I've had success with homebrew as well, in which case I think you can use:
 
+```
     brew install sdl2
     brew install sdl2_image
+```
 
 Getting SDL2 installed seems to be the main stumbling block.
 
@@ -40,11 +44,15 @@ Getting SDL2 installed seems to be the main stumbling block.
 
 * Now clone the project into a directory. In that directory use:
 
+```
     stack build
+```
 
 * Run it with a commmand like
 
+```
     stack exec Stellarator-exe -- -f ADVNTURE.BIN
+```
 
 You'll need to obtain ADVNTURE.BIN from somewhere like https://www.atariage.com/system_items.html?SystemID=2600&ItemTypeID=ROM
 
@@ -160,8 +168,8 @@ Lots of games work:
 | Commando Raid          | Seems to play fine. Ugly "comb" effect is correct.                       |
 | Cosmic Ark             | Seems to play fine but star rendering is replaced by ugly vertical line. |
 | Defender:              | Seems to play fine.                                                      |
-| Demon Attack           | Seems to play fine.                                                      |
-| Donkey Kong            | Seems to play fine. Amazing implementation.                                                     |
+| Demon Attack           | Seems to play fine. I quite like this one.                               |
+| Donkey Kong            | Seems to play fine. Amazing implementation.                              |
 | Dukes of Hazzard       | Seems to play fine.                                                      |
 | Freeway                | Seems to play fine.                                                      |
 | Frogger 2              | Uses E8 bank switching. Not implemented.                                 |
