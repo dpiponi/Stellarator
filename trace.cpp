@@ -2,26 +2,27 @@
 #include <fstream>
 #include <vector>
 #include <cmath>
+#include <algorithm>
 
 using namespace std;
 
 // https://stackoverflow.com/questions/2654480/writing-bmp-image-in-pure-c-c-without-other-libraries
-void drawbmp (char * filename, int HEIGHT, int WIDTH, int *data, int *activity, int N) {
-
+void drawbmp(char *filename, int height, int width,
+             const vector<int> &data, const vector<int> &activity, int N) {
     unsigned int headers[13];
-    FILE * outfile;
+    FILE *outfile;
     int extrabytes;
     int paddedsize;
     int x; int y; int n;
     int red, green, blue;
 
-    extrabytes = 4 - ((WIDTH * 3) % 4);                 // How many bytes of padding to add to each
+    extrabytes = 4 - ((width * 3) % 4);                 // How many bytes of padding to add to each
                                                         // horizontal line - the size of which must
                                                         // be a multiple of 4 bytes.
     if (extrabytes == 4)
        extrabytes = 0;
 
-    paddedsize = ((WIDTH * 3) + extrabytes) * HEIGHT;
+    paddedsize = ((width * 3) + extrabytes) * height;
 
     // Headers...
     // Note that the "BM" identifier in bytes 0 and 1 is NOT included in these "headers".
@@ -30,8 +31,8 @@ void drawbmp (char * filename, int HEIGHT, int WIDTH, int *data, int *activity, 
     headers[1]  = 0;                    // bfReserved (both)
     headers[2]  = 54;                   // bfOffbits
     headers[3]  = 40;                   // biSize
-    headers[4]  = WIDTH;  // biWidth
-    headers[5]  = HEIGHT; // biHeight
+    headers[4]  = width;  // biWidth
+    headers[5]  = height; // biHeight
 
     // Would have biPlanes and biBitCount in position 6, but they're shorts.
     // It's easier to write them out separately (see below) than pretend
@@ -80,28 +81,16 @@ void drawbmp (char * filename, int HEIGHT, int WIDTH, int *data, int *activity, 
     // Headers done, now write the data...
     //
 
-    for (y = HEIGHT - 1; y >= 0; y--)     // BMP image format is written from bottom to top...
-    {
-       for (x = 0; x <= WIDTH - 1; x++)
-       {
-
-#if 0
-          red = reduce(redcount[x][y] + COLOUR_OFFSET) * red_multiplier;
-          green = reduce(greencount[x][y] + COLOUR_OFFSET) * green_multiplier;
-          blue = reduce(bluecount[x][y] + COLOUR_OFFSET) * blue_multiplier;
-
-          if (red > 255) red = 255; if (red < 0) red = 0;
-          if (green > 255) green = 255; if (green < 0) green = 0;
-          if (blue > 255) blue = 255; if (blue < 0) blue = 0;
-#endif
-          int bit = data[y*WIDTH+x]*255/N;
-          float business = log(float(1+activity[y*WIDTH+x]));
+    for (y = height - 1; y >= 0; y--) {     // BMP image format is written from bottom to top...
+       for (x = 0; x <= width - 1; x++) {
+          int bit = data[y*width+x]*255/N;
+          float business = log(float(1+activity[y*width+x]));
           if (business > 1.0f) {
               business = 1.0f;
           }
 
           red = business*bit;
-          green = bit;//data[y*WIDTH+x]*255/N;
+          green = bit;
           blue = (1.0f-business)*bit;
 
 
@@ -111,8 +100,7 @@ void drawbmp (char * filename, int HEIGHT, int WIDTH, int *data, int *activity, 
           fprintf(outfile, "%c", green);
           fprintf(outfile, "%c", red);
        }
-       if (extrabytes)      // See above - BMP lines must be of lengths divisible by 4.
-       {
+       if (extrabytes) {      // See above - BMP lines must be of lengths divisible by 4.
           for (n = 1; n <= extrabytes; n++)
           {
              fprintf(outfile, "%c", 0);
@@ -130,39 +118,40 @@ int main() {
     file.seekg(0, std::ios::beg);
 
     std::vector<char> buffer(size);
-    std::vector<char> ram(1024);
-    for (int i = 0; i < 1024; ++i) {
-        ram[i] = 0;
-    }
+    std::vector<char> ram(1024, 0);
+
     if (file.read(buffer.data(), size)) {
         const int N = 512;
         int vsize = (size/2+N-1)/N;
-        int *data = new int[1024*vsize];
-        int *activity = new int[1024*vsize];
-        for (int j = 0; j < 1024; ++j) {
-            data[j] = 0;
-            activity[j] = 0;
-        }
+
+        // Count of how many times each bit is one per time period
+        std::vector<int> data(1024*vsize, 0);
+
+        // Count of number of times bit is written per time period
+        std::vector<int> activity(1024*vsize, 0);
+
         for (int i = 0; i < size/2; ++i) {
             int index = i/N;
-            for (int j = 0; j < 1024; ++j) {
-                data[1024*index+j] += ram[j];
-            }
+            int row = 1024*index;
+
+            transform(ram.begin(),
+                      ram.end(),
+                      data.begin()+row,
+                      data.begin()+row,
+                      [](int a, int b) -> int { return a+b; });
             
             // Update RAM
             int address = buffer[2*i];
             int value = buffer[2*i+1];
             for (int k = 0; k < 8; ++k) {
-                //ram[8*address+k] = !!(value & (1 << k));
                 // The direction is somewhat arbitrary as bitmaps
                 // can run either way on VCS.
                 // You could argue that the default is high bit first
                 // https://alienbill.com/2600/101/docs/stella.html#GRP
-                ram[8*address+k] = !!(value & (1 << (7-k)));
-                ++activity[1024*index+8*address+k];
+                ram[8*address+k] = value & (1 << (7-k)) ? 1 : 0;
+                ++activity[row+8*address+k];
             }
         }
-        cout << vsize << endl;
         drawbmp("trace.bmp", vsize, 1024, data, activity, N);
     }
 }
