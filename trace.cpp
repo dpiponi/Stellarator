@@ -11,6 +11,7 @@ void drawbmp(char *filename, int height, int width,
              const vector<int> &data, const vector<int> &activity, int N) {
     unsigned int headers[13];
     FILE *outfile;
+    ofstream outputfile(filename, ios::out | ios::binary);
     int extrabytes;
     int paddedsize;
     int x; int y; int n;
