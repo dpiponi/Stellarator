@@ -4,6 +4,8 @@ An Atari 2600 emulator.
 
 (Status: See Goals below. This project is as complete as I want to make it for now.)
 
+There is another VCS emulator out there with a similar name. If this gets to be a problem I'll rename this. I just happen to love [stellarators](https://en.wikipedia.org/wiki/Stellarator) having once worked on a fusion related project.
+
 Some combinations of ghc and SDL may produce slightly wrong colours. I saw this problem once but it seems to have gone away again.
 
 It'll run Adventure if you have the rom.
