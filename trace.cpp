@@ -11,7 +11,7 @@ void drawbmp(char *filename, int height, int width,
              const vector<int> &data, const vector<int> &activity, int N) {
     unsigned int headers[13];
     FILE *outfile;
-    ofstream outputfile(filename, ios::out | ios::binary);
+    ofstream outputfile("test.bmp", ios::out | ios::binary);
     int extrabytes;
     int paddedsize;
     int x; int y; int n;
@@ -54,6 +54,7 @@ void drawbmp(char *filename, int height, int width,
     //
 
     fprintf(outfile, "BM");
+    outputfile << "BM";
 
     for (n = 0; n <= 5; n++)
     {
@@ -61,6 +62,10 @@ void drawbmp(char *filename, int height, int width,
        fprintf(outfile, "%c", (headers[n] & 0x0000FF00) >> 8);
        fprintf(outfile, "%c", (headers[n] & 0x00FF0000) >> 16);
        fprintf(outfile, "%c", (headers[n] & (unsigned int) 0xFF000000) >> 24);
+       outputfile.put(headers[n] & 0x000000FF);
+       outputfile.put((headers[n] & 0x0000FF00) >> 8);
+       outputfile.put((headers[n] & 0x00FF0000) >> 16);
+       outputfile.put((headers[n] & (unsigned int) 0xFF000000) >> 24);
     }
 
     // These next 4 characters are for the biPlanes and biBitCount fields.
@@ -69,6 +74,10 @@ void drawbmp(char *filename, int height, int width,
     fprintf(outfile, "%c", 0);
     fprintf(outfile, "%c", 24);
     fprintf(outfile, "%c", 0);
+    outputfile.put(1);
+    outputfile.put(0);
+    outputfile.put(24);
+    outputfile.put(0);
 
     for (n = 7; n <= 12; n++)
     {
@@ -76,6 +85,10 @@ void drawbmp(char *filename, int height, int width,
        fprintf(outfile, "%c", (headers[n] & 0x0000FF00) >> 8);
        fprintf(outfile, "%c", (headers[n] & 0x00FF0000) >> 16);
        fprintf(outfile, "%c", (headers[n] & (unsigned int) 0xFF000000) >> 24);
+       outputfile.put(headers[n] & 0x000000FF);
+       outputfile.put((headers[n] & 0x0000FF00) >> 8);
+       outputfile.put((headers[n] & 0x00FF0000) >> 16);
+       outputfile.put((headers[n] & (unsigned int) 0xFF000000) >> 24);
     }
 
     //
@@ -100,11 +113,14 @@ void drawbmp(char *filename, int height, int width,
           fprintf(outfile, "%c", blue);
           fprintf(outfile, "%c", green);
           fprintf(outfile, "%c", red);
+          outputfile.put(blue);
+          outputfile.put(green);
+          outputfile.put(red);
        }
        if (extrabytes) {      // See above - BMP lines must be of lengths divisible by 4.
           for (n = 1; n <= extrabytes; n++)
           {
-             fprintf(outfile, "%c", 0);
+             outputfile.put(0);
           }
        }
     }
