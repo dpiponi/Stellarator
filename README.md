@@ -1,8 +1,10 @@
 # Stellarator
 
-An Atari 2600 emulator.
+An Atari 2600 emulator. It's meant to be for "research" but I haven't done any yet.
 
 (Status: See Goals below. This project is as complete as I want to make it for now.)
+
+There is another VCS emulator out there with a similar name. If this gets to be a problem I'll rename this. I just happen to love [stellarators](https://en.wikipedia.org/wiki/Stellarator) having once worked on a fusion related project.
 
 Some combinations of ghc and SDL may produce slightly wrong colours. I saw this problem once but it seems to have gone away again.
 
@@ -24,13 +26,17 @@ Installation
 
   Once MacPorts was installed I used:
 
+```
     port install libsdl2
     port install libsdl2_image
-    
+```
+
   I've had success with homebrew as well, in which case I think you can use:
 
+```
     brew install sdl2
     brew install sdl2_image
+```
 
 Getting SDL2 installed seems to be the main stumbling block.
 
@@ -38,11 +44,15 @@ Getting SDL2 installed seems to be the main stumbling block.
 
 * Now clone the project into a directory. In that directory use:
 
+```
     stack build
+```
 
 * Run it with a commmand like
 
+```
     stack exec Stellarator-exe -- -f ADVNTURE.BIN
+```
 
 You'll need to obtain ADVNTURE.BIN from somewhere like https://www.atariage.com/system_items.html?SystemID=2600&ItemTypeID=ROM
 
@@ -133,7 +143,7 @@ Notes
 
 Credits
 -------
-1. The primary source of information was http://web.atari.org/stellaes.pdf
+1. The primary source of information was https://alienbill.com/2600/101/docs/stella.html
 2. This was a great secondary source with subtle details: http://www.atarihq.com/danb/files/TIA_HW_Notes.txt
 3. I've used Stella as my reference "hardware". I've had tiny peeks at Stella's source but I don't want
    to do that too much as it removes some of the fun :-) (http://stella.sourceforge.net)
@@ -158,9 +168,9 @@ Lots of games work:
 | Commando Raid          | Seems to play fine. Ugly "comb" effect is correct.                       |
 | Cosmic Ark             | Seems to play fine but star rendering is replaced by ugly vertical line. |
 | Defender:              | Seems to play fine.                                                      |
-| Demon Attack           | Seems to play fine.                                                      |
-| Donkey Kong            | Seems to play fine.                                                      |
-| Dukes if Hazzard       | Seems to play fine.                                                      |
+| Demon Attack           | Seems to play fine. I quite like this one.                               |
+| Donkey Kong            | Seems to play fine. Amazing implementation.                              |
+| Dukes of Hazzard       | Seems to play fine.                                                      |
 | Freeway                | Seems to play fine.                                                      |
 | Frogger 2              | Uses E8 bank switching. Not implemented.                                 |
 | Fun with Numbers       | Works. Pity the kids that learnt mathematics using this.                 |
@@ -199,3 +209,15 @@ Lots of games work:
 | Yar's Revenge          | Seems to play fine.                                                      |
 | Zaxxon                 | Seems to play fine.                                                      |
 
+Some notes on writing an emulator in Haskell
+---------------------------------------------
+
+The obvious choice of language for an emulagtor is C. It's easy to write fast code for manipulating bits and bytes.
+So writing in Haskell was an unusual choice and an interesting challenge. Here are some of the observations I made.
+
+* It took me a while to figure out how to write fast code. There's lots of mutable state and I think the garbage collector gets notified about these changes. So to hide everything from the garbage collector I put much of the state into arrays of bytes and words. You can see the code in `Asm.hs`. I called it that because it meant that a lot of my Haskell code looks like assembly language. Type safe assembly language at least.
+* I've never written so much code without getting random inexplicable bugs. Most bugs that came up were because I hadn't written code to cover all cases. Failures were largely because of me not understanding the weird Atari hardware, not because I'd failed to translate my understanding into Haskell. When bugs did arise it was often possible to fix them through simply thinking rather than my usual bug hunting methods. Very few segmentation faults. The moment I tried writing audio code I started getting crashes so I'm postponing that.
+* It was frustrating not having the option to simply throw in global variables like I would in C. Any changes in state need to be threaded through all of the code. The `AtariMonad` hides much of this but it's still a bit painful. The pain does pay off in terms of having better behaved code though.
+* I loved that I was able to refactor code and have it run successfully first time (or almost first time). Strict types really do keep you safe. I already know Haskell is good for this, but it was surprising to see reality match theory.
+* Haskell can be prettty verbose. C code that looks like (a<<8)&0xf0)|(a>>8)&0xf0 needs a lot of typing in Haskell. And some of the state updates were a bit verbose, even with some helper functions.
+* There is interest in linear types in Haskell. I think this might allow me to get rid of `Asm.hs` without sacrficing performance. But the back end of the compiler really has to know how to exploit it and the proposal isn't currently focussed on performance. https://ghc.haskell.org/trac/ghc/wiki/LinearTypes
