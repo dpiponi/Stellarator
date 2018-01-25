@@ -13,6 +13,8 @@ Options {
     gameQuit = "Q",
     gameSelect = "C",
     gameReset = "V",
+    tvType = "X",
     enterDebugger = "Escape",
-    debugMode = "Backslash"
+    debugMode = "Backslash",
+    writeRecord = "W"
 }

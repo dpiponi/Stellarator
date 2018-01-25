@@ -27,6 +27,7 @@ import Core
 import Data.Array.IO
 import Data.Bits hiding (bit)
 import Data.Bits.Lens
+import Data.Array.Storable
 import Data.IORef
 import Data.Int
 import Data.Word
@@ -63,6 +64,9 @@ startIntervalTimerN n v = do
 
 initState :: Int -> Int -> Int -> Int ->
              IOUArray Int Word8 ->
+#if TRACE
+             StorableArray Int Word8 ->
+#endif
              BankState ->
              IOUArray Int Word8 ->
              Word16 ->
@@ -72,12 +76,19 @@ initState :: Int -> Int -> Int -> Int ->
              GL.TextureObject ->
              Ptr Word8 ->
              IO Atari2600
-initState xscale' yscale' width height ram' initBankState rom' initialPC window prog attrib initTex initTextureData = do
+initState xscale' yscale' width height ram'
+#if TRACE
+            record'
+#endif
+            initBankState rom' initialPC window prog attrib initTex initTextureData = do
           stellaDebug' <- newIORef DebugState.start
           bankState' <- newIORef initBankState
           clock' <- newIORef 0
           -- debug' <- newIORef 8
           stellaClock' <- newIORef 0
+#if TRACE
+          recordPtr' <- newIORef 0
+#endif
           boolArray' <- newArray (0, maxBool) False
           intArray' <- newArray (0, 127) 0      -- Overkill
           word64Array' <- newArray (0, maxWord64) 0
@@ -90,14 +101,15 @@ initState xscale' yscale' width height ram' initBankState rom' initialPC window 
               _windowWidth = width,
               _windowHeight = height,
               _rom = rom',
+#if TRACE
+              _record = record',
+              _recordPtr = recordPtr',
+#endif
               _ram = ram',
               _stellaDebug = stellaDebug',
               _bankState = bankState',
               _clock = clock',
               _stellaClock = stellaClock',
-              --_sdlBackSurface = helloWorld,
-              --_sdlFrontSurface = screenSurface,
-              --_sdlFrontWindow = window,
               _boolArray = boolArray',
               _intArray = intArray',
               _word64Array = word64Array',
@@ -364,9 +376,24 @@ pureReadRom addr = do
     let bankStateRef = atari ^. bankState
     bankState' <- liftIO $ readIORef bankStateRef
     let bankedAddress = bankAddress bankState' addr
-    -- liftIO $ putStrLn $ "readReadRom: Reading from bankAddress 0x" ++ showHex bankedAddress "" ++ " (" ++ show bankState' ++ ")"
-    byte <- liftIO $ readArray m bankedAddress
-    return byte
+--    when (bankWritable bankState' addr) $ do
+--        liftIO $ putStrLn $ "pureReadRom: Writing to bankAddress 0x" ++ showHex addr "" ++ " -> 0x" ++ showHex bankedAddress "" ++ " (" ++ show bankState' ++ ")"
+    liftIO $ readArray m bankedAddress
+
+{-# INLINE pureWriteRom #-}
+-- | pureWriteRom sees address in full 6507 range 0x0000-0x1fff
+-- You can write to Super Chip "ROM"
+pureWriteRom :: Word16 -> Word8 -> MonadAtari ()
+pureWriteRom addr v = do
+    -- liftIO $ putStrLn $ "readReadRom: Reading from address 0x" ++ showHex addr ""
+    atari <- ask
+    let m = atari ^. rom
+    let bankStateRef = atari ^. bankState
+    bankState' <- liftIO $ readIORef bankStateRef
+    when (bankWritable bankState' addr) $ do
+        let bankedAddress = bankAddress bankState' addr
+--        liftIO $ putStrLn $ "pureWriteRom: Writing to bankAddress 0x" ++ showHex addr "" ++ " -> 0x" ++ showHex bankedAddress "" ++ " (" ++ show bankState' ++ ")"
+        liftIO $ writeArray m bankedAddress v
 
 {-# INLINE pureReadMemory #-}
 -- | pureReadMemory expects an address in range 0x0000-0x1fff
@@ -385,11 +412,21 @@ pureReadMemory RAM  addr = do
 pureWriteMemory :: MemoryType -> Word16 -> Word8 -> MonadAtari ()
 pureWriteMemory TIA  addr v = writeStella (addr .&. 0x3f) v
 pureWriteMemory RIOT addr v = writeStella (0x280+(addr .&. 0x1f)) v
-pureWriteMemory ROM  _    _ = return ()
+pureWriteMemory ROM  addr v = pureWriteRom addr v
 pureWriteMemory RAM  addr v = do
     atari <- ask
     let m = atari ^. ram
-    liftIO $ writeArray m (iz addr .&. 0x7f) v
+#if TRACE
+    let r = atari ^. record
+    i <- liftIO $ readIORef (atari ^. recordPtr)
+#endif
+    let realAddress = iz addr .&. 0x7f
+    liftIO $ writeArray m realAddress v
+#if TRACE
+    liftIO $ writeArray r i (i8 realAddress)
+    liftIO $ writeArray r (i+1) v
+    liftIO $ writeIORef (atari ^. recordPtr) (i+2)
+#endif
 
 instance Emu6502 MonadAtari where
     {-# INLINE readMemory #-}
@@ -479,7 +516,9 @@ instance Emu6502 MonadAtari where
     debugStrLn _ _ = return ()
 
     {- INLINE illegal -}
-    illegal i = error $ "Illegal opcode 0x" ++ showHex i ""
+    illegal i = do
+        dumpState
+        error $ "Illegal opcode 0x" ++ showHex i ""
 
 {-# INLINABLE dumpMemory #-}
 dumpMemory :: MonadAtari ()

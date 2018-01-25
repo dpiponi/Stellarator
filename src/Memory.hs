@@ -10,6 +10,7 @@ module Memory(MemoryType(..),
               bankAddress,
               memoryType,
               bankSwitch,
+              bankWritable,
               BankMode(..)
              ) where
 
@@ -59,13 +60,17 @@ isROM a = testBit a 12
 -- http://blog.kevtris.org/blogfiles/Atari%202600%20Mappers.txt
 
 data BankMode = UnBanked
-              | ModeF6
-              | ModeF8
+              | ModeF6 -- 16K
+              | ModeF6SC -- 16K
+              | ModeF8 -- 8K
+              | ModeF8SC -- 8K
               | Mode3F deriving (Show, Data, Typeable)
 
 data BankState = NoBank
                | BankF6 !Word16
+               | BankF6SC !Word16
                | BankF8 !Word16
+               | BankF8SC !Word16
                | Bank3F !Word16 deriving Show
 
 i16 :: Integral a => a -> Word16
@@ -82,10 +87,16 @@ bankSwitch    _         _        NoBank           = NoBank
 
 bankSwitch    0x1ff8    _        (BankF8 _)       = BankF8 0x0000
 bankSwitch    0x1ff9    _        (BankF8 _)       = BankF8 0x1000
+bankSwitch    0x1ff8    _        (BankF8SC _)     = BankF8SC 0x0000
+bankSwitch    0x1ff9    _        (BankF8SC _)     = BankF8SC 0x1000
 bankSwitch    0x1ff6    _        (BankF6 _)       = BankF6 0x0000
 bankSwitch    0x1ff7    _        (BankF6 _)       = BankF6 0x1000
 bankSwitch    0x1ff8    _        (BankF6 _)       = BankF6 0x2000
 bankSwitch    0x1ff9    _        (BankF6 _)       = BankF6 0x3000
+bankSwitch    0x1ff6    _        (BankF6SC _)     = BankF6SC 0x0000
+bankSwitch    0x1ff7    _        (BankF6SC _)     = BankF6SC 0x1000
+bankSwitch    0x1ff8    _        (BankF6SC _)     = BankF6SC 0x2000
+bankSwitch    0x1ff9    _        (BankF6SC _)     = BankF6SC 0x3000
 
 -- My implementation of 3F doesn't fit the description at
 -- http://blog.kevtris.org/blogfiles/Atari%202600%20Mappers.txt
@@ -101,9 +112,22 @@ bankSwitch    _         _        state            = state
 -- i.e. it is in range 0x0000-0x1fff
 -- though we only expect to see values in range 0x1000-0x1fff
 -- as we only reach this function if the 6507 is reading from ROM.
-bankAddress :: BankState ->    Word16 -> Int
-bankAddress    NoBank          addr = iz (addr .&. 0xfff)
-bankAddress    (BankF8 offset) addr = ((iz addr .&. 0xfff)+iz offset)
-bankAddress    (BankF6 offset) addr = ((iz addr .&. 0xfff)+iz offset)
-bankAddress    (Bank3F _)      addr | addr > 0x1800 = iz addr
-bankAddress    (Bank3F offset) addr = ((iz addr .&. 0x7ff)+iz offset)
+bankAddress :: BankState ->      Word16 -> Int
+bankAddress    NoBank            addr   = iz (addr .&. 0xfff)
+bankAddress    (BankF8 offset)   addr   = ((iz addr .&. 0xfff)+iz offset)
+bankAddress    (BankF8SC offset) addr   = let zaddr = iz addr .&. 0xfff
+                                          in if zaddr < 0x100 then (zaddr .&. 0x7f) else zaddr+iz offset
+bankAddress    (BankF6 offset)   addr   = ((iz addr .&. 0xfff)+iz offset)
+bankAddress    (BankF6SC offset) addr   = let zaddr = iz addr .&. 0xfff
+                                          in if zaddr < 0x100 then (zaddr .&. 0x7f) else zaddr+iz offset
+bankAddress    (Bank3F _)        addr   | addr > 0x1800 = iz addr
+bankAddress    (Bank3F offset)   addr   = ((iz addr .&. 0x7ff)+iz offset)
+
+{-# INLINE bankWritable #-}
+-- | bankAddress sees the full 6507 address
+-- i.e. it is in range 0x0000-0x1fff
+-- though we only expect to see values in range 0x1000-0x1fff
+-- as we only reach this function if the 6507 is reading from ROM.
+bankWritable :: BankState -> Word16 -> Bool
+bankWritable    (BankF6SC _) addr = (addr .&. 0xfff) < 0x100
+bankWritable    _            _    = False
