@@ -10,6 +10,10 @@ Some combinations of ghc and SDL may produce slightly wrong colours. I saw this 
 
 It'll run Adventure if you have the rom.
 
+News
+----
+Implemented on-cartridge "Super Chip" RAM. That gives an extra 128 bytes of RAM to some Atari games such as Secret Quest.
+
 Screenshots
 -----------
 ![Adventure screenshot](docs/adventure.gif?raw=true "Adventure Screenshot")
