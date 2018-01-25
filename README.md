@@ -84,7 +84,7 @@ Command line options
             Fragile file format so copy original as closely as
             possible.
 
-    -b unbanked|f8|f6|3f
+    -b unbanked|f8|f6|3f|f8sc|f6sc
            select rom bank switching style
            Currently Stellarator automatically picks:
 
@@ -92,9 +92,8 @@ Command line options
            * f8 for 8K roms
            * f6 for 16K roms
 
-           So only use for this currently is to select
-           3f for 8K ROMS such as Tigervision's
-           Miner 2049er.
+           * Select 3f for 8K ROMS such as Tigervision's Miner 2049er.
+           * append sc for "super chip" aka SARA
 
 Notes
 -----
@@ -168,13 +167,14 @@ Lots of games work:
 | Commando Raid          | Seems to play fine. Ugly "comb" effect is correct.                       |
 | Cosmic Ark             | Seems to play fine but star rendering is replaced by ugly vertical line. |
 | Defender:              | Seems to play fine.                                                      |
+| Dig Dug                | Use -b f6sc. Seems to play fine.                                         |
 | Demon Attack           | Seems to play fine. I quite like this one.                               |
 | Donkey Kong            | Seems to play fine. Amazing implementation.                              |
 | Dukes of Hazzard       | Seems to play fine.                                                      |
 | Freeway                | Seems to play fine.                                                      |
 | Frogger 2              | Uses E8 bank switching. Not implemented.                                 |
 | Fun with Numbers       | Works. Pity the kids that learnt mathematics using this.                 |
-| Galaxians              | Seems to play fine except for an extra column of aliens!                 |
+| Galaxians              | Seems to play fine.                                                      |
 | Haunted House          | Blank screen :-(                                                         |
 | Ikari Warriors         | Seems to play fine                                                       |
 | Indy 500               | Steering doesn't seem to work. Maybe expects different controller.       |
@@ -193,6 +193,7 @@ Lots of games work:
 | River Patrol           | Use -b 3f. Seems to play fine.                                           |
 | River Raid             | Seems to play fine.                                                      |
 | Sea Hawk               | Seems to play fine.                                                      |
+| Secret Quest           | Use -b f6sc. Seems to play fine.
 | Space Canyon           | Has an illegal opcode. It's clearly there in disassembly :-(             |
 | Star Fox               | Plays fine (if you can call it "play"). Unsteady opening screen.         |
 | Star Master            | ?? Lack of aliens to shoot is in Stella too. Half crosshair missing.     |
@@ -219,5 +220,6 @@ So writing in Haskell was an unusual choice and an interesting challenge. Here a
 * I've never written so much code without getting random inexplicable bugs. Most bugs that came up were because I hadn't written code to cover all cases. Failures were largely because of me not understanding the weird Atari hardware, not because I'd failed to translate my understanding into Haskell. When bugs did arise it was often possible to fix them through simply thinking rather than my usual bug hunting methods. Very few segmentation faults. The moment I tried writing audio code I started getting crashes so I'm postponing that.
 * It was frustrating not having the option to simply throw in global variables like I would in C. Any changes in state need to be threaded through all of the code. The `AtariMonad` hides much of this but it's still a bit painful. The pain does pay off in terms of having better behaved code though.
 * I loved that I was able to refactor code and have it run successfully first time (or almost first time). Strict types really do keep you safe. I already know Haskell is good for this, but it was surprising to see reality match theory.
-* Haskell can be prettty verbose. C code that looks like (a<<8)&0xf0)|(a>>8)&0xf0 needs a lot of typing in Haskell. And some of the state updates were a bit verbose, even with some helper functions.
-* There is interest in linear types in Haskell. I think this might allow me to get rid of `Asm.hs` without sacrficing performance. But the back end of the compiler really has to know how to exploit it and the proposal isn't currently focussed on performance. https://ghc.haskell.org/trac/ghc/wiki/LinearTypes
+* Haskell can be prettty verbose. C code that looks like `(a<<8)&0xf0)|(a>>8)&0xf0` needs a lot of typing in Haskell. And some of the state updates were a bit verbose, even with some helper functions.
+* There is interest in linear types in Haskell. I think it would be a perfect fit for writing emulators.I think this might allow me to get rid of `Asm.hs` without sacrficing performance. But the back end of the compiler really has to know how to exploit it and the proposal isn't currently focussed on performance. https://ghc.haskell.org/trac/ghc/wiki/LinearTypes
+* Haskell compile times are painful. I bet a C version of this code would compile from scratch in 3-4 seconds. It's taking minutes to compile the Haskell.
