@@ -120,11 +120,6 @@ Debugger
 Hitting escape while running the emulator drops you into the debugger.
 Use the `c` command to quit debugging and return to game playing.
 
-Here's an example command:
-
-```
-    u(row==160){s};u(row>160){s;l}
-```
 
 It single steps until the VCS is on row 160 of the screen.
 It then single steps through the entire row showing each instruction.
@@ -132,9 +127,65 @@ Useful when you're trying to decode how an individual scanline is
 being rendered.
 The debug command history is kept in the file .stellarator
 
-Syntax:
-    { } - block
-    Put multiple commands in a block, eg. `r100{s;l}` will step and list the current instruction 100 times.
+Command syntax:
+```
+    {<statement>;<statement>...} - block
+    Put multiple commands in a block, eg. r100{s;l} will step and list the current instruction 100 times.
+
+    c - continue
+    Return to playing game
+
+    g - dump graphics state
+    Eg. r10{s;g} will step through 10 instructions dumping graphics state each step.
+
+    s - single instruction step
+    Eg. r100000s will step 100000 instructions
+
+    r<expr><statement> - repeat statement
+    Eg. r(2*y){s;l} will step and list instructions a number of times given by double the Y register.
+
+    x<string> - execute command
+    Executes command in string. Eg. x"p1" will print 1.
+
+    l<expr>
+    l<expr>expr> - list disassembly
+    Disassemble from given expression with optional number of instructions.
+    Eg. l(pc+2)10 lists 10 instructions starting at PC+2.
+
+    p<expr> - print
+    Print expression. Eg. p?0x9c7f prints byte at address 0x9c7f
+
+    u<expr><statement> - until
+    Perform statement until condition met.
+    Eg. u(row==160){s};u(row>160){s;l} will step until row 160 of screen is reached and will then step, disassembling each instruction, until row 160 is finished.
+    Eg. u(y>x){l;s} will step until Y register is larger than X.
+
+    <var>=<expr>
+    Set value of variable.
+    Eg. U=1;V=2;pU+V will print 3.
+```
+
+Expression syntax
+```
+    t - current clock value
+    col - current column
+    row - current row
+
+    Note the names of flags come from names of branch instructions:
+    eq - Z flag
+    ne - negated Z flag
+    mi - N flag
+    pl - negated N flag
+    cs - C flag
+    cc - negated c flag
+
+    a, x, y, s - registers
+
+    ==, !=, >, <, >=, <=, +, -, <<, >>, *, / ~, &, | all do obvious thing
+
+    ?<expr> - read byte from address
+    !<expr> - read 2 byte word from address
+```
 
 UI events to the main window are ignored while single stepping though
 I'll probably fix that eventually.
