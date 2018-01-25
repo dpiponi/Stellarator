@@ -120,15 +120,23 @@ Debugger
 Hitting escape while running the emulator drops you into the debugger.
 Use the `c` command to quit debugging and return to game playing.
 
-I'll document the commands eventually but here's an example:
+Here's an example command:
 
+```
     u(row==160){s};u(row>160){s;l}
+```
 
 It single steps until the VCS is on row 160 of the screen.
 It then single steps through the entire row showing each instruction.
 Useful when you're trying to decode how an individual scanline is
 being rendered.
 The debug command history is kept in the file .stellarator
+
+Syntax:
+```
+    { } - block
+```
+    Put multiple commands in a block, eg. `r100{s;l}` will step and list the current instruction 100 times.
 
 UI events to the main window are ignored while single stepping though
 I'll probably fix that eventually.
