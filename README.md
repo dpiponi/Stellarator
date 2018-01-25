@@ -167,7 +167,7 @@ Lots of games work:
 | Commando Raid          | Seems to play fine. Ugly "comb" effect is correct.                       |
 | Cosmic Ark             | Seems to play fine but star rendering is replaced by ugly vertical line. |
 | Defender:              | Seems to play fine.                                                      |
-| Dig Dug                | Use -b f6sc. Seems to play fine.                                         |
+| Dig Dug                | Use -b f6sc. Seems to play fine apart from some stray pixels.            |
 | Demon Attack           | Seems to play fine. I quite like this one.                               |
 | Donkey Kong            | Seems to play fine. Amazing implementation.                              |
 | Dukes of Hazzard       | Seems to play fine.                                                      |
@@ -221,6 +221,11 @@ Then run a command like
 ```
 and it'll render a trace that looks a bit like:
 ![RAM trace](docs/trace.png?raw=true "RAM trace")
+The idea is that the image is 1024 pixels wide, one pixel for each bit of RAM.
+Vertically is time measured in the number of writes.
+By default each row corresponds to the average value of each bit over 512 writes.
+The colour indicates intensity of activity.
+Blue indicates fewer writes to those bits, yellow indicates more.
 
 Some notes on writing an emulator in Haskell
 ---------------------------------------------
