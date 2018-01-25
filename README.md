@@ -210,6 +210,18 @@ Lots of games work:
 | Yar's Revenge          | Seems to play fine.                                                      |
 | Zaxxon                 | Seems to play fine.                                                      |
 
+Rendering RAM traces
+--------------------
+In `stellarator.cabal` set `-DTRACE` to 1 instead of 0. Now rebuild.
+The `W` key will now write a trace of all RAM written to.
+Usually hit trace after about 30 seconds or so.
+Then run a command like
+```
+    c++ -std=c++11 -O3 -o trace trace.cpp && ./trace && open trace.bmp
+```
+and it'll render a trace that looks a bit like:
+![RAM trace](docs/trace.png?raw=true "RAM trace")
+
 Some notes on writing an emulator in Haskell
 ---------------------------------------------
 
