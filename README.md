@@ -133,9 +133,7 @@ being rendered.
 The debug command history is kept in the file .stellarator
 
 Syntax:
-```
     { } - block
-```
     Put multiple commands in a block, eg. `r100{s;l}` will step and list the current instruction 100 times.
 
 UI events to the main window are ignored while single stepping though
