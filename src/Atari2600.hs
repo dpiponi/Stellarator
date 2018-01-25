@@ -18,8 +18,10 @@ module Atari2600(
                  useStellaClock,
                  bankState,
                  ram,
+#if TRACE
                  record,
                  recordPtr,
+#endif
                  rom,
                  useClock,
                  putStellaDebug,
@@ -60,8 +62,10 @@ data Atari2600 = Atari2600 {
     _stellaDebug :: IORef DebugState,
 
     _ram :: IOUArray Int Word8,
+#if TRACE
     _record :: StorableArray Int Word8,
     _recordPtr :: IORef Int,
+#endif
     _rom :: IOUArray Int Word8,
     _boolArray :: Segment Bool,
     _intArray :: Segment Int,

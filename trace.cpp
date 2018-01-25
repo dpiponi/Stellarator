@@ -105,7 +105,7 @@ int main() {
 
     cout << "Reading trace..." << endl;
     if (file.read(trace.data(), size)) {
-        const int vscale = 1;
+        const int vscale = 512;
         int end = size/2;
         //end = 10000;
         int vsize = (end+vscale-1)/vscale;

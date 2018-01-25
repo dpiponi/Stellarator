@@ -21,7 +21,9 @@ import Data.Array.IO
 import Data.Binary hiding (get)
 import Data.Bits hiding (bit)
 import Data.Int(Int64)
+#if TRACE
 import Data.Array.Storable
+#endif
 import Emulation
 import Memory
 import Metrics
@@ -72,25 +74,35 @@ main = do
 
     romArray <- newArray (0, 0x3fff) 0 :: IO (IOUArray Int Word8)
     ramArray <- newArray (0, 0x7f) 0 :: IO (IOUArray Int Word8)
+#if TRACE
     recordArray <- newArray (0, 2^24-1) 0 :: IO (StorableArray Int Word8)
+#endif
     bankStyle <- readBinary romArray (file args') 0x0000
     let bankStyle' = case (bank args') of
                         "f8" -> ModeF8
+                        "f8sc" -> ModeF8SC
                         "f6" -> ModeF6
+                        "f6sc" -> ModeF6SC
                         "3f" -> Mode3F
                         _    -> bankStyle
 
     let initBankState = case bankStyle' of
                             UnBanked -> NoBank
                             ModeF8 -> BankF8 0x0000
+                            ModeF8SC -> BankF8SC 0x0000
                             ModeF6 -> BankF6 0x0000
+                            ModeF6SC -> BankF6SC 0x0000
                             Mode3F -> Bank3F 0x0000
     print $ "Initial bank state = " ++ show initBankState
 
     --let style = bank args
     state <- initState screenScaleX' screenScaleY'
                        (screenWidth*screenScaleX') (screenHeight*screenScaleY')
-                       ramArray recordArray initBankState romArray
+                       ramArray
+#if TRACE
+                       recordArray
+#endif
+                       initBankState romArray
                        0x0000 window prog attrib tex' textureData'
 
     let loop = do

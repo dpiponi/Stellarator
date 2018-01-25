@@ -198,6 +198,7 @@ data Options = Options {
     gameQuit :: String,
     gameSelect :: String,
     gameReset :: String,
+    tvType :: String,
     enterDebugger :: String,
     debugMode :: String,
     writeRecord :: String
@@ -219,13 +220,14 @@ defaultOptions = Options {
     gameQuit = "Q",
     gameSelect = "C",
     gameReset = "V",
+    tvType = "X",
     enterDebugger = "Escape",
     debugMode = "Backslash",
     writeRecord = "W"
 }
 
 data AtariKey = Joystick1Left | Joystick1Right | Joystick1Up | Joystick1Down | Joystick1Trigger
-              | GameSelect | GameReset
+              | GameSelect | GameReset | TVType
               | GameQuit | DumpState | EnterDebugger | DebugMode
               | WriteRecord
                 deriving (Eq, Show)
@@ -244,6 +246,7 @@ keysFromOptions options = do
                     gameQuit options,
                     gameSelect options,
                     gameReset options,
+                    tvType options,
                     enterDebugger options,
                     debugMode options,
                     writeRecord options
@@ -258,6 +261,7 @@ keysFromOptions options = do
                     GameQuit,
                     GameSelect,
                     GameReset,
+                    TVType,
                     EnterDebugger,
                     DebugMode,
                     WriteRecord

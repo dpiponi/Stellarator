@@ -69,6 +69,7 @@ handleKey atariKeys motion sym = do
                 Joystick1Left    -> modify swcha $ bitAt 6 .~ not pressed
                 Joystick1Right   -> modify swcha $ bitAt 7 .~ not pressed
                 Joystick1Trigger -> trigger1Pressed pressed
+                TVType           -> modify swchb $ bitAt 3 .~ not pressed
                 GameSelect       -> modify swchb $ bitAt 1 .~ not pressed
                 GameReset        -> modify swchb $ bitAt 0 .~ not pressed
                 DumpState        -> Emulation.dumpState
@@ -79,6 +80,7 @@ handleKey atariKeys motion sym = do
                                         runDebugger
                                         liftIO $ killThread t
                 DebugMode        -> when pressed $ modify debugColours not
+#if TRACE
                 WriteRecord      -> when pressed $ do
                                         liftIO $ print "Write record!"
                                         atari <- ask
@@ -88,4 +90,7 @@ handleKey atariKeys motion sym = do
                                             handle <- openBinaryFile "trace.record" WriteMode
                                             hPutBuf handle ptr endPtr
                                             hClose handle
+#else
+                WriteRecord     -> when pressed $ liftIO $ print "Trace not enabled at compilation"
+#endif
 
