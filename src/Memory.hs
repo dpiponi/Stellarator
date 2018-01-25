@@ -10,6 +10,7 @@ module Memory(MemoryType(..),
               bankAddress,
               memoryType,
               bankSwitch,
+              bankWritable,
               BankMode(..)
              ) where
 
@@ -60,11 +61,13 @@ isROM a = testBit a 12
 
 data BankMode = UnBanked
               | ModeF6
+              | ModeF6SC
               | ModeF8
               | Mode3F deriving (Show, Data, Typeable)
 
 data BankState = NoBank
                | BankF6 !Word16
+               | BankF6SC !Word16
                | BankF8 !Word16
                | Bank3F !Word16 deriving Show
 
@@ -107,3 +110,11 @@ bankAddress    (BankF8 offset) addr = ((iz addr .&. 0xfff)+iz offset)
 bankAddress    (BankF6 offset) addr = ((iz addr .&. 0xfff)+iz offset)
 bankAddress    (Bank3F _)      addr | addr > 0x1800 = iz addr
 bankAddress    (Bank3F offset) addr = ((iz addr .&. 0x7ff)+iz offset)
+
+{-# INLINE bankWritable #-}
+-- | bankAddress sees the full 6507 address
+-- i.e. it is in range 0x0000-0x1fff
+-- though we only expect to see values in range 0x1000-0x1fff
+-- as we only reach this function if the 6507 is reading from ROM.
+bankWritable :: BankState ->    Word16 -> Bool
+bankWritable    _          _ = False

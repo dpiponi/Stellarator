@@ -33,6 +33,7 @@ import System.Console.CmdArgs hiding ((+=))
 import Keys
 import qualified SDL
 import Events
+--import Debugger
 
 data Args = Args { file :: String, bank :: String, options :: String } deriving (Show, Data, Typeable)
 
@@ -113,7 +114,7 @@ main = do
             let initialPC = fromIntegral pclo+(fromIntegral pchi `shift` 8)
             liftIO $ putStrLn $ "Starting at address: 0x" ++ showHex initialPC ""
             store pc initialPC
-            -- runDebugger
+            --runDebugger
             loop
 
     SDL.destroyWindow window

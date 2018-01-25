@@ -1,3 +1,8 @@
+//
+// Convert RAM trace to image
+// c++ -std=c++11 -O3 -o trace trace.cpp && ./trace && open trace.bmp
+//
+
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -34,10 +39,10 @@ void savebmp(const char *filename, int height, int width,
     outputfile << "BM";
 
     for (int n = 0; n < 6; n++) {
-       outputfile.put(headers[n] & 0x000000FFU);
-       outputfile.put((headers[n] & 0x0000FF00U) >> 8);
-       outputfile.put((headers[n] & 0x00FF0000U) >> 16);
-       outputfile.put((headers[n] & 0xFF000000U) >> 24);
+        outputfile.put(headers[n] & 0x000000FFU);
+        outputfile.put((headers[n] & 0x0000FF00U) >> 8);
+        outputfile.put((headers[n] & 0x00FF0000U) >> 16);
+        outputfile.put((headers[n] & 0xFF000000U) >> 24);
     }
 
     //
@@ -49,10 +54,10 @@ void savebmp(const char *filename, int height, int width,
     outputfile.put(0);
 
     for (int n = 7; n < 13; n++) {
-       outputfile.put(headers[n] & 0x000000FFU);
-       outputfile.put((headers[n] & 0x0000FF00U) >> 8);
-       outputfile.put((headers[n] & 0x00FF0000U) >> 16);
-       outputfile.put((headers[n] & 0xFF000000U) >> 24);
+        outputfile.put(headers[n] & 0x000000FFU);
+        outputfile.put((headers[n] & 0x0000FF00U) >> 8);
+        outputfile.put((headers[n] & 0x00FF0000U) >> 16);
+        outputfile.put((headers[n] & 0xFF000000U) >> 24);
     }
 
     //
@@ -98,9 +103,12 @@ int main() {
     std::vector<char> trace(size);
     std::vector<bool> ram(1024, 0);
 
+    cout << "Reading trace..." << endl;
     if (file.read(trace.data(), size)) {
-        const int vscale = 512;
-        int vsize = (size/2+vscale-1)/vscale;
+        const int vscale = 1;
+        int end = size/2;
+        //end = 10000;
+        int vsize = (end+vscale-1)/vscale;
 
         // Count of how many times each bit is one per time period
         std::vector<int> data(1024*vsize, 0);
@@ -108,7 +116,7 @@ int main() {
         // Count of number of times bit is written per time period
         std::vector<int> activity(1024*vsize, 0);
 
-        for (int i = 0; i < size/2; ++i) {
+        for (int i = 0; i < end; ++i) {
             int index = i/vscale;
             int row = 1024*index;
 

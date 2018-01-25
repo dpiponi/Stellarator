@@ -366,9 +366,22 @@ pureReadRom addr = do
     let bankStateRef = atari ^. bankState
     bankState' <- liftIO $ readIORef bankStateRef
     let bankedAddress = bankAddress bankState' addr
-    -- liftIO $ putStrLn $ "readReadRom: Reading from bankAddress 0x" ++ showHex bankedAddress "" ++ " (" ++ show bankState' ++ ")"
-    byte <- liftIO $ readArray m bankedAddress
-    return byte
+    liftIO $ readArray m bankedAddress
+
+{-# INLINE pureWriteRom #-}
+-- | pureReadRom sees address in full 6507 range 0x0000-0x1fff
+-- You can write to Super Chip "ROM"
+pureWriteRom :: Word16 -> Word8 -> MonadAtari ()
+pureWriteRom addr v = do
+    -- liftIO $ putStrLn $ "readReadRom: Reading from address 0x" ++ showHex addr ""
+    atari <- ask
+    let m = atari ^. rom
+    let bankStateRef = atari ^. bankState
+    bankState' <- liftIO $ readIORef bankStateRef
+    when (bankWritable bankState' addr) $ do
+        let bankedAddress = bankAddress bankState' addr
+        -- liftIO $ putStrLn $ "readReadRom: Reading from bankAddress 0x" ++ showHex bankedAddress "" ++ " (" ++ show bankState' ++ ")"
+        liftIO $ writeArray m bankedAddress v
 
 {-# INLINE pureReadMemory #-}
 -- | pureReadMemory expects an address in range 0x0000-0x1fff
@@ -387,7 +400,7 @@ pureReadMemory RAM  addr = do
 pureWriteMemory :: MemoryType -> Word16 -> Word8 -> MonadAtari ()
 pureWriteMemory TIA  addr v = writeStella (addr .&. 0x3f) v
 pureWriteMemory RIOT addr v = writeStella (0x280+(addr .&. 0x1f)) v
-pureWriteMemory ROM  _    _ = return ()
+pureWriteMemory ROM  addr v = pureWriteRom addr v
 pureWriteMemory RAM  addr v = do
     atari <- ask
     let m = atari ^. ram
@@ -487,7 +500,9 @@ instance Emu6502 MonadAtari where
     debugStrLn _ _ = return ()
 
     {- INLINE illegal -}
-    illegal i = error $ "Illegal opcode 0x" ++ showHex i ""
+    illegal i = do
+        dumpState
+        error $ "Illegal opcode 0x" ++ showHex i ""
 
 {-# INLINABLE dumpMemory #-}
 dumpMemory :: MonadAtari ()
