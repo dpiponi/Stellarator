@@ -244,7 +244,7 @@ Lots of games work:
 | Frogger 2              | Uses E8 bank switching. Not implemented.                                 |
 | Fun with Numbers       | Works. Pity the kids that learnt mathematics using this.                 |
 | Galaxians              | Seems to play fine.                                                      |
-| Haunted House          | Blank screen :-(                                                         |
+| Haunted House          | Seems to play fine. Needs a special hack to make SBC #$0f work.          |
 | Ikari Warriors         | Seems to play fine                                                       |
 | Indy 500               | Steering doesn't seem to work. Maybe expects different controller.       |
 | Midnight Magic         | Seems to work fine.                                                      |
