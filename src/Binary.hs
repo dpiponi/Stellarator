@@ -36,4 +36,5 @@ readBinary arr filename origin = do
                 0x1000 -> return UnBanked
                 0x2000 -> return ModeF8
                 0x4000 -> return ModeF6
+                0x8000 -> return ModeF4
                 _      -> error "Unrecognised ROM size"

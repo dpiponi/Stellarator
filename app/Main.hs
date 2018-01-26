@@ -35,12 +35,12 @@ import System.Console.CmdArgs hiding ((+=))
 import Keys
 import qualified SDL
 import Events
---import Debugger
+import Debugger
 
-data Args = Args { file :: String, bank :: String, options :: String } deriving (Show, Data, Typeable)
+data Args = Args { file :: String, bank :: String, options :: String, debugStart :: Bool } deriving (Show, Data, Typeable)
 
 clargs :: Args
-clargs = Args { file = "adventure.bin", bank = "", options = ".stellarator-options" }
+clargs = Args { file = "adventure.bin", bank = "", options = ".stellarator-options", debugStart = False }
 
 loopUntil :: Int64 -> MonadAtari ()
 loopUntil n = do
@@ -53,6 +53,7 @@ main = do
 
     let optionsFile = options args'
     putStrLn $ "Reading options from '" ++ optionsFile ++ "'"
+    putStrLn $ "Debug = " ++ show (debugStart args')
     optionsString <- readFile optionsFile
     let options' = read optionsString :: Options
     print options'
@@ -61,18 +62,25 @@ main = do
     -- XXX Make list of default keys
     let Just atariKeys = keysFromOptions options'
 
-    --SDL.initialize [SDL.InitVideo, SDL.InitAudio]
-    SDL.initializeAll
+    SDL.initialize [SDL.InitVideo] --, SDL.InitAudio]
     window <- SDL.createWindow "Stellarator"
-                               SDL.defaultWindow {
-                                    SDL.windowInitialSize = V2 (fromIntegral $ screenScaleX'*screenWidth)
-                                                               (fromIntegral $ screenScaleY'*screenHeight) }
+                    SDL.defaultWindow {
+                        SDL.windowInitialSize = V2 (fromIntegral $ screenScaleX'*screenWidth)
+                        (fromIntegral $ screenScaleY'*screenHeight),
+                        SDL.windowOpenGL = Just $ SDL.OpenGLConfig {
+                            SDL.glColorPrecision = V4 8 8 8 0,
+                            SDL.glDepthPrecision = 24,
+                            SDL.glStencilPrecision = 8,
+                            --SDL.glMultisampleSamples = 1,
+                            SDL.glProfile = SDL.Compatibility SDL.Normal 2 1
+                            }}
+                                                                             
     SDL.showWindow window
     _ <- SDL.glCreateContext window
     SDL.swapInterval $= SDL.SynchronizedUpdates
     (prog, attrib, tex', textureData') <- initResources
 
-    romArray <- newArray (0, 0x3fff) 0 :: IO (IOUArray Int Word8)
+    romArray <- newArray (0, 0x7fff) 0 :: IO (IOUArray Int Word8)
     ramArray <- newArray (0, 0x7f) 0 :: IO (IOUArray Int Word8)
 #if TRACE
     recordArray <- newArray (0, 2^24-1) 0 :: IO (StorableArray Int Word8)
@@ -83,6 +91,8 @@ main = do
                         "f8sc" -> ModeF8SC
                         "f6" -> ModeF6
                         "f6sc" -> ModeF6SC
+                        "f4" -> ModeF4
+                        "f4sc" -> ModeF4SC
                         "3f" -> Mode3F
                         _    -> bankStyle
 
@@ -92,6 +102,8 @@ main = do
                             ModeF8SC -> BankF8SC 0x0000
                             ModeF6 -> BankF6 0x0000
                             ModeF6SC -> BankF6SC 0x0000
+                            ModeF4 -> BankF4 0x0000
+                            ModeF4SC -> BankF4SC 0x0000
                             Mode3F -> Bank3F 0x0000
     print $ "Initial bank state = " ++ show initBankState
 
@@ -126,7 +138,7 @@ main = do
             let initialPC = fromIntegral pclo+(fromIntegral pchi `shift` 8)
             liftIO $ putStrLn $ "Starting at address: 0x" ++ showHex initialPC ""
             store pc initialPC
-            --runDebugger
+            when (debugStart args') runDebugger
             loop
 
     SDL.destroyWindow window

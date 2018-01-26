@@ -187,6 +187,13 @@ Expression syntax
     !<expr> - read 2 byte word from address
 ```
 
+Complex examples
+```
+    u(pc==0x5828){s;l} - keep executing until address 5828
+    u(?pc==0x20){s;l}  - keep executing until first JSR
+    p(!(0x101+s)+1)    - print return address on top of stack
+```
+
 UI events to the main window are ignored while single stepping though
 I'll probably fix that eventually.
 
@@ -232,6 +239,7 @@ Lots of games work:
 | Demon Attack           | Seems to play fine. I quite like this one.                               |
 | Donkey Kong            | Seems to play fine. Amazing implementation.                              |
 | Dukes of Hazzard       | Seems to play fine.                                                      |
+| Fatal Run              | Use -b f4sc. But RTS at 5F6B after bank switch jumps to bad opcode???    |
 | Freeway                | Seems to play fine.                                                      |
 | Frogger 2              | Uses E8 bank switching. Not implemented.                                 |
 | Fun with Numbers       | Works. Pity the kids that learnt mathematics using this.                 |
@@ -254,7 +262,7 @@ Lots of games work:
 | River Patrol           | Use -b 3f. Seems to play fine.                                           |
 | River Raid             | Seems to play fine.                                                      |
 | Sea Hawk               | Seems to play fine.                                                      |
-| Secret Quest           | Use -b f6sc. Seems to play fine.
+| Secret Quest           | Use -b f6sc. Seems to play fine.                                         |
 | Space Canyon           | Has an illegal opcode. It's clearly there in disassembly :-(             |
 | Star Fox               | Plays fine (if you can call it "play"). Unsteady opening screen.         |
 | Star Master            | ?? Lack of aliens to shoot is in Stella too. Half crosshair missing.     |

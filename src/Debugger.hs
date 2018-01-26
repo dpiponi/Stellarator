@@ -11,6 +11,7 @@ import DebugState
 import Disasm
 import Emulation()
 import VideoOps
+import Numeric
 import System.Console.Haskeline
 import Text.Parsec
 import qualified Data.Map.Strict as Map
@@ -188,7 +189,9 @@ execPrint :: [Expr] -> MonadAtari DebugAction
 execPrint es = do
     forM_ es $ \e -> do
         val <- eval e
-        liftIO $ putStr (show val)
+        case val of
+            EInt w -> liftIO $ putStr ("0x" ++ showHex w "")
+            _ -> liftIO $ putStr (show val)
     liftIO $ putStrLn ""
     return KeepDebugging
 

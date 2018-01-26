@@ -277,6 +277,7 @@ readStella addr =
         0x07 -> load cxppmm
         0x0c -> load inpt4
         0x0d -> load inpt5
+        0x0f -> return 0xf -- Hack for Haunted House
         0x10 -> load cxm0p
         0x11 -> load cxm1p
         0x12 -> load cxp0fb

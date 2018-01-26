@@ -60,6 +60,8 @@ isROM a = testBit a 12
 -- http://blog.kevtris.org/blogfiles/Atari%202600%20Mappers.txt
 
 data BankMode = UnBanked
+              | ModeF4 -- 32K
+              | ModeF4SC -- 32K
               | ModeF6 -- 16K
               | ModeF6SC -- 16K
               | ModeF8 -- 8K
@@ -67,6 +69,8 @@ data BankMode = UnBanked
               | Mode3F deriving (Show, Data, Typeable)
 
 data BankState = NoBank
+               | BankF4 !Word16
+               | BankF4SC !Word16
                | BankF6 !Word16
                | BankF6SC !Word16
                | BankF8 !Word16
@@ -98,6 +102,45 @@ bankSwitch    0x1ff7    _        (BankF6SC _)     = BankF6SC 0x1000
 bankSwitch    0x1ff8    _        (BankF6SC _)     = BankF6SC 0x2000
 bankSwitch    0x1ff9    _        (BankF6SC _)     = BankF6SC 0x3000
 
+#if 0
+-- https://hackaday.io/project/12961-atari-2600-bankswitch-cartridge
+-- See "Particularities of the 32K cartridge"
+-- Bits 1 and 3 swapped
+bankSwitch    0x1ff4    _        (BankF4 _)       = BankF4 0x0000
+bankSwitch    0x1ff5    _        (BankF4 _)       = BankF4 0x1000
+bankSwitch    0x1ff6    _        (BankF4 _)       = BankF4 0x4000
+bankSwitch    0x1ff7    _        (BankF4 _)       = BankF4 0x5000
+bankSwitch    0x1ff8    _        (BankF4 _)       = BankF4 0x2000
+bankSwitch    0x1ff9    _        (BankF4 _)       = BankF4 0x3000
+bankSwitch    0x1ffA    _        (BankF4 _)       = BankF4 0x6000
+bankSwitch    0x1ffB    _        (BankF4 _)       = BankF4 0x7000
+bankSwitch    0x1ff4    _        (BankF4SC _)       = BankF4SC 0x0000
+bankSwitch    0x1ff5    _        (BankF4SC _)       = BankF4SC 0x1000
+bankSwitch    0x1ff6    _        (BankF4SC _)       = BankF4SC 0x4000
+bankSwitch    0x1ff7    _        (BankF4SC _)       = BankF4SC 0x5000
+bankSwitch    0x1ff8    _        (BankF4SC _)       = BankF4SC 0x2000
+bankSwitch    0x1ff9    _        (BankF4SC _)       = BankF4SC 0x3000
+bankSwitch    0x1ffA    _        (BankF4SC _)       = BankF4SC 0x6000
+bankSwitch    0x1ffB    _        (BankF4SC _)       = BankF4SC 0x7000
+#else
+bankSwitch    0x1ff4    _        (BankF4 _)       = BankF4 0x0000
+bankSwitch    0x1ff5    _        (BankF4 _)       = BankF4 0x1000
+bankSwitch    0x1ff6    _        (BankF4 _)       = BankF4 0x2000
+bankSwitch    0x1ff7    _        (BankF4 _)       = BankF4 0x3000
+bankSwitch    0x1ff8    _        (BankF4 _)       = BankF4 0x4000
+bankSwitch    0x1ff9    _        (BankF4 _)       = BankF4 0x5000
+bankSwitch    0x1ffA    _        (BankF4 _)       = BankF4 0x6000
+bankSwitch    0x1ffB    _        (BankF4 _)       = BankF4 0x7000
+bankSwitch    0x1ff4    _        (BankF4SC _)       = BankF4SC 0x0000
+bankSwitch    0x1ff5    _        (BankF4SC _)       = BankF4SC 0x1000
+bankSwitch    0x1ff6    _        (BankF4SC _)       = BankF4SC 0x2000
+bankSwitch    0x1ff7    _        (BankF4SC _)       = BankF4SC 0x3000
+bankSwitch    0x1ff8    _        (BankF4SC _)       = BankF4SC 0x4000
+bankSwitch    0x1ff9    _        (BankF4SC _)       = BankF4SC 0x5000
+bankSwitch    0x1ffA    _        (BankF4SC _)       = BankF4SC 0x6000
+bankSwitch    0x1ffB    _        (BankF4SC _)       = BankF4SC 0x7000
+#endif
+
 -- My implementation of 3F doesn't fit the description at
 -- http://blog.kevtris.org/blogfiles/Atari%202600%20Mappers.txt
 -- I switch bank on a read or write at 0x3f.
@@ -112,6 +155,10 @@ bankSwitch    _         _        state            = state
 -- i.e. it is in range 0x0000-0x1fff
 -- though we only expect to see values in range 0x1000-0x1fff
 -- as we only reach this function if the 6507 is reading from ROM.
+-- Note that when using Super Chip RAM the first 128 bytes are supposed to be
+-- write-only and the next are a read-only mirror.
+-- In theory a read operation on the write-only section could write something.
+-- I've not implemented that.
 bankAddress :: BankState ->      Word16 -> Int
 bankAddress    NoBank            addr   = iz (addr .&. 0xfff)
 bankAddress    (BankF8 offset)   addr   = ((iz addr .&. 0xfff)+iz offset)
@@ -119,6 +166,9 @@ bankAddress    (BankF8SC offset) addr   = let zaddr = iz addr .&. 0xfff
                                           in if zaddr < 0x100 then (zaddr .&. 0x7f) else zaddr+iz offset
 bankAddress    (BankF6 offset)   addr   = ((iz addr .&. 0xfff)+iz offset)
 bankAddress    (BankF6SC offset) addr   = let zaddr = iz addr .&. 0xfff
+                                          in if zaddr < 0x100 then (zaddr .&. 0x7f) else zaddr+iz offset
+bankAddress    (BankF4 offset)   addr   = ((iz addr .&. 0xfff)+iz offset)
+bankAddress    (BankF4SC offset) addr   = let zaddr = iz addr .&. 0xfff
                                           in if zaddr < 0x100 then (zaddr .&. 0x7f) else zaddr+iz offset
 bankAddress    (Bank3F _)        addr   | addr > 0x1800 = iz addr
 bankAddress    (Bank3F offset)   addr   = ((iz addr .&. 0x7ff)+iz offset)
