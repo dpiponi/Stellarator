@@ -47,26 +47,6 @@ loopUntil n = do
     stellaClock' <- useStellaClock id
     when (stellaClock' < n) $ (pc @-> pcStep) >> step >> loopUntil n
 
-makeMainWindow :: Int -> Int -> IO SDL.Window
-makeMainWindow screenScaleX' screenScaleY' = do
-    window <- SDL.createWindow "Stellarator"
-                SDL.defaultWindow {
-                    SDL.windowInitialSize = V2 (fromIntegral $ screenScaleX'*screenWidth)
-                    (fromIntegral $ screenScaleY'*screenHeight),
-                    SDL.windowOpenGL = Just $ SDL.OpenGLConfig {
-                        SDL.glColorPrecision = V4 8 8 8 0,
-                        SDL.glDepthPrecision = 24,
-                        SDL.glStencilPrecision = 8,
-                        --SDL.glMultisampleSamples = 1,
-                        SDL.glProfile = SDL.Compatibility SDL.Normal 2 1
-                        }}
-
-    SDL.showWindow window
-    _ <- SDL.glCreateContext window
-    SDL.swapInterval $= SDL.SynchronizedUpdates
-
-    return window
-
 --initHardware :: MonadAtari
 --initHardware = do
 
