@@ -14,6 +14,8 @@ module Emulation(stellaDebug,
                  initState,
                  trigger1,
                  trigger2,
+                 loopUntil,
+                 initHardware,
                  load) where
 
 import Asm()
@@ -658,3 +660,22 @@ renderDisplay = do
     liftIO $ updateTexture tex' ptr
     liftIO $ draw window windowWidth' windowHeight' prog attrib
     return ()
+
+loopUntil :: Int64 -> MonadAtari ()
+loopUntil n = do
+    stellaClock' <- useStellaClock id
+    when (stellaClock' < n) $ (pc @-> pcStep) >> step >> loopUntil n
+
+initHardware :: MonadAtari ()
+initHardware = do
+    store inpt4 0x80
+    store inpt5 0x80
+    store swcha 0b11111111
+    store swchb 0b00001011
+    store xbreak (-1)
+    store ybreak (-1)
+    pclo <- readMemory 0x1ffc
+    pchi <- readMemory 0x1ffd
+    let initialPC = fromIntegral pclo+(fromIntegral pchi `shift` 8)
+    liftIO $ putStrLn $ "Starting at address: 0x" ++ showHex initialPC ""
+    store pc initialPC

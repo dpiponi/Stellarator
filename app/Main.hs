@@ -9,28 +9,23 @@
 
 module Main where
 
-import Graphics.Rendering.OpenGL
-import Asm
+--import Graphics.Rendering.OpenGL
 import Atari2600
 import Binary
 import Display
 import Control.Monad
 import Control.Monad.Reader
-import Core
 import Data.Array.IO
 import Data.Binary hiding (get)
-import Data.Bits hiding (bit)
-import Data.Int(Int64)
 #if TRACE
 import Data.Array.Storable
 #endif
 import Emulation
 import Memory
 import Metrics
-import Numeric
 import Prelude hiding (last)
 import SDL.Event
-import SDL.Vect
+--import SDL.Vect
 import System.Console.CmdArgs hiding ((+=))
 import Keys
 import qualified SDL
@@ -40,15 +35,10 @@ import Debugger
 data Args = Args { file :: String, bank :: String, options :: String, debugStart :: Bool } deriving (Show, Data, Typeable)
 
 clargs :: Args
-clargs = Args { file = "adventure.bin", bank = "", options = ".stellarator-options", debugStart = False }
-
-loopUntil :: Int64 -> MonadAtari ()
-loopUntil n = do
-    stellaClock' <- useStellaClock id
-    when (stellaClock' < n) $ (pc @-> pcStep) >> step >> loopUntil n
-
---initHardware :: MonadAtari
---initHardware = do
+clargs = Args { file = "adventure.bin",
+                bank = "",
+                options = ".stellarator-options",
+                debugStart = False }
 
 main :: IO ()
 main = do
@@ -73,7 +63,7 @@ main = do
     romArray <- newArray (0, 0x7fff) 0 :: IO (IOUArray Int Word8)
     ramArray <- newArray (0, 0x7f) 0 :: IO (IOUArray Int Word8)
 #if TRACE
-    recordArray <- newArray (0, 2^24-1) 0 :: IO (StorableArray Int Word8)
+    recordArray <- newArray (0, 2^(24 :: Int)-1) 0 :: IO (StorableArray Int Word8)
 #endif
     bankStyle <- readBinary romArray (file args') 0x0000
     let bankStyle' = bankStyleByName bankStyle (bank args')
@@ -101,17 +91,7 @@ main = do
             loop
 
     _ <- flip runReaderT state $ unM $ do
-            store inpt4 0x80
-            store inpt5 0x80
-            store swcha 0b11111111
-            store swchb 0b00001011
-            store xbreak (-1)
-            store ybreak (-1)
-            pclo <- readMemory 0x1ffc
-            pchi <- readMemory 0x1ffd
-            let initialPC = fromIntegral pclo+(fromIntegral pchi `shift` 8)
-            liftIO $ putStrLn $ "Starting at address: 0x" ++ showHex initialPC ""
-            store pc initialPC
+            initHardware
             when (debugStart args') runDebugger
             loop
 
