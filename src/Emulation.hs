@@ -13,6 +13,7 @@ module Emulation(stellaDebug,
                  stellaClock,
                  initState,
                  trigger1,
+                 trigger2,
                  load) where
 
 import Asm()
@@ -90,9 +91,9 @@ initState xscale' yscale' width height ram'
           recordPtr' <- newIORef 0
 #endif
           boolArray' <- newArray (0, maxBool) False
-          intArray' <- newArray (0, 127) 0      -- Overkill
+          intArray' <- newArray (0, maxInt) 0      -- Overkill
           word64Array' <- newArray (0, maxWord64) 0
-          word16Array' <- newArray (0, 127) 0      -- Overkill
+          word16Array' <- newArray (0, maxWord16) 0      -- Overkill
           word8Array' <- newArray (0, maxWord8) 0
           liftIO $ st word16Array' pc initialPC
           return $ Atari2600 {
@@ -252,6 +253,8 @@ stellaVblank :: Word8 -> MonadAtari ()
 stellaVblank v = do
     trigger1' <- load trigger1
     modify inpt4 $ bitAt 7 .~ not trigger1'
+    trigger2' <- load trigger2
+    modify inpt5 $ bitAt 7 .~ not trigger2'
     vblank @= v
 
 makePlayfield :: MonadAtari ()
@@ -277,7 +280,12 @@ readStella addr =
         0x07 -> load cxppmm
         0x0c -> load inpt4
         0x0d -> load inpt5
-        0x0f -> return 0xf -- Hack for Haunted House
+        0x0e -> liftIO $ do
+                    putStrLn "Illegal read 0xe"
+                    return 0xe
+        0x0f -> liftIO $ do
+                    putStrLn "Illegal read 0xf"
+                    return 0xf -- Hack for Haunted House
         0x10 -> load cxm0p
         0x11 -> load cxm1p
         0x12 -> load cxp0fb
@@ -587,19 +595,19 @@ writeStella addr v = do
        0x02 -> stellaWsync               -- WSYNC
        0x04 -> graphicsDelay 4 >> nusiz0 @= v        -- NUSIZ0
        0x05 -> nusiz1 @= v        -- NUSIZ1
-       0x06 -> colup0 @= v               -- COLUP0
-       0x07 -> colup1 @= v               -- COLUP1
-       0x08 -> colupf @= v               -- COLUPF
-       0x09 -> colubk @= v               -- COLUBK
+       0x06 -> (pcStep @-> pcColup0) >> colup0 @= v               -- COLUP0
+       0x07 -> (pcStep @-> pcColup1) >> colup1 @= v               -- COLUP1
+       0x08 -> (pcStep @-> pcColupf) >> colupf @= v               -- COLUPF
+       0x09 -> (pcStep @-> pcColubk) >> colubk @= v               -- COLUBK
        0x0a -> ctrlpf @= v >> makePlayfield               -- COLUPF
        0x0b -> graphicsDelay 0 >> refp0 @= v               -- REFP0
        0x0c -> graphicsDelay 0 >> refp1 @= v               -- REFP1
        -- I'm sure I read delay should be 3 for PF registers
        -- but that doesn't make sense to me.
        -- See docs/adventure_pf_timing.txt
-       0x0d -> graphicsDelay 3 >> pf0 @= v >> makePlayfield                  -- PF0
-       0x0e -> graphicsDelay 3 >> pf1 @= v >> makePlayfield                  -- PF1
-       0x0f -> graphicsDelay 3 >> pf2 @= v >> makePlayfield                  -- PF2
+       0x0d -> (pcStep @-> pcPf0) >> graphicsDelay 3 >> pf0 @= v >> makePlayfield    -- PF0
+       0x0e -> (pcStep @-> pcPf1) >> graphicsDelay 3 >> pf1 @= v >> makePlayfield    -- PF1
+       0x0f -> (pcStep @-> pcPf2) >> graphicsDelay 3 >> pf2 @= v >> makePlayfield    -- PF2
        0x10 -> (pcStep @-> pcResp0) >> graphicsDelay 5 >> hpos @-> ppos0 -- RESP0
        0x11 -> (pcStep @-> pcResp1) >> graphicsDelay 5 >> hpos @-> ppos1 -- RESP1
        0x12 -> (pcStep @-> pcResm0) >> graphicsDelay 4 >> hpos @-> mpos0 -- RESM0

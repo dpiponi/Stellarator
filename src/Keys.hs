@@ -194,6 +194,7 @@ data Options = Options {
     joystick1Up :: String,
     joystick1Down :: String,
     joystick1Trigger :: String,
+    joystick2Trigger :: String,
     dumpState :: String,
     gameQuit :: String,
     gameSelect :: String,
@@ -216,6 +217,7 @@ defaultOptions = Options {
     joystick1Up = "Up",
     joystick1Down = "Down",
     joystick1Trigger = "Space",
+    joystick2Trigger = "Return",
     dumpState = "1",
     gameQuit = "Q",
     gameSelect = "C",
@@ -226,7 +228,8 @@ defaultOptions = Options {
     writeRecord = "W"
 }
 
-data AtariKey = Joystick1Left | Joystick1Right | Joystick1Up | Joystick1Down | Joystick1Trigger
+data AtariKey = Joystick1Left | Joystick1Right | Joystick1Up | Joystick1Down
+              | Joystick1Trigger |Joystick2Trigger
               | GameSelect | GameReset | TVType
               | GameQuit | DumpState | EnterDebugger | DebugMode
               | WriteRecord
@@ -242,6 +245,7 @@ keysFromOptions options = do
                     joystick1Up options,
                     joystick1Down options,
                     joystick1Trigger options,
+                    joystick2Trigger options,
                     dumpState options,
                     gameQuit options,
                     gameSelect options,
@@ -257,6 +261,7 @@ keysFromOptions options = do
                     Joystick1Up,
                     Joystick1Down,
                     Joystick1Trigger,
+                    Joystick2Trigger,
                     DumpState,
                     GameQuit,
                     GameSelect,

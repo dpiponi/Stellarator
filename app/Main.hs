@@ -47,6 +47,20 @@ loopUntil n = do
     stellaClock' <- useStellaClock id
     when (stellaClock' < n) $ (pc @-> pcStep) >> step >> loopUntil n
 
+makeMainWindow :: Int -> Int -> IO SDL.Window
+makeMainWindow screenScaleX' screenScaleY' =
+    SDL.createWindow "Stellarator"
+        SDL.defaultWindow {
+            SDL.windowInitialSize = V2 (fromIntegral $ screenScaleX'*screenWidth)
+            (fromIntegral $ screenScaleY'*screenHeight),
+            SDL.windowOpenGL = Just $ SDL.OpenGLConfig {
+                SDL.glColorPrecision = V4 8 8 8 0,
+                SDL.glDepthPrecision = 24,
+                SDL.glStencilPrecision = 8,
+                --SDL.glMultisampleSamples = 1,
+                SDL.glProfile = SDL.Compatibility SDL.Normal 2 1
+                }}
+
 main :: IO ()
 main = do
     args' <- cmdArgs clargs
@@ -63,18 +77,8 @@ main = do
     let Just atariKeys = keysFromOptions options'
 
     SDL.initialize [SDL.InitVideo] --, SDL.InitAudio]
-    window <- SDL.createWindow "Stellarator"
-                    SDL.defaultWindow {
-                        SDL.windowInitialSize = V2 (fromIntegral $ screenScaleX'*screenWidth)
-                        (fromIntegral $ screenScaleY'*screenHeight),
-                        SDL.windowOpenGL = Just $ SDL.OpenGLConfig {
-                            SDL.glColorPrecision = V4 8 8 8 0,
-                            SDL.glDepthPrecision = 24,
-                            SDL.glStencilPrecision = 8,
-                            --SDL.glMultisampleSamples = 1,
-                            SDL.glProfile = SDL.Compatibility SDL.Normal 2 1
-                            }}
-                                                                             
+    window <- makeMainWindow screenScaleX' screenScaleY'
+
     SDL.showWindow window
     _ <- SDL.glCreateContext window
     SDL.swapInterval $= SDL.SynchronizedUpdates
@@ -86,15 +90,7 @@ main = do
     recordArray <- newArray (0, 2^24-1) 0 :: IO (StorableArray Int Word8)
 #endif
     bankStyle <- readBinary romArray (file args') 0x0000
-    let bankStyle' = case (bank args') of
-                        "f8" -> ModeF8
-                        "f8sc" -> ModeF8SC
-                        "f6" -> ModeF6
-                        "f6sc" -> ModeF6SC
-                        "f4" -> ModeF4
-                        "f4sc" -> ModeF4SC
-                        "3f" -> Mode3F
-                        _    -> bankStyle
+    let bankStyle' = bankStyleByName bankStyle (bank args')
 
     let initBankState = case bankStyle' of
                             UnBanked -> NoBank
@@ -104,6 +100,7 @@ main = do
                             ModeF6SC -> BankF6SC 0x0000
                             ModeF4 -> BankF4 0x0000
                             ModeF4SC -> BankF4SC 0x0000
+                            ModeE0 -> BankE0 0x0000 0x0000 0x0000
                             Mode3F -> Bank3F 0x0000
     print $ "Initial bank state = " ++ show initBankState
 

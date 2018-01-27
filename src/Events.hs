@@ -55,6 +55,16 @@ trigger1Pressed pressed = do
         (True, False) -> return ()
         (True, True ) -> modify inpt4 $ bitAt 7 .~ False
 
+trigger2Pressed :: Bool -> MonadAtari ()
+trigger2Pressed pressed = do
+    store trigger2 pressed
+    vblank' <- load vblank
+    let latch = testBit vblank' 6
+    case (latch, pressed) of
+        (False, _   ) -> modify inpt5 $ bitAt 7 .~ not pressed
+        (True, False) -> return ()
+        (True, True ) -> modify inpt5 $ bitAt 7 .~ False
+
 handleKey :: AtariKeys -> InputMotion -> Keysym -> MonadAtari ()
 handleKey atariKeys motion sym = do
     let scancode = keysymScancode sym
@@ -69,6 +79,7 @@ handleKey atariKeys motion sym = do
                 Joystick1Left    -> modify swcha $ bitAt 6 .~ not pressed
                 Joystick1Right   -> modify swcha $ bitAt 7 .~ not pressed
                 Joystick1Trigger -> trigger1Pressed pressed
+                Joystick2Trigger -> trigger2Pressed pressed
                 TVType           -> modify swchb $ bitAt 3 .~ not pressed
                 GameSelect       -> modify swchb $ bitAt 1 .~ not pressed
                 GameReset        -> modify swchb $ bitAt 0 .~ not pressed

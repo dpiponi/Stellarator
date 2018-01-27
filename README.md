@@ -62,6 +62,9 @@ You'll need to obtain ADVNTURE.BIN from somewhere like https://www.atariage.com/
 
 * If you started with ADVNTURE.BIN then hit `v` and start using the cursor keys. Have fun!
 
+Similar instructions have worked under Linux but I don't actively maintain that.
+I've never tested under Windows. Looking for a volunteer!
+
 Instructions
 ------------
 Use cursor keys to simulate the joystick and the space bar to fire the trigger.
@@ -95,6 +98,8 @@ Command line options
            * unbanked for 2K or 4K roms
            * f8 for 8K roms
            * f6 for 16K roms
+           * f4 for 32K roms
+           * e0 for Parker 8K roms
 
            * Select 3f for 8K ROMS such as Tigervision's Miner 2049er.
            * append sc for "super chip" aka SARA
@@ -240,16 +245,19 @@ Lots of games work:
 | Donkey Kong            | Seems to play fine. Amazing implementation.                              |
 | Dukes of Hazzard       | Seems to play fine.                                                      |
 | Fatal Run              | Use -b f4sc. But RTS at 5F6B after bank switch jumps to bad opcode???    |
+| Frogger 2              | Use -b e0. Seems to pkay fine.                                           |
 | Freeway                | Seems to play fine.                                                      |
-| Frogger 2              | Uses E8 bank switching. Not implemented.                                 |
+| FUses E0 bank switching. Not implemented.                                 |rogger 2              | Seems to play fine.                                                      |
 | Fun with Numbers       | Works. Pity the kids that learnt mathematics using this.                 |
 | Galaxians              | Seems to play fine.                                                      |
+| Gyruss                 | Use -b e8. Seems to play fine.                                           |
 | Haunted House          | Seems to play fine. Needs a special hack to make SBC #$0f work.          |
 | Ikari Warriors         | Seems to play fine                                                       |
 | Indy 500               | Steering doesn't seem to work. Maybe expects different controller.       |
 | Midnight Magic         | Seems to work fine.                                                      |
 | Millipede              | No enemies seem to arrive.                                               |
 | Miner 2049er           | Use -b 3f. Seems to work fine.                                           |
+| Montezuma's Revenge    | Use -b e0. Seems to play fine.                                           |
 | Moonsweeper            | Seems to play fine.                                                      |
 | Pacman                 | Seems to work fine. Flickering is normal.                                |
 | Phoenix                | Seems to work fine.                                                      |
@@ -264,15 +272,20 @@ Lots of games work:
 | Sea Hawk               | Seems to play fine.                                                      |
 | Secret Quest           | Use -b f6sc. Seems to play fine.                                         |
 | Space Canyon           | Has an illegal opcode. It's clearly there in disassembly :-(             |
+| Space Invaders         | Seems to play fine. Score pixels seem slightly messed up.                |
 | Star Fox               | Plays fine (if you can call it "play"). Unsteady opening screen.         |
 | Star Master            | ?? Lack of aliens to shoot is in Stella too. Half crosshair missing.     |
 | Star Trek: SOS         | Seems to play fine.                                                      |
-| Stargate               | Screen mostly blank?                                                     |
+| Stargate               | Screen mostly blank? In debug mode you can see some stuff.               |
 | Stargunner             | Seems to play fine.                                                      |
 | Strategy X             | Seems to play fine apart from minor sprite misalignment.                 |
+| Super Cobra            | Use -b e0 Landscape has some stray blocks in sky.                        |
 | SW: Empire Strikes Back| Seems to play fine.                                                      |
+| SW: Death Star Battle  | Use -b e0. Seems to play fine.                                           |
+| SW: The Arcade Game    | Use -b e0. Seems to play fine. Too hard using keyboard!                  |
 | Tank City              | Seems to play fine apart from some misrendered score digits              |
 | Tank Brigade           | Seems to play fine.                                                      |
+| Tutankh                | Use -b e0. At first I thought it wasn't working but it's just bad.       |
 | Vanguard               | Seems to play fine                                                       |
 | Xenohpobe              | Seems to play fine                                                       |
 | Xevious                | Seems to play fine.                                                      |
@@ -308,4 +321,4 @@ So writing in Haskell was an unusual choice and an interesting challenge. Here a
 * I loved that I was able to refactor code and have it run successfully first time (or almost first time). Strict types really do keep you safe. I already know Haskell is good for this, but it was surprising to see reality match theory.
 * Haskell can be prettty verbose. C code that looks like `(a<<8)&0xf0)|(a>>8)&0xf0` needs a lot of typing in Haskell. And some of the state updates were a bit verbose, even with some helper functions.
 * There is interest in linear types in Haskell. I think it would be a perfect fit for writing emulators.I think this might allow me to get rid of `Asm.hs` without sacrficing performance. But the back end of the compiler really has to know how to exploit it and the proposal isn't currently focussed on performance. https://ghc.haskell.org/trac/ghc/wiki/LinearTypes
-* Haskell compile times are painful. I bet a C version of this code would compile from scratch in 3-4 seconds. It's taking minutes to compile the Haskell.
+* Haskell compile times are painful. I bet a C version of this code would compile from scratch in 3-4 seconds. It's taking minutes to compile the Haskell. This means the idea->compile->test loop is much longer than I'd like. Thankfully type checking means mistakes are often caught early in compilation.

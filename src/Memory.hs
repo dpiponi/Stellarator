@@ -8,6 +8,7 @@ module Memory(MemoryType(..),
 --              isRAM,
               BankState(..),
               bankAddress,
+              bankStyleByName,
               memoryType,
               bankSwitch,
               bankWritable,
@@ -66,6 +67,7 @@ data BankMode = UnBanked
               | ModeF6SC -- 16K
               | ModeF8 -- 8K
               | ModeF8SC -- 8K
+              | ModeE0 -- 8K
               | Mode3F deriving (Show, Data, Typeable)
 
 data BankState = NoBank
@@ -75,6 +77,7 @@ data BankState = NoBank
                | BankF6SC !Word16
                | BankF8 !Word16
                | BankF8SC !Word16
+               | BankE0 !Word16 !Word16 !Word16
                | Bank3F !Word16 deriving Show
 
 i16 :: Integral a => a -> Word16
@@ -139,6 +142,31 @@ bankSwitch    0x1ff8    _        (BankF4SC _)       = BankF4SC 0x4000
 bankSwitch    0x1ff9    _        (BankF4SC _)       = BankF4SC 0x5000
 bankSwitch    0x1ffA    _        (BankF4SC _)       = BankF4SC 0x6000
 bankSwitch    0x1ffB    _        (BankF4SC _)       = BankF4SC 0x7000
+
+bankSwitch    0x1fe0    _        (BankE0 _ b c)     = BankE0 0x0000 b c
+bankSwitch    0x1fe1    _        (BankE0 _ b c)     = BankE0 0x0400 b c
+bankSwitch    0x1fe2    _        (BankE0 _ b c)     = BankE0 0x0800 b c
+bankSwitch    0x1fe3    _        (BankE0 _ b c)     = BankE0 0x0c00 b c
+bankSwitch    0x1fe4    _        (BankE0 _ b c)     = BankE0 0x1000 b c
+bankSwitch    0x1fe5    _        (BankE0 _ b c)     = BankE0 0x1400 b c
+bankSwitch    0x1fe6    _        (BankE0 _ b c)     = BankE0 0x1800 b c
+bankSwitch    0x1fe7    _        (BankE0 _ b c)     = BankE0 0x1c00 b c
+bankSwitch    0x1fe8    _        (BankE0 a _ c)     = BankE0 a 0x0000 c
+bankSwitch    0x1fe9    _        (BankE0 a _ c)     = BankE0 a 0x0400 c
+bankSwitch    0x1fea    _        (BankE0 a _ c)     = BankE0 a 0x0800 c
+bankSwitch    0x1feb    _        (BankE0 a _ c)     = BankE0 a 0x0c00 c
+bankSwitch    0x1fec    _        (BankE0 a _ c)     = BankE0 a 0x1000 c
+bankSwitch    0x1fed    _        (BankE0 a _ c)     = BankE0 a 0x1400 c
+bankSwitch    0x1fee    _        (BankE0 a _ c)     = BankE0 a 0x1800 c
+bankSwitch    0x1fef    _        (BankE0 a _ c)     = BankE0 a 0x1c00 c
+bankSwitch    0x1ff0    _        (BankE0 a b _)     = BankE0 a b 0x0000
+bankSwitch    0x1ff1    _        (BankE0 a b _)     = BankE0 a b 0x0400
+bankSwitch    0x1ff2    _        (BankE0 a b _)     = BankE0 a b 0x0800
+bankSwitch    0x1ff3    _        (BankE0 a b _)     = BankE0 a b 0x0c00
+bankSwitch    0x1ff4    _        (BankE0 a b _)     = BankE0 a b 0x1000
+bankSwitch    0x1ff5    _        (BankE0 a b _)     = BankE0 a b 0x1400
+bankSwitch    0x1ff6    _        (BankE0 a b _)     = BankE0 a b 0x1800
+bankSwitch    0x1ff7    _        (BankE0 a b _)     = BankE0 a b 0x1c00
 #endif
 
 -- My implementation of 3F doesn't fit the description at
@@ -170,6 +198,14 @@ bankAddress    (BankF6SC offset) addr   = let zaddr = iz addr .&. 0xfff
 bankAddress    (BankF4 offset)   addr   = ((iz addr .&. 0xfff)+iz offset)
 bankAddress    (BankF4SC offset) addr   = let zaddr = iz addr .&. 0xfff
                                           in if zaddr < 0x100 then (zaddr .&. 0x7f) else zaddr+iz offset
+
+bankAddress    (BankE0 a b c)    addr =   let zaddr = iz addr .&. 0x3ff -- 1K blocks
+                                          in case addr .&. 0x0c00 of
+                                            0x0000 -> iz a+zaddr
+                                            0x0400 -> iz b+zaddr
+                                            0x0800 -> iz c+zaddr
+                                            0x0c00 -> 0x1c00+zaddr
+                                            _      -> error "Provably impossible"
 bankAddress    (Bank3F _)        addr   | addr > 0x1800 = iz addr
 bankAddress    (Bank3F offset)   addr   = ((iz addr .&. 0x7ff)+iz offset)
 
@@ -181,3 +217,14 @@ bankAddress    (Bank3F offset)   addr   = ((iz addr .&. 0x7ff)+iz offset)
 bankWritable :: BankState -> Word16 -> Bool
 bankWritable    (BankF6SC _) addr = (addr .&. 0xfff) < 0x100
 bankWritable    _            _    = False
+
+bankStyleByName :: BankMode -> String -> BankMode
+bankStyleByName _         "f8"   = ModeF8
+bankStyleByName _         "f8sc" = ModeF8SC
+bankStyleByName _         "f6"   = ModeF6
+bankStyleByName _         "f6sc" = ModeF6SC
+bankStyleByName _         "f4"   = ModeF4
+bankStyleByName _         "f4sc" = ModeF4SC
+bankStyleByName _         "e0"   = ModeE0
+bankStyleByName _         "3f"   = Mode3F
+bankStyleByName bankStyle _      = bankStyle

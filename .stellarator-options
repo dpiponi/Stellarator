@@ -9,6 +9,7 @@ Options {
     joystick1Up = "Up",
     joystick1Down = "Down",
     joystick1Trigger = "Space",
+    joystick2Trigger = "Return",
     dumpState = "1",
     gameQuit = "Q",
     gameSelect = "C",

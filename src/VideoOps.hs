@@ -74,7 +74,11 @@ dumpStella = do
                                 ++ reverse (inBinary 8 pf2')
                                 -}
     pf' <- load pf
-    liftIO $ putStrLn $ inBinary 40 pf'
+    liftIO $ putStrLn $ "PF = " ++ inBinary 40 pf'
+    pcPf0' <- load pcPf0
+    pcPf1' <- load pcPf1
+    pcPf2' <- load pcPf2
+    liftIO $ putStrLn $ " set at address 0x" ++ showHex pcPf0' "" ++ ", " ++ showHex pcPf1' "" ++ ", " ++ showHex pcPf2' ""
     nusiz0' <- load nusiz0
     nusiz1' <- load nusiz1
     liftIO $ putStrLn $ "NUSIZ0 = " ++ showHex nusiz0' "" ++ "(" ++ explainNusiz nusiz0' ++
@@ -121,10 +125,18 @@ dumpStella = do
     colupf' <- load colupf
     colup0' <- load colup0
     colup1' <- load colup1
+    pcColubk' <- load pcColubk
+    pcColupf' <- load pcColupf
+    pcColup0' <- load pcColup0
+    pcColup1' <- load pcColup1
     liftIO $ putStrLn $ "COLUBK = " ++ showHex colubk' "" ++ " " ++ colorName colubk'
+    liftIO $ putStrLn $ " set at address 0x" ++ showHex pcColubk' ""
     liftIO $ putStrLn $ "COLUPF = " ++ showHex colupf' "" ++ " " ++ colorName colupf'
+    liftIO $ putStrLn $ " set at address 0x" ++ showHex pcColupf' ""
     liftIO $ putStrLn $ "COLUP0 = " ++ showHex colup0' "" ++ " " ++ colorName colup0'
+    liftIO $ putStrLn $ " set at address 0x" ++ showHex pcColup0' ""
     liftIO $ putStrLn $ "COLUP1 = " ++ showHex colup1' "" ++ " " ++ colorName colup1'
+    liftIO $ putStrLn $ " set at address 0x" ++ showHex pcColup1' ""
 
 {-# INLINABLE updatePos #-}
 updatePos :: Int -> Int -> (Int, Int)
