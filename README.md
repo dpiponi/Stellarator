@@ -247,7 +247,7 @@ Lots of games work:
 | Fatal Run              | Use -b f4sc. But RTS at 5F6B after bank switch jumps to bad opcode???    |
 | Frogger 2              | Use -b e0. Seems to pkay fine.                                           |
 | Freeway                | Seems to play fine.                                                      |
-| FUses E0 bank switching. Not implemented.                                 |rogger 2              | Seems to play fine.                                                      |
+| Frogger 2              | Seems to play fine.                                                      |
 | Fun with Numbers       | Works. Pity the kids that learnt mathematics using this.                 |
 | Galaxians              | Seems to play fine.                                                      |
 | Gyruss                 | Use -b e8. Seems to play fine.                                           |
