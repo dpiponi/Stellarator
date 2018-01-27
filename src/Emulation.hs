@@ -576,38 +576,40 @@ graphicsDelay d = do
 {- INLINABLE writeStella -}
 writeStella :: Word16 -> Word8 -> MonadAtari ()
 writeStella addr v = do
+    when (addr <= 0x2c) $ do
+        delays' <- view delays
+        graphicsDelay (delays' ! addr)
+
     case addr of
        0x00 -> stellaVsync v             -- VSYNC
        0x01 -> stellaVblank v            -- VBLANK
        0x02 -> stellaWsync               -- WSYNC
-       0x04 -> graphicsDelay 4 >> nusiz0 @= v        -- NUSIZ0
+       0x04 -> nusiz0 @= v        -- NUSIZ0
        0x05 -> nusiz1 @= v        -- NUSIZ1
        0x06 -> (pcStep @-> pcColup0) >> colup0 @= v               -- COLUP0
        0x07 -> (pcStep @-> pcColup1) >> colup1 @= v               -- COLUP1
        0x08 -> (pcStep @-> pcColupf) >> colupf @= v               -- COLUPF
        0x09 -> (pcStep @-> pcColubk) >> colubk @= v               -- COLUBK
        0x0a -> ctrlpf @= v >> makePlayfield               -- CTRLPF
-       0x0b -> graphicsDelay 0 >> refp0 @= v               -- REFP0
-       0x0c -> graphicsDelay 0 >> refp1 @= v               -- REFP1
+       0x0b -> refp0 @= v               -- REFP0
+       0x0c -> refp1 @= v               -- REFP1
        -- I'm sure I read delay should be 3 for PF registers
        -- but that doesn't make sense to me.
        -- See docs/adventure_pf_timing.txt
-       0x0d -> (pcStep @-> pcPf0) >> graphicsDelay 3 >> pf0 @= v >> makePlayfield    -- PF0
-       0x0e -> (pcStep @-> pcPf1) >> graphicsDelay 3 >> pf1 @= v >> makePlayfield    -- PF1
-       0x0f -> (pcStep @-> pcPf2) >> graphicsDelay 3 >> pf2 @= v >> makePlayfield    -- PF2
-       0x10 -> (pcStep @-> pcResp0) >> graphicsDelay 5 >> hpos @-> ppos0 -- RESP0
-       0x11 -> (pcStep @-> pcResp1) >> graphicsDelay 5 >> hpos @-> ppos1 -- RESP1
-       0x12 -> (pcStep @-> pcResm0) >> graphicsDelay 4 >> hpos @-> mpos0 -- RESM0
-       0x13 -> (pcStep @-> pcResm1) >> graphicsDelay 4 >> hpos @-> mpos1 -- RESM1
-       0x14 -> (pcStep @-> pcResbl) >> graphicsDelay 4 >> load hpos >>= (return . max (picx+2)) >>= (bpos @=)  -- RESBL
+       0x0d -> (pcStep @-> pcPf0) >> pf0 @= v >> makePlayfield    -- PF0
+       0x0e -> (pcStep @-> pcPf1) >> pf1 @= v >> makePlayfield    -- PF1
+       0x0f -> (pcStep @-> pcPf2) >> pf2 @= v >> makePlayfield    -- PF2
+       0x10 -> (pcStep @-> pcResp0) >> hpos @-> ppos0 -- RESP0
+       0x11 -> (pcStep @-> pcResp1) >> hpos @-> ppos1 -- RESP1
+       0x12 -> (pcStep @-> pcResm0) >> hpos @-> mpos0 -- RESM0
+       0x13 -> (pcStep @-> pcResm1) >> hpos @-> mpos1 -- RESM1
+       0x14 -> (pcStep @-> pcResbl) >> load hpos >>= (return . max (picx+2)) >>= (bpos @=)  -- RESBL
        -- graphicsDelay of 1 chosen to stop spurious pixel in
        -- "CCE" in Freeway.
        0x1b -> do -- GRP0
-                graphicsDelay 1
                 newGrp0 @= v
                 newGrp1 @-> oldGrp1
        0x1c -> do -- GRP1
-                graphicsDelay 1
                 newGrp1 @= v
                 newGrp0 @-> oldGrp0
                 newBall @-> oldBall

@@ -36,13 +36,16 @@ module Atari2600(
                  stellaDebug,
                  clock,
                  stellaClock,
+                 delays,
                  modifyStellaDebug
                  ) where
 
 import Control.Lens
 import Control.Monad.Reader
 import Data.Array.Base
+#if TRACE
 import Data.Array.Storable
+#endif
 import Data.Array.IO
 import Data.IORef
 import Data.Int
@@ -82,7 +85,7 @@ data Atari2600 = Atari2600 {
     _xscale :: !Int,
     _yscale :: !Int,
 
-    _delays :: UArray Word8 Int
+    _delays :: UArray Word16 Int
 }
 
 $(makeLenses ''Atari2600)
