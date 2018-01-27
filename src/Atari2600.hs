@@ -55,7 +55,6 @@ import qualified Graphics.Rendering.OpenGL as GL
 import Asm
 
 data Atari2600 = Atari2600 {
-    --_memory :: IORef Memory,
     _bankState :: IORef BankState,
     _clock :: IORef Int64,
     _stellaClock :: IORef Int64,
@@ -81,7 +80,9 @@ data Atari2600 = Atari2600 {
     _windowWidth :: !Int,
     _windowHeight :: !Int,
     _xscale :: !Int,
-    _yscale :: !Int
+    _yscale :: !Int,
+
+    _delays :: UArray Word8 Int
 }
 
 $(makeLenses ''Atari2600)

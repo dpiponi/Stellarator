@@ -27,9 +27,10 @@ import Control.Lens
 import Control.Monad.Reader
 import Core
 import Data.Array.IO
+import Data.Array.Unboxed as U
 import Data.Bits hiding (bit)
 import Data.Bits.Lens
-import Data.Array.Storable
+--import Data.Array.Storable
 import Data.IORef
 import Data.Int
 import Data.Word
@@ -121,7 +122,47 @@ initState xscale' yscale' width height ram'
               _textureData = initTextureData,
               _tex = initTex,
               _glProg = prog,
-              _glAttrib = attrib
+              _glAttrib = attrib,
+              _delays = U.listArray (0, 0x2c) (replicate (0x2c+1) 0) U.// [
+                (0x00, 0), -- VSYNC
+                (0x01, 0), -- VBLANK
+                (0x02, 0), -- WSYNC
+                (0x03, 0), -- NUSIZ0
+                (0x05, 4), -- NUSIZ1
+                (0x06, 0), -- COLUP0
+                (0x07, 0), -- COLUP0
+                (0x08, 0), -- COLUPF
+                (0x09, 0), -- COLUBK
+                (0x0a, 0), -- CTRLPF
+                (0x0b, 0), -- REFP0
+                (0x0c, 0), -- REFP1
+                (0x0d, 3), -- PF0
+                (0x0e, 3), -- PF1
+                (0x0f, 3), -- PF2
+                (0x10, 5), -- RESP0
+                (0x11, 5), -- RESP1
+                (0x12, 4), -- RESM0
+                (0x13, 4), -- RESM1
+                (0x14, 4), -- RESBL
+                (0x1b, 1), -- GRP0
+                (0x1c, 1), -- GRP1
+                (0x1d, 0), -- ENAM0
+                (0x1e, 0), -- ENAM1
+                (0x1f, 0), -- ENABL
+                (0x20, 0), -- HMP0
+                (0x21, 0), -- HMP1
+                (0x22, 0), -- HMM0
+                (0x23, 0), -- HMM1
+                (0x24, 0), -- HMBL
+                (0x25, 0), -- VDELP0
+                (0x26, 0), -- VDELP1
+                (0x27, 0), -- VDELBL
+                (0x28, 0), -- RESMP0
+                (0x29, 0), -- RESMP1
+                (0x2a, 0), -- HMOVE
+                (0x2b, 0), -- HMCLR
+                (0x2c, 0)  -- CXCLR
+                ]
           }
 
 {- INLINE stellaHmclr -}
@@ -303,8 +344,6 @@ stellaWsync = do
     hpos' <- load hpos
     -- Run instructions until we're at start of new scan line
     when (hpos' > 0) $ do
-        --modifyClock id (+ 1)
-        --clock' <- useClock id
         stellaTickFor 1 -- there's a smarter way to do this XXX
         stellaWsync
 
@@ -321,8 +360,6 @@ stellaTickFor d = do
 
 stellaTickFor' :: Int -> MonadAtari ()
 stellaTickFor' diff = do
-    --c <- useStellaClock id
-    --let diff = n-c
     when (diff >= 0) $ do
         -- Batch together items that don't need to be
         -- carried out on individual ticks
@@ -341,14 +378,11 @@ stellaTickFor' diff = do
 -- | pureReadRom sees address in full 6507 range 0x0000-0x1fff
 pureReadRom :: Word16 -> MonadAtari Word8
 pureReadRom addr = do
-    -- liftIO $ putStrLn $ "readReadRom: Reading from address 0x" ++ showHex addr ""
     atari <- ask
     let m = atari ^. rom
     let bankStateRef = atari ^. bankState
     bankState' <- liftIO $ readIORef bankStateRef
     let bankedAddress = bankAddress bankState' addr
---    when (bankWritable bankState' addr) $ do
---        liftIO $ putStrLn $ "pureReadRom: Writing to bankAddress 0x" ++ showHex addr "" ++ " -> 0x" ++ showHex bankedAddress "" ++ " (" ++ show bankState' ++ ")"
     liftIO $ readArray m bankedAddress
 
 {-# INLINE pureWriteRom #-}
@@ -356,14 +390,12 @@ pureReadRom addr = do
 -- You can write to Super Chip "ROM"
 pureWriteRom :: Word16 -> Word8 -> MonadAtari ()
 pureWriteRom addr v = do
-    -- liftIO $ putStrLn $ "readReadRom: Reading from address 0x" ++ showHex addr ""
     atari <- ask
     let m = atari ^. rom
     let bankStateRef = atari ^. bankState
     bankState' <- liftIO $ readIORef bankStateRef
     when (bankWritable bankState' addr) $ do
         let bankedAddress = bankAddress bankState' addr
---        liftIO $ putStrLn $ "pureWriteRom: Writing to bankAddress 0x" ++ showHex addr "" ++ " -> 0x" ++ showHex bankedAddress "" ++ " (" ++ show bankState' ++ ")"
         liftIO $ writeArray m bankedAddress v
 
 {-# INLINE pureReadMemory #-}
@@ -402,7 +434,6 @@ pureWriteMemory RAM  addr v = do
 instance Emu6502 MonadAtari where
     {-# INLINE readMemory #-}
     readMemory addr' = do
-        -- liftIO $ putStrLn $ "readMemory: Reading from address 0x" ++ showHex addr' ""
         let addr = addr' .&. 0x1fff -- 6507
         byte <- pureReadMemory (memoryType addr) addr
 
@@ -535,14 +566,6 @@ dumpState = do
     dumpMemory
     dumpRegisters
 
-{-
-{- INLINE setBreak -}
-setBreak :: Int -> Int -> MonadAtari ()
-setBreak breakX breakY = do
-    xbreak @= (breakX+picx)
-    ybreak @= (breakY+picy)
--}
-
 graphicsDelay :: Int -> MonadAtari ()
 graphicsDelay d = do
     n <- load ahead
@@ -563,7 +586,7 @@ writeStella addr v = do
        0x07 -> (pcStep @-> pcColup1) >> colup1 @= v               -- COLUP1
        0x08 -> (pcStep @-> pcColupf) >> colupf @= v               -- COLUPF
        0x09 -> (pcStep @-> pcColubk) >> colubk @= v               -- COLUBK
-       0x0a -> ctrlpf @= v >> makePlayfield               -- COLUPF
+       0x0a -> ctrlpf @= v >> makePlayfield               -- CTRLPF
        0x0b -> graphicsDelay 0 >> refp0 @= v               -- REFP0
        0x0c -> graphicsDelay 0 >> refp1 @= v               -- REFP1
        -- I'm sure I read delay should be 3 for PF registers

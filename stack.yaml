@@ -3,7 +3,6 @@ extra-package-dbs: []
 extra-lib-dirs:
 - /usr/lib
 packages:
-- '.'
-extra-deps:
-- AhoCorasick-0.0.3
+- .
+extra-deps: []
 resolver: lts-7.10
