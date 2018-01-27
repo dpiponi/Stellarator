@@ -8,7 +8,6 @@
 module Emulation(stellaDebug,
                  dumpRegisters,
                  dumpState,
-                 setBreak,
                  clock,
                  stellaClock,
                  initState,
@@ -154,41 +153,6 @@ stellaHmove = do
 
     boffset <- load hmbl
     modify bpos $ \bpos' -> wrap160 (bpos'-clockMove boffset)
-
-{-
--- Are these needed?
-{- INLINE stellaResmp0 -}
-stellaResmp0 :: MonadAtari ()
-stellaResmp0 = do
-    playerPosition <- load ppos0
-    store mpos0 (playerPosition :: Int)
-
-{- INLINE stellaResmp1 -}
-stellaResmp1 :: MonadAtari ()
-stellaResmp1 = do
-    playerPosition <- load ppos1
-    store mpos1 (playerPosition :: Int)
--}
-
-{-
-{- INLINE stellaDebugStr -}
-stellaDebugStr :: Int -> String -> MonadAtari ()
-stellaDebugStr n str = do
-    d <- useStellaDebug debugLevel
-    if n <= d
-        then do
-            liftIO $ putStr str
-        else return ()
-
-{- INLINE stellaDebugStrLn -}
-stellaDebugStrLn :: Int -> String -> MonadAtari ()
-stellaDebugStrLn n str = do
-    d <- useStellaDebug debugLevel
-    if n <= d
-        then do
-            liftIO $ putStrLn str
-        else return ()
--}
 
 {-# INLINE wrap160 #-}
 wrap160 :: Int -> Int
@@ -369,10 +333,6 @@ stellaTickFor' diff = do
         -- XXX surely this must be done every time - collisions
         clampMissiles resmp0' resmp1'
 
-        --stellaDebug' <- useStellaDebug id
-        --surface <- getBackSurface
-        --ptr <- liftIO $ surfacePixels surface -- <-- XXX I think it's OK but not sure
-        --let ptr' = castPtr ptr :: Ptr Word32
         ptr' <- view textureData
         -- XXX Not sure stellaDebug actually changes here so may be some redundancy
         stellaTick (fromIntegral diff) ptr'
@@ -574,12 +534,6 @@ dumpState :: MonadAtari ()
 dumpState = do
     dumpMemory
     dumpRegisters
-
-{- INLINE setBreak -}
-setBreak :: Int -> Int -> MonadAtari ()
-setBreak breakX breakY = do
-    xbreak @= (breakX+picx)
-    ybreak @= (breakY+picy)
 
 graphicsDelay :: Int -> MonadAtari ()
 graphicsDelay d = do

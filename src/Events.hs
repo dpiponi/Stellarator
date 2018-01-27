@@ -15,6 +15,7 @@ import Data.IORef
 import Data.Bits.Lens
 import System.Exit
 import Control.Concurrent
+import Metrics
 import System.IO
 import Data.Array.Storable
 import Debugger
@@ -26,6 +27,12 @@ isPressed Pressed = True
 isPressed Released = False
 
 handleEvent :: AtariKeys -> EventPayload -> MonadAtari ()
+
+{- INLINE setBreak -}
+setBreak :: Int -> Int -> MonadAtari ()
+setBreak breakX breakY = do
+    xbreak @= (breakX+picx)
+    ybreak @= (breakY+picy)
 
 handleEvent _ (MouseButtonEvent (MouseButtonEventData _ Pressed _ ButtonLeft _ pos)) = do
     xscale' <- view xscale
