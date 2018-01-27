@@ -535,6 +535,14 @@ dumpState = do
     dumpMemory
     dumpRegisters
 
+{-
+{- INLINE setBreak -}
+setBreak :: Int -> Int -> MonadAtari ()
+setBreak breakX breakY = do
+    xbreak @= (breakX+picx)
+    ybreak @= (breakY+picy)
+-}
+
 graphicsDelay :: Int -> MonadAtari ()
 graphicsDelay d = do
     n <- load ahead
