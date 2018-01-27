@@ -21,7 +21,6 @@ readBinary arr filename origin = do
     putStrLn $ "ROM size = " ++ show romSize ++ " bytes."
 
     if romSize == 0x800
-
         then do
             forM_ (zip [0..] contents) $ \(i, c) -> do
                 -- 2K ROM so double it
@@ -32,9 +31,11 @@ readBinary arr filename origin = do
         else do
             forM_ (zip [0..] contents) $ \(i, c) ->
                 writeArray arr (i+fromIntegral origin) (BS.c2w c)
+
+            let blankPage = all (== (toEnum 0)) $ take 256 contents
             case romSize of
                 0x1000 -> return UnBanked
-                0x2000 -> return ModeF8
-                0x4000 -> return ModeF6
-                0x8000 -> return ModeF4
+                0x2000 -> return $ if blankPage then ModeF8SC else ModeF8
+                0x4000 -> return $ if blankPage then ModeF6SC else ModeF6
+                0x8000 -> return $ if blankPage then ModeF4SC else ModeF4
                 _      -> error "Unrecognised ROM size"

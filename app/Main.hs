@@ -48,18 +48,27 @@ loopUntil n = do
     when (stellaClock' < n) $ (pc @-> pcStep) >> step >> loopUntil n
 
 makeMainWindow :: Int -> Int -> IO SDL.Window
-makeMainWindow screenScaleX' screenScaleY' =
-    SDL.createWindow "Stellarator"
-        SDL.defaultWindow {
-            SDL.windowInitialSize = V2 (fromIntegral $ screenScaleX'*screenWidth)
-            (fromIntegral $ screenScaleY'*screenHeight),
-            SDL.windowOpenGL = Just $ SDL.OpenGLConfig {
-                SDL.glColorPrecision = V4 8 8 8 0,
-                SDL.glDepthPrecision = 24,
-                SDL.glStencilPrecision = 8,
-                --SDL.glMultisampleSamples = 1,
-                SDL.glProfile = SDL.Compatibility SDL.Normal 2 1
-                }}
+makeMainWindow screenScaleX' screenScaleY' = do
+    window <- SDL.createWindow "Stellarator"
+                SDL.defaultWindow {
+                    SDL.windowInitialSize = V2 (fromIntegral $ screenScaleX'*screenWidth)
+                    (fromIntegral $ screenScaleY'*screenHeight),
+                    SDL.windowOpenGL = Just $ SDL.OpenGLConfig {
+                        SDL.glColorPrecision = V4 8 8 8 0,
+                        SDL.glDepthPrecision = 24,
+                        SDL.glStencilPrecision = 8,
+                        --SDL.glMultisampleSamples = 1,
+                        SDL.glProfile = SDL.Compatibility SDL.Normal 2 1
+                        }}
+
+    SDL.showWindow window
+    _ <- SDL.glCreateContext window
+    SDL.swapInterval $= SDL.SynchronizedUpdates
+
+    return window
+
+--initHardware :: MonadAtari
+--initHardware = do
 
 main :: IO ()
 main = do
@@ -79,9 +88,6 @@ main = do
     SDL.initialize [SDL.InitVideo] --, SDL.InitAudio]
     window <- makeMainWindow screenScaleX' screenScaleY'
 
-    SDL.showWindow window
-    _ <- SDL.glCreateContext window
-    SDL.swapInterval $= SDL.SynchronizedUpdates
     (prog, attrib, tex', textureData') <- initResources
 
     romArray <- newArray (0, 0x7fff) 0 :: IO (IOUArray Int Word8)
@@ -92,16 +98,7 @@ main = do
     bankStyle <- readBinary romArray (file args') 0x0000
     let bankStyle' = bankStyleByName bankStyle (bank args')
 
-    let initBankState = case bankStyle' of
-                            UnBanked -> NoBank
-                            ModeF8 -> BankF8 0x0000
-                            ModeF8SC -> BankF8SC 0x0000
-                            ModeF6 -> BankF6 0x0000
-                            ModeF6SC -> BankF6SC 0x0000
-                            ModeF4 -> BankF4 0x0000
-                            ModeF4SC -> BankF4SC 0x0000
-                            ModeE0 -> BankE0 0x0000 0x0000 0x0000
-                            Mode3F -> Bank3F 0x0000
+    let initBankState = initialBankState bankStyle'
     print $ "Initial bank state = " ++ show initBankState
 
     --let style = bank args

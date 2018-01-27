@@ -12,6 +12,7 @@ module Memory(MemoryType(..),
               memoryType,
               bankSwitch,
               bankWritable,
+              initialBankState,
               BankMode(..)
              ) where
 
@@ -228,3 +229,15 @@ bankStyleByName _         "f4sc" = ModeF4SC
 bankStyleByName _         "e0"   = ModeE0
 bankStyleByName _         "3f"   = Mode3F
 bankStyleByName bankStyle _      = bankStyle
+
+initialBankState :: BankMode -> BankState
+initialBankState UnBanked = NoBank
+initialBankState ModeF8   = BankF8 0x0000
+initialBankState ModeF8SC = BankF8SC 0x0000
+initialBankState ModeF6   = BankF6 0x0000
+initialBankState ModeF6SC = BankF6SC 0x0000
+initialBankState ModeF4   = BankF4 0x0000
+initialBankState ModeF4SC = BankF4SC 0x0000
+initialBankState ModeE0   = BankE0 0x0000 0x0000 0x0000
+initialBankState Mode3F   = Bank3F 0x0000
+
