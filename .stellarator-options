@@ -17,5 +17,9 @@ Options {
     tvType = "X",
     enterDebugger = "Escape",
     debugMode = "Backslash",
-    writeRecord = "W"
+    writeRecord = "W",
+    delayLeft = "LeftBracket",
+    delayRight = "RightBracket",
+    delayUp = "Equals",
+    delayDown = "Minus"
 }

@@ -222,6 +222,7 @@ makeMainWindow :: Int -> Int -> IO SDL.Window
 makeMainWindow screenScaleX' screenScaleY' = do
     window <- SDL.createWindow "Stellarator"
                 SDL.defaultWindow {
+                    --SDL.windowMode = SDL.FullscreenDesktop,
                     SDL.windowInitialSize = V2 (fromIntegral $ screenScaleX'*screenWidth)
                     (fromIntegral $ screenScaleY'*screenHeight),
                     SDL.windowOpenGL = Just $ SDL.OpenGLConfig {

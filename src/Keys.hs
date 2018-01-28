@@ -202,7 +202,11 @@ data Options = Options {
     tvType :: String,
     enterDebugger :: String,
     debugMode :: String,
-    writeRecord :: String
+    writeRecord :: String,
+    delayLeft :: String,
+    delayRight :: String,
+    delayUp :: String,
+    delayDown :: String
 } deriving (Show, Read)
 
 defaultOptions :: Options
@@ -225,14 +229,18 @@ defaultOptions = Options {
     tvType = "X",
     enterDebugger = "Escape",
     debugMode = "Backslash",
-    writeRecord = "W"
+    writeRecord = "W",
+    delayLeft = "LeftBracket",
+    delayRight = "RightBracket",
+    delayUp = "Equals",
+    delayDown = "Minus"
 }
 
 data AtariKey = Joystick1Left | Joystick1Right | Joystick1Up | Joystick1Down
               | Joystick1Trigger |Joystick2Trigger
               | GameSelect | GameReset | TVType
               | GameQuit | DumpState | EnterDebugger | DebugMode
-              | WriteRecord
+              | WriteRecord | DelayLeft | DelayRight | DelayUp | DelayDown
                 deriving (Eq, Show)
 
 type AtariKeys = M.Map Scancode AtariKey
