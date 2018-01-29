@@ -85,7 +85,7 @@ data Atari2600 = Atari2600 {
     _xscale :: !Int,
     _yscale :: !Int,
 
-    _delays :: UArray Word16 Int
+    _delays :: IOUArray Word16 Int
 }
 
 $(makeLenses ''Atari2600)

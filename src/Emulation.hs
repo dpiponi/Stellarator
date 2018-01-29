@@ -27,7 +27,7 @@ import Control.Lens
 import Control.Monad.Reader
 import Core
 import Data.Array.IO
-import Data.Array.Unboxed as U
+--import Data.Array.Unboxed as U
 import Data.Bits hiding (bit)
 import Data.Bits.Lens
 --import Data.Array.Storable
@@ -65,6 +65,12 @@ startIntervalTimerN n v = do
     intim @= v
     timint @= 0
 
+makeDelayArray:: [(Word16, Int)] -> IO (IOUArray Word16 Int)
+makeDelayArray delayList = do
+    delayArray <- newArray (0, 0x2c) 0
+    forM_ delayList $ \(addr, d) -> writeArray delayArray addr d
+    return delayArray
+
 initState :: Int -> Int -> Int -> Int ->
              IOUArray Int Word8 ->
 #if TRACE
@@ -99,6 +105,7 @@ initState xscale' yscale' width height ram'
           word16Array' <- newArray (0, maxWord16) 0      -- Overkill
           word8Array' <- newArray (0, maxWord8) 0
           liftIO $ st word16Array' pc initialPC
+          delayArray <- makeDelayArray delayList
           return $ Atari2600 {
               _xscale = xscale',
               _yscale = yscale',
@@ -124,7 +131,7 @@ initState xscale' yscale' width height ram'
               _tex = initTex,
               _glProg = prog,
               _glAttrib = attrib,
-              _delays = U.listArray (0, 0x2c) (replicate (0x2c+1) 0) U.// delayList
+              _delays = delayArray
           }
 
 {- INLINE stellaHmclr -}
@@ -540,7 +547,8 @@ writeStella :: Word16 -> Word8 -> MonadAtari ()
 writeStella addr v = do
     when (addr <= 0x2c) $ do
         delays' <- view delays
-        graphicsDelay (delays' ! addr)
+        d <- liftIO $ readArray delays' addr
+        graphicsDelay d
 
     case addr of
        0x00 -> stellaVsync v             -- VSYNC
