@@ -105,3 +105,8 @@ f064 85 02    sta 0x2; WSYNC
 By time we've executed that sta PF1 at F0A6 PF1 is already
 being displayed. That explains the one pixel artifact I was
 seeing.
+
+--
+PF
+01230123456701234567
+0000000000000000000000100000000000000000

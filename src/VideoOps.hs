@@ -66,13 +66,16 @@ dumpStella = do
                         (if testBit ctrlpf' 2 then "playfield priority" else "player priority")
     liftIO $ putStrLn $ "ball size = " ++ show (1 `shift` fromIntegral ((ctrlpf' `shift` (-4)) .&. 3) :: Int)
     {-
-    pf0' <- load pf0
-    pf1' <- load pf1
-    pf2' <- load pf2
     liftIO $ putStrLn $ "PF = " ++ reverse (inBinary 4 (pf0' `shift` (-4)))
                                 ++ inBinary 8 pf1'
                                 ++ reverse (inBinary 8 pf2')
                                 -}
+    pf0' <- load pf0
+    pf1' <- load pf1
+    pf2' <- load pf2
+    liftIO $ putStrLn $ "PF0 = " ++ inBinary 8 pf0'
+    liftIO $ putStrLn $ "PF1 = " ++ inBinary 8 pf1'
+    liftIO $ putStrLn $ "PF2 = " ++ inBinary 8 pf2'
     pf' <- load pf
     liftIO $ putStrLn $ "PF = " ++ inBinary 40 pf'
     pcPf0' <- load pcPf0

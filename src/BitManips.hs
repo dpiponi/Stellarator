@@ -22,7 +22,7 @@ assemblePlayFieldFwd :: Word8 -> Word8 -> Word8 -> Word64
 assemblePlayFieldFwd pf0 pf1 pf2 = (fromIntegral pf0 `shift` (-4)) .|.
                                    ((fromIntegral (reverseTable!pf1)) `shift` 4) .|.
                                    (fromIntegral pf2 `shift` 12) .|.
-                                   (fromIntegral pf0 `shift` 16) .|.
+                                   (fromIntegral (pf0 .&. 0xf0) `shift` 16) .|.
                                    ((fromIntegral (reverseTable!pf1)) `shift` 24) .|.
                                    (fromIntegral pf2 `shift` 32)
 

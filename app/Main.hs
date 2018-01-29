@@ -42,7 +42,7 @@ clargs = Args { file = "adventure.bin",
 
 delayList :: [(Word16, Int)]
 delayList =  [
-#if 0
+#if 1
                 -- My figures
                 (0x00, 0), -- VSYNC
                 (0x01, 0), -- VBLANK
