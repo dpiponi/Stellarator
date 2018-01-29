@@ -1,0 +1,13 @@
+Adventure
+---------
+PF0,1,2 = 3 OK
+        = 4 extra pixel at top left
+
+asymetric.bin
+-------------
+PF0,1,2 = 3 Missing pixel
+        = 4 OK
+
+Commando Raid
+-------------
+Reads 0xf

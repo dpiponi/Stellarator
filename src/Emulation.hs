@@ -542,6 +542,62 @@ graphicsDelay d = do
             stellaTickFor' (d-n)
             ahead @= d
 
+{-
+ - TIA Summary
+
+6-bit Address
+      Address Name
+                76543210    Function
+---+---------+-----------+------------------------------------------
+00 |  VSYNC  |  ......1. |  vertical sync set-clear
+01 |  VBLANK |  11....1. |  vertical blank set-clear
+02 |  WSYNC  |  strobe   |  wait for leading edge of horizontal blank
+03 |  RSYNC  |  strobe   |  reset horizontal sync counter
+04 |  NUSIZ0 |  ..111111 |  number-size player-missile 0
+05 |  NUSIZ1 |  ..111111 |  number-size player-missile 1
+06 |  COLUP0 |  1111111. |  color-lum player 0
+07 |  COLUP1 |  1111111. |  color-lum player 1
+08 |  COLUPF |  1111111. |  color-lum playfield
+09 |  COLUBK |  1111111. |  color-lum background
+0A |  CTRLPF |  ..11.111 |  control playfield ball size & collisions
+0B |  REFP0  |  ....1... |  reflect player 0
+0C |  REFP1  |  ....1... |  reflect player 1
+0D |  PF0    |  1111.... |  playfield register byte 0
+0E |  PF1    |  11111111 |  playfield register byte 1
+0F |  PF2    |  11111111 |  playfield register byte 2
+10 |  RESP0  |  strobe   |  reset player 0
+11 |  RESP1  |  strobe   |  reset player 1
+12 |  RESM0  |  strobe   |  reset missile 0
+13 |  RESM1  |  strobe   |  reset missile 1
+14 |  RESBL  |  strobe   |  reset ball
+15 |  AUDC0  |  ....1111 |  audio control 0
+16 |  AUDC1  |  ...11111 |  audio control 1
+17 |  AUDF0  |  ...11111 |  audio frequency 0
+18 |  AUDF1  |  ....1111 |  audio frequency 1
+19 |  AUDV0  |  ....1111 |  audio volume 0
+1A |  AUDV1  |  ....1111 |  audio volume 1
+1B |  GRP0   |  11111111 |  graphics player 0
+1C |  GRP1   |  11111111 |  graphics player 1
+1D |  ENAM0  |  ......1. |  graphics (enable) missile 0
+1E |  ENAM1  |  ......1. |  graphics (enable) missile 1
+1F |  ENABL  |  ......1. |  graphics (enable) ball
+20 |  HMP0   |  1111.... |  horizontal motion player 0
+21 |  HMP1   |  1111.... |  horizontal motion player 1
+22 |  HMM0   |  1111.... |  horizontal motion missile 0
+23 |  HMM1   |  1111.... |  horizontal motion missile 1
+24 |  HMBL   |  1111.... |  horizontal motion ball
+25 |  VDELP0 |  .......1 |  vertical delay player 0
+26 |  VDELP1 |  .......1 |  vertical delay player 1
+27 |  VDELBL |  .......1 |  vertical delay ball
+28 |  RESMP0 |  ......1. |  reset missile 0 to player 0
+29 |  RESMP1 |  ......1. |  reset missile 1 to player 1
+2A |  HMOVE  |  strobe   |  apply horizontal motion
+2B |  HMCLR  |  strobe   |  clear horizontal motion registers
+2C |  CXCLR  |  strobe   |  clear collision latches
+---+---------+-----------+------------------------------------------
+
+-}
+
 {- INLINABLE writeStella -}
 writeStella :: Word16 -> Word8 -> MonadAtari ()
 writeStella addr v = do

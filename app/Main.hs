@@ -42,6 +42,8 @@ clargs = Args { file = "adventure.bin",
 
 delayList :: [(Word16, Int)]
 delayList =  [
+#if 0
+                -- My figures
                 (0x00, 0), -- VSYNC
                 (0x01, 0), -- VBLANK
                 (0x02, 0), -- WSYNC
@@ -80,6 +82,38 @@ delayList =  [
                 (0x2a, 0), -- HMOVE
                 (0x2b, 0), -- HMCLR
                 (0x2c, 0)  -- CXCLR
+#else
+                -- From Stella
+                (0x0b, 1), -- REFP0
+                (0x0c, 1), -- REFP1
+                (0x0d, 2), -- PF0
+                (0x0e, 2), -- PF1
+                (0x0f, 4), -- PF2
+                (0x1b, 1), -- GRP0
+                (0x1c, 1), -- GRP1
+                (0x1d, 2), -- ENAM0
+                (0x1e, 2), -- ENAM1
+                (0x1f, 2), -- ENABL
+                (0x20, 2), -- HMP0
+                (0x21, 2), -- HMP1
+                (0x22, 2), -- HMM0
+                (0x23, 2), -- HMM1
+                (0x24, 2), -- HMBL
+                (0x2a, 6), -- HMOVE
+                (0x2b, 2), -- HMCLR
+                -- From Stella
+                --(0x05, 4), -- NUSIZ1
+                --(0x0d, 3), -- PF0
+                --(0x0e, 3), -- PF1
+                --(0x0f, 3), -- PF2
+                (0x10, 5), -- RESP0
+                (0x11, 5), -- RESP1
+                (0x12, 4), -- RESM0
+                (0x13, 4), -- RESM1
+                (0x14, 4)  -- RESBL
+                --(0x1b, 1), -- GRP0
+                --(0x1c, 1)  -- GRP1
+#endif
             ]
 
 main :: IO ()

@@ -52,6 +52,26 @@ handleEvent atariKeys (KeyboardEvent (KeyboardEventData _ motion _ sym)) = handl
 
 handleEvent _ _ = return ()
 
+doDelayUp :: MonadAtari ()
+doDelayUp = do
+    delays' <- view delays
+    liftIO $ do
+        d <- readArray delays' 0x0d
+        writeArray delays' 0x0d (d+1)
+        writeArray delays' 0x0e (d+1)
+        writeArray delays' 0x0f (d+1)
+        putStrLn $ "delay = " ++ show (d+1)
+
+doDelayDown :: MonadAtari ()
+doDelayDown = do
+    delays' <- view delays
+    liftIO $ do
+        d <- readArray delays' 0x0d
+        writeArray delays' 0x0d (d-1)
+        writeArray delays' 0x0e (d-1)
+        writeArray delays' 0x0f (d-1)
+        putStrLn $ "delay = " ++ show (d-1)
+
 trigger1Pressed :: Bool -> MonadAtari ()
 trigger1Pressed pressed = do
     store trigger1 pressed
@@ -111,8 +131,8 @@ handleKey atariKeys motion sym = do
 #else
                 WriteRecord     -> when pressed $ liftIO $ print "Trace not enabled at compilation"
 #endif
-                DelayUp         -> when pressed $ liftIO $ print "Up"
-                DelayDown       -> when pressed $ liftIO $ print "Down"
+                DelayUp         -> when pressed $ doDelayUp
+                DelayDown       -> when pressed $ doDelayDown
                 DelayLeft       -> when pressed $ liftIO $ print "Left"
                 DelayRight      -> when pressed $ liftIO $ print "Right"
 
