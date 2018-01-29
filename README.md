@@ -148,6 +148,7 @@ Command syntax:
 
     r<expr><statement> - repeat statement
     Eg. r(2*y){s;l} will step and list instructions a number of times given by double the Y register.
+    (You can leave out the 'r' if the expression can be unambiguously read as an expression.)
 
     x<string> - execute command
     Executes command in string. Eg. x"p1" will print 1.

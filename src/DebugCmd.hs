@@ -68,6 +68,7 @@ parseCommand = Block <$> (braces lexer $ semiSep1 lexer parseCommand)
            <|> Print <$> (char 'p' >> whiteSpace lexer >> sepBy1 parseExpr (comma lexer))
            <|> Until <$> (char 'u' >> whiteSpace lexer >> parseExpr) <*> parseCommand
            <|> Let <$> (identifier lexer <* char '=' <* whiteSpace lexer) <*> parseExpr
+           <|> Repeat <$> parseExpr <*> parseCommand
 
 lexer :: GenTokenParser String u Identity
 lexer = makeTokenParser haskellStyle
