@@ -261,7 +261,11 @@ keysFromOptions options = do
                     tvType options,
                     enterDebugger options,
                     debugMode options,
-                    writeRecord options
+                    writeRecord options,
+                    delayLeft options,
+                    delayRight options,
+                    delayUp options,
+                    delayDown options
                 ]
     let atariKeys = [
                     Joystick1Left,
@@ -277,6 +281,10 @@ keysFromOptions options = do
                     TVType,
                     EnterDebugger,
                     DebugMode,
-                    WriteRecord
+                    WriteRecord,
+                    DelayLeft,
+                    DelayRight,
+                    DelayUp,
+                    DelayDown
                 ]
     return $ M.fromList $ zip scancodes atariKeys

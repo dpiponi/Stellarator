@@ -111,4 +111,8 @@ handleKey atariKeys motion sym = do
 #else
                 WriteRecord     -> when pressed $ liftIO $ print "Trace not enabled at compilation"
 #endif
+                DelayUp         -> when pressed $ liftIO $ print "Up"
+                DelayDown       -> when pressed $ liftIO $ print "Down"
+                DelayLeft       -> when pressed $ liftIO $ print "Left"
+                DelayRight      -> when pressed $ liftIO $ print "Right"
 
