@@ -188,6 +188,8 @@ missile _       enam0' _ _       | not (testBit enam0' 1) = False
 missile nusiz0' _      o _                                = o < missileSize nusiz0'
 
 -- Atari2600 programmer's guide p.40
+-- Also
+-- http://atariage.com/forums/topic/260569-timing-weirdness-in-battlezone-radar/
 {- INLINE player0 -}
 player0 :: Int -> Bool -> Word8 -> MonadAtari Bool
 player0 _ _ o | o < 0 = return False
@@ -195,7 +197,7 @@ player0 o delayP0' nusiz0' = do
     let sizeCopies = 0b111 .&. nusiz0'
     grp0' <- load $ if delayP0' then oldGrp0 else newGrp0
     refp0' <- load refp0
-    return $ stretchPlayer (testBit refp0' 3) o sizeCopies grp0'
+    return $ stretchPlayer (testBit refp0' 3) (o-if nusiz0' .&. 0x5 == 0x5 then 1 else 0) sizeCopies grp0'
 
 {- INLINE player1 -}
 player1 :: Int -> Bool -> Word8 -> MonadAtari Bool
@@ -204,7 +206,7 @@ player1 o delayP1' nusiz1' = do
     let sizeCopies = 0b111 .&. nusiz1'
     grp1' <- load $ if delayP1' then oldGrp1 else newGrp1
     refp1' <- load refp1
-    return $ stretchPlayer (testBit refp1' 3) o sizeCopies grp1'
+    return $ stretchPlayer (testBit refp1' 3) (o-if nusiz1' .&. 0x5 == 0x5 then 1 else 0) sizeCopies grp1'
 
 {- INLINE ball -}
 ball :: Bool -> Bool -> Bool -> Word8 -> Int -> Bool
@@ -234,8 +236,8 @@ debugColour :: Sprite -> Word8
 debugColour COLUBK = 0x00
 debugColour COLUPF = 0x0e
 debugColour COLUB  = 0x08
-debugColour COLUP0 = 0x42
-debugColour COLUP1 = 0x82
+debugColour COLUP0 = 0x42 -- dark red
+debugColour COLUP1 = 0x82 -- dark blue
 debugColour COLUM0 = 0x4e
 debugColour COLUM1 = 0x8e
 

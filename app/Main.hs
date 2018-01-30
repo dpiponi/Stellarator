@@ -47,7 +47,7 @@ delayList =  [
                 (0x00, 0), -- VSYNC
                 (0x01, 0), -- VBLANK
                 (0x02, 0), -- WSYNC
-                (0x03, 0), -- NUSIZ0
+                (0x04, 4), -- NUSIZ0
                 (0x05, 4), -- NUSIZ1
                 (0x06, 0), -- COLUP0
                 (0x07, 0), -- COLUP0

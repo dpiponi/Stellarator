@@ -56,20 +56,18 @@ doDelayUp :: MonadAtari ()
 doDelayUp = do
     delays' <- view delays
     liftIO $ do
-        d <- readArray delays' 0x0d
-        writeArray delays' 0x0d (d+1)
-        writeArray delays' 0x0e (d+1)
-        writeArray delays' 0x0f (d+1)
+        d <- readArray delays' 0x1b
+        writeArray delays' 0x1b (d+1)
+        writeArray delays' 0x1c (d+1)
         putStrLn $ "delay = " ++ show (d+1)
 
 doDelayDown :: MonadAtari ()
 doDelayDown = do
     delays' <- view delays
     liftIO $ do
-        d <- readArray delays' 0x0d
-        writeArray delays' 0x0d (d-1)
-        writeArray delays' 0x0e (d-1)
-        writeArray delays' 0x0f (d-1)
+        d <- readArray delays' 0x1b
+        writeArray delays' 0x1b (d-1)
+        writeArray delays' 0x1c (d-1)
         putStrLn $ "delay = " ++ show (d-1)
 
 trigger1Pressed :: Bool -> MonadAtari ()

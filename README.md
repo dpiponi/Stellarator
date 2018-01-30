@@ -233,7 +233,7 @@ Lots of games work:
 | Aquaventure            | seems to play fine.                                                      |
 | Air Sea Battle         | Seems to play fine.                                                      |
 | Asteroids              | Seems to play fine. Flicker is correct behaviour.                        |
-| Battle Zone            | Seems to play fine but radar partly reflected and some mountain issues.  |
+| Battle Zone            | Seems to play fine.                                                      |
 | Centipede              | seems to play fine.                                                      |
 | Chopper Command        | Seems to play fine.                                                      |
 | Circus                 | Seems to play fine. Too fast for me...                                   |
@@ -249,7 +249,7 @@ Lots of games work:
 | Frogger 2              | Use -b e0. Seems to play fine.                                           |
 | Freeway                | Seems to play fine.                                                      |
 | Fun with Numbers       | Works. Pity the kids that learnt mathematics using this.                 |
-| Galaxians              | Seems to play fine.                                                      |
+| Galaxians              | Seems to play fine despite extra column of galaxians.                    |
 | Gyruss                 | Use -b e8. Seems to play fine.                                           |
 | Haunted House          | Seems to play fine. Needs a special hack to make SBC #$0f work.          |
 | Ikari Warriors         | Seems to play fine                                                       |
@@ -263,7 +263,7 @@ Lots of games work:
 | Phoenix                | Seems to work fine.                                                      |
 | Pinball                | Seems to work fine.                                                      |
 | Planet Patrol          | Seems to play fine apart from a bad pixel at top of screen               |
-| Pole Position          | Seems to play fine modulo a couple of misrendered pixels.                |
+| Pole Position          | Seems to play fine modulo some misrendered pixels.                       |
 | Q*Bert                 | Seems to play fine                                                       |
 | Quest for Quintana Roo | Seems to play fine but hard to tell.                                     |
 | Raiders of Lost Ark    | Starts fine. Might need controllers I don't emulate yet.                 |
