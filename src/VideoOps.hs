@@ -176,7 +176,7 @@ stretchPlayer reflect o sizeCopies bitmap = stretchPlayer' reflect sizeCopies o 
 
 clampMissiles :: Word8 -> Word8 -> MonadAtari ()
 clampMissiles resmp0' resmp1' = do
-    when (testBit resmp0' 1) $ ppos0 @-> ppos0
+    when (testBit resmp0' 1) $ ppos0 @-> mpos0
     when (testBit resmp1' 1) $ ppos1 @-> mpos1
 
 -- Atari2600 programmer's guide p.22
