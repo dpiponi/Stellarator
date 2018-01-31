@@ -237,7 +237,7 @@ Lots of games work:
 | Centipede              | seems to play fine.                                                      |
 | Chopper Command        | Seems to play fine.                                                      |
 | Circus                 | Seems to play fine. Too fast for me...                                   |
-| Combat                 | Missiles not always launched from end of gun. Two player though...                                 |
+| Combat                 | Seems to play fine. Stellarator has no 2 player support though.          |
 | Commando Raid          | Seems to play fine. Ugly "comb" effect is correct.                       |
 | Cosmic Ark             | Seems to play fine but star rendering is replaced by ugly vertical line. |
 | Defender:              | Seems to play fine.                                                      |
