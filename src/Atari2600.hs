@@ -18,10 +18,6 @@ module Atari2600(
                  useStellaClock,
                  bankState,
                  ram,
-#if TRACE
-                 record,
-                 recordPtr,
-#endif
                  rom,
                  useClock,
                  putStellaDebug,
@@ -38,6 +34,11 @@ module Atari2600(
                  stellaClock,
                  delays,
                  modifyStellaDebug
+#if TRACE
+                                  ,
+                 record,
+                 recordPtr
+#endif
                  ) where
 
 import Control.Lens
@@ -162,15 +163,6 @@ modifyStellaDebug lens' modifier = do
     atari <- ask
     liftIO $ modifyIORef' (atari ^. stellaDebug) (over lens' modifier)
 
-{-
-{-# INLINE useMemory #-}
-useMemory :: Getting b Memory b -> MonadAtari b
-useMemory lens' = do
-    atari <- ask
-    memory' <- liftIO $ readIORef (atari ^. memory)
-    return $! memory' ^. lens'
--}
-
 {-# INLINE useClock #-}
 useClock :: Getting b Int64 b -> MonadAtari b
 useClock lens' = do
@@ -196,23 +188,3 @@ modifyStellaClock :: ASetter Int64 Int64 a b -> (a -> b) -> MonadAtari ()
 modifyStellaClock lens' modifier = do
     atari <- ask
     liftIO $ modifyIORef' (atari ^. stellaClock) (over lens' modifier)
-
-{-
-{-# INLINE getBackSurface #-}
-getBackSurface :: MonadAtari Surface
-getBackSurface = do
-    atari <- ask
-    return $ atari ^. sdlBackSurface
-
-{-# INLINE getFrontSurface #-}
-getFrontSurface :: MonadAtari Surface
-getFrontSurface = do
-    atari <- ask
-    return $ atari ^. sdlFrontSurface
-
-{-# INLINE getFrontWindow #-}
-getFrontWindow :: MonadAtari Window
-getFrontWindow = do
-    atari <- ask
-    return $ atari ^. sdlFrontWindow
-    -}

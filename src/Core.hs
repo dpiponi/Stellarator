@@ -973,7 +973,7 @@ rts = do
     discard $ readMemory p0
     putPC (p0+1)
 
-{-# INLINABLE step #-}
+-- Trying not having this inlined {-# IGNOREINLINABLE step #-}
 step :: Emu6502 m => m ()
 step = do
     --dumpState
