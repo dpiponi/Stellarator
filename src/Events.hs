@@ -13,6 +13,7 @@ import Asm
 import Data.Bits
 import Data.IORef
 import Data.Bits.Lens
+import Numeric
 import System.Exit
 import Control.Concurrent
 import Metrics
@@ -99,6 +100,20 @@ handleKey atariKeys motion sym = do
         Just atariKey -> do
             let pressed = isPressed motion
             case atariKey of
+                -- http://atariage.com/forums/topic/247615-trying-to-figure-out-keyboard-controllers-inpt/
+                KeyboardController i j -> do
+                    store (kbd i j) $ isPressed motion
+                    a <- load (kbd 0 0)
+                    swchaValue <- load swcha
+                    c <- load swacnt
+                    liftIO $ print ("kbd", i, j, a, "swcha", showHex swchaValue "", "swacnt", showHex c "")
+                    k00 <- load (kbd 0 0)
+                    liftIO $ print ("k00=", k00, "testBit swchaValue 4", testBit swchaValue 4)
+--                     store inpt4 (if k00 == True && testBit swchaValue 4 == False then 0x00 else 0x80)
+--                     k01 <- load (kbd 0 1)
+--                     store inpt1 (if k01 == True && testBit swchaValue 4 == False then 0x00 else 0x80)
+--                     k02 <- load (kbd 0 2)
+--                     store inpt0 (if k02 == True && testBit swchaValue 4 == False then 0x00 else 0x80)
                 Joystick1Up      -> modify swcha $ bitAt 4 .~ not pressed
                 Joystick1Down    -> modify swcha $ bitAt 5 .~ not pressed
                 Joystick1Left    -> modify swcha $ bitAt 6 .~ not pressed

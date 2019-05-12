@@ -206,7 +206,31 @@ data Options = Options {
     delayLeft :: String,
     delayRight :: String,
     delayUp :: String,
-    delayDown :: String
+    delayDown :: String,
+    keyboardController00 :: String,
+    keyboardController01 :: String,
+    keyboardController02 :: String,
+    keyboardController03 :: String,
+    keyboardController04 :: String,
+    keyboardController05 :: String,
+    keyboardController10 :: String,
+    keyboardController11 :: String,
+    keyboardController12 :: String,
+    keyboardController13 :: String,
+    keyboardController14 :: String,
+    keyboardController15 :: String,
+    keyboardController20 :: String,
+    keyboardController21 :: String,
+    keyboardController22 :: String,
+    keyboardController23 :: String,
+    keyboardController24 :: String,
+    keyboardController25 :: String,
+    keyboardController30 :: String,
+    keyboardController31 :: String,
+    keyboardController32 :: String,
+    keyboardController33 :: String,
+    keyboardController34 :: String,
+    keyboardController35 :: String
 } deriving (Show, Read)
 
 defaultOptions :: Options
@@ -233,7 +257,31 @@ defaultOptions = Options {
     delayLeft = "LeftBracket",
     delayRight = "RightBracket",
     delayUp = "Equals",
-    delayDown = "Minus"
+    delayDown = "Minus",
+    keyboardController00 = "7",
+    keyboardController01 = "6",
+    keyboardController02 = "5",
+    keyboardController03 = "0",
+    keyboardController04 = "9",
+    keyboardController05 = "8",
+    keyboardController10 = "U",
+    keyboardController11 = "Y",
+    keyboardController12 = "T",
+    keyboardController13 = "P",
+    keyboardController14 = "O",
+    keyboardController15 = "I",
+    keyboardController20 = "J",
+    keyboardController21 = "H",
+    keyboardController22 = "G",
+    keyboardController23 = "Semicolon",
+    keyboardController24 = "L",
+    keyboardController25 = "K",
+    keyboardController30 = "M",
+    keyboardController31 = "N",
+    keyboardController32 = "B",
+    keyboardController33 = "Slash",
+    keyboardController34 = "Period",
+    keyboardController35 = "Comma"
 }
 
 data AtariKey = Joystick1Left | Joystick1Right | Joystick1Up | Joystick1Down
@@ -241,6 +289,7 @@ data AtariKey = Joystick1Left | Joystick1Right | Joystick1Up | Joystick1Down
               | GameSelect | GameReset | TVType
               | GameQuit | DumpState | EnterDebugger | DebugMode
               | WriteRecord | DelayLeft | DelayRight | DelayUp | DelayDown
+              | KeyboardController Int Int
                 deriving (Eq, Show)
 
 type AtariKeys = M.Map Scancode AtariKey
@@ -265,7 +314,31 @@ keysFromOptions options = do
                     delayLeft options,
                     delayRight options,
                     delayUp options,
-                    delayDown options
+                    delayDown options,
+                    keyboardController00 options,
+                    keyboardController01 options,
+                    keyboardController02 options,
+                    keyboardController03 options,
+                    keyboardController04 options,
+                    keyboardController05 options,
+                    keyboardController10 options,
+                    keyboardController11 options,
+                    keyboardController12 options,
+                    keyboardController13 options,
+                    keyboardController14 options,
+                    keyboardController15 options,
+                    keyboardController20 options,
+                    keyboardController21 options,
+                    keyboardController22 options,
+                    keyboardController23 options,
+                    keyboardController24 options,
+                    keyboardController25 options,
+                    keyboardController30 options,
+                    keyboardController31 options,
+                    keyboardController32 options,
+                    keyboardController33 options,
+                    keyboardController34 options,
+                    keyboardController35 options
                 ]
     let atariKeys = [
                     Joystick1Left,
@@ -285,6 +358,30 @@ keysFromOptions options = do
                     DelayLeft,
                     DelayRight,
                     DelayUp,
-                    DelayDown
+                    DelayDown,
+                    KeyboardController 0 0,
+                    KeyboardController 0 1,
+                    KeyboardController 0 2,
+                    KeyboardController 0 3,
+                    KeyboardController 0 4,
+                    KeyboardController 0 5,
+                    KeyboardController 1 0,
+                    KeyboardController 1 1,
+                    KeyboardController 1 2,
+                    KeyboardController 1 3,
+                    KeyboardController 1 4,
+                    KeyboardController 1 5,
+                    KeyboardController 2 0,
+                    KeyboardController 2 1,
+                    KeyboardController 2 2,
+                    KeyboardController 2 3,
+                    KeyboardController 2 4,
+                    KeyboardController 2 5,
+                    KeyboardController 3 0,
+                    KeyboardController 3 1,
+                    KeyboardController 3 2,
+                    KeyboardController 3 3,
+                    KeyboardController 3 4,
+                    KeyboardController 3 5
                 ]
     return $ M.fromList $ zip scancodes atariKeys

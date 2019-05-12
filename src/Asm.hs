@@ -49,7 +49,7 @@ hmbl = 0x100+0x24
 resmp0 = 0x100+0x28
 resmp1 = 0x100+0x29
 
-cxm0p, cxm1p, cxp0fb, cxp1fb, cxm0fb, cxm1fb, cxblpf, cxppmm, inpt4, inpt5 :: TypedIndex Word8
+cxm0p, cxm1p, cxp0fb, cxp1fb, cxm0fb, cxm1fb, cxblpf, cxppmm, inpt0, inpt1, inpt2, inpt3, inpt4, inpt5 :: TypedIndex Word8
 cxm0p = 0x200+0x00
 cxm1p = 0x200+0x01
 cxp0fb = 0x200+0x02
@@ -58,11 +58,16 @@ cxm0fb = 0x200+0x04
 cxm1fb = 0x200+0x05
 cxblpf = 0x200+0x06
 cxppmm = 0x200+0x07
+inpt0 = 0x200+0x08
+inpt1 = 0x200+0x09
+inpt2 = 0x200+0x0a
+inpt3 = 0x200+0x0b
 inpt4 = 0x200+0x0c
 inpt5 = 0x200+0x0d
 
-swcha, swchb :: TypedIndex Word8
+swcha, swchb, swacnt :: TypedIndex Word8
 swcha = 0x300+0x80
+swacnt = 0x300+0x81
 swchb = 0x300+0x82
 
 maxWord8 :: TypedIndex Word8
@@ -79,8 +84,11 @@ newBall = 6
 pendingHmove = 7
 debugColours = 8
 
+kbd :: Int -> Int -> TypedIndex Bool
+kbd i j = fromIntegral $ 8+i*6+j
+
 maxBool :: TypedIndex Bool
-maxBool = debugColours
+maxBool = kbd 3 5
 
 pf :: TypedIndex Word64
 pf = 0
@@ -135,9 +143,9 @@ ld arr idx = unsafeRead arr (unTyped idx)
 st :: MArray IOUArray a IO => IOUArray (TypedIndex a) a -> TypedIndex a -> a -> IO ()
 st arr idx = unsafeWrite arr (unTyped idx)
 
-{-# INLINE mod #-}
-mod :: MArray IOUArray a IO => IOUArray (TypedIndex a) a -> TypedIndex a -> (a -> a) -> IO ()
-mod arr idx f = do { value <- unsafeRead arr (unTyped idx); unsafeWrite arr (unTyped idx) (f value) }
+{-# INLINE md #-}
+md :: MArray IOUArray a IO => IOUArray (TypedIndex a) a -> TypedIndex a -> (a -> a) -> IO ()
+md arr idx f = do { value <- unsafeRead arr (unTyped idx); unsafeWrite arr (unTyped idx) (f value) }
 
 type Segment a = IOUArray (TypedIndex a) a
 

@@ -242,9 +242,17 @@ makePlayfield = do
     let pf' = assemblePlayfield (testBit ctrlpf' 0) pf0' pf1' pf2'
     pf @= pf'
 
+-- Keyboard wiring
+--
+-- | key00 - D4 INPT4 | key01 - D4 INPT1 | key02 - D4 INPT0 | key03 - D4 INPT5 | key04 - D4 INPT3 | key05 - D4 INPT2 |
+-- | key10 - D5 INPT4 | key11 - D5 INPT1 | key12 - D5 INPT0 | key13 - D5 INPT5 | key14 - D5 INPT3 | key15 - D5 INPT2 |
+-- | key20 - D6 INPT4 | key21 - D6 INPT1 | key22 - D6 INPT0 | key23 - D6 INPT5 | key24 - D6 INPT3 | key25 - D6 INPT2 |
+-- | key30 - D7 INPT4 | key31 - D7 INPT1 | key32 - D7 INPT0 | key33 - D7 INPT5 | key34 - D7 INPT3 | key35 - D7 INPT2 |
+
 {- INLINABLE readStella -}
 readStella :: Word16 -> MonadAtari Word8
-readStella addr = 
+readStella addr = do
+--     liftIO $ putStrLn $ "reading 0x" ++ showHex addr ""
     case addr of
         0x00 -> load cxm0p
         0x01 -> load cxm1p
@@ -254,8 +262,112 @@ readStella addr =
         0x05 -> load cxm1fb
         0x06 -> load cxblpf
         0x07 -> load cxppmm
-        0x0c -> load inpt4
-        0x0d -> load inpt5
+        0x08 -> do
+                    k02 <- load (kbd 0 2)
+                    k12 <- load (kbd 1 2)
+                    k22 <- load (kbd 2 2)
+                    k32 <- load (kbd 3 2)
+                    swchaValue <- load swcha
+                    liftIO $ print ("k02=", k02, "swcha", swchaValue, "testBit swchaValue 4", testBit swchaValue 4)
+                    let i0 = if k02 && not (testBit swchaValue 4)
+                             || k12 && not (testBit swchaValue 5)
+                             || k22 && not (testBit swchaValue 6)
+                             || k32 && not (testBit swchaValue 7) then 0x00 else 0x80
+                    liftIO $ putStrLn $ "Reading INPT0=" ++ showHex i0 ""
+                    return i0
+
+--                     i0 <- load inpt0
+--                     liftIO $ putStrLn $ "Reading INPT0=" ++ showHex i0 ""
+--                     return i0
+        0x09 -> do
+                    k01 <- load (kbd 0 1)
+                    k11 <- load (kbd 1 1)
+                    k21 <- load (kbd 2 1)
+                    k31 <- load (kbd 3 1)
+                    swchaValue <- load swcha
+                    liftIO $ print ("k01=", k01, "swcha", swchaValue, "testBit swchaValue 4", testBit swchaValue 4)
+                    let i1 = if k01 && not (testBit swchaValue 4)
+                             || k11 && not (testBit swchaValue 5)
+                             || k21 && not (testBit swchaValue 6)
+                             || k31 && not (testBit swchaValue 7) then 0x00 else 0x80
+                    liftIO $ putStrLn $ "Reading INPT1=" ++ showHex i1 ""
+                    return i1
+
+--                     i1 <- load inpt1
+--                     liftIO $ putStrLn $ "Reading INPT1=" ++ showHex i1 ""
+--                     return i1
+        0x0a -> do
+                    -- KEYBOARD
+                    k05 <- load (kbd 0 5)
+                    k15 <- load (kbd 1 5)
+                    k25 <- load (kbd 2 5)
+                    k35 <- load (kbd 3 5)
+                    swchaValue <- load swcha
+                    liftIO $ print ("k05=", k05, "swcha", swchaValue, "testBit swchaValue 4", testBit swchaValue 4)
+                    let i2 = if k05 && not (testBit swchaValue 4)
+                             || k15 && not (testBit swchaValue 5)
+                             || k25 && not (testBit swchaValue 6)
+                             || k35 && not (testBit swchaValue 7) then 0x00 else 0x80
+                    liftIO $ putStrLn $ "Reading INPT2=" ++ showHex i2 ""
+                    return i2
+
+--                     i2 <- load inpt2
+--                     liftIO $ putStrLn $ "Reading INPT2=" ++ showHex i2 ""
+--                     return i2
+        0x0b -> do
+                    -- KEYBOARD
+                    k04 <- load (kbd 0 4)
+                    k14 <- load (kbd 1 4)
+                    k24 <- load (kbd 2 4)
+                    k34 <- load (kbd 3 4)
+                    swchaValue <- load swcha
+                    liftIO $ print ("k04=", k04, "swcha", swchaValue, "testBit swchaValue 4", testBit swchaValue 4)
+                    let i3 = if k04 && not (testBit swchaValue 4)
+                             || k14 && not (testBit swchaValue 5)
+                             || k24 && not (testBit swchaValue 6)
+                             || k34 && not (testBit swchaValue 7) then 0x00 else 0x80
+                    liftIO $ putStrLn $ "Reading INPT3=" ++ showHex i3 ""
+                    return i3
+
+--                     i3 <- load inpt3
+--                     liftIO $ putStrLn $ "Reading INPT3=" ++ showHex i3 ""
+--                     return i3
+        0x0c -> do
+                    -- KEYBOARD
+                    k00 <- load (kbd 0 0)
+                    k10 <- load (kbd 1 0)
+                    k20 <- load (kbd 2 0)
+                    k30 <- load (kbd 3 0)
+                    swchaValue <- load swcha
+                    liftIO $ print ("k00=", k00, "swcha", swchaValue, "testBit swchaValue 4", testBit swchaValue 4)
+                    let i4 = if k00 && not (testBit swchaValue 4)
+                             || k10 && not (testBit swchaValue 5)
+                             || k20 && not (testBit swchaValue 6)
+                             || k30 && not (testBit swchaValue 7) then 0x00 else 0x80
+                    liftIO $ putStrLn $ "Reading INPT4=" ++ showHex i4 ""
+                    return i4
+
+                    -- i4 <- load inpt4
+                    -- liftIO $ putStrLn $ "Reading INPT4=" ++ showHex i4 ""
+                    -- return i4
+        0x0d -> do
+                    -- KEYBOARD
+                    k03 <- load (kbd 0 3)
+                    k13 <- load (kbd 1 3)
+                    k23 <- load (kbd 2 3)
+                    k33 <- load (kbd 3 3)
+                    swchaValue <- load swcha
+                    liftIO $ print ("k03=", k03, "swcha", swchaValue, "testBit swchaValue 4", testBit swchaValue 4)
+                    let i5 = if k03 && not (testBit swchaValue 4)
+                             || k13 && not (testBit swchaValue 5)
+                             || k23 && not (testBit swchaValue 6)
+                             || k33 && not (testBit swchaValue 7) then 0x00 else 0x80
+                    liftIO $ putStrLn $ "Reading INPT5=" ++ showHex i5 ""
+                    return i5
+
+--                     i5 <- load inpt5
+--                     liftIO $ putStrLn $ "Reading INPT5=" ++ showHex i5 ""
+--                     return i5
         0x0e -> liftIO $ do
                     putStrLn "Illegal read 0xe"
                     return 0xe
@@ -371,9 +483,42 @@ pureWriteRom addr v = do
 -- | pureReadMemory expects an address in range 0x0000-0x1fff
 -- The 'pure' refers to the fact that there are no side effects,
 -- i.e. it won't trigger bank switching.
+--
+-- From http://atariage.com/forums/topic/27190-session-5-memory-architecture/
+--
+-- Atari 2600 Memory Map:
+-- ----------------------
+-- $0000-002F TIA Primary Image
+-- $0030-005F [shadow] TIA
+-- $0060-007F [shadow-partial] TIA
+-- $0080-00FF 128 bytes of RAM Primary Image (zero page image)
+-- $0100-002F [shadow] TIA
+-- $0130-005F [shadow] TIA
+-- $0160-017F [shadow-partial] TIA
+-- $0180-01FF [shadow] 128 bytes of RAM (CPU stack image)
+-- $0200-022F [shadow] TIA
+-- $0230-025F [shadow] TIA
+-- $0260-027F [shadow-partial] TIA
+-- $0280-029F 6532-PIA I/O ports and timer Primary image
+-- $02A0-02BF [shadow] 6532-PIA
+-- $02C0-02DF [shadow] 6532-PIA
+-- $02D0-02FF [shadow] 6532-PIA
+-- $0300-032F [shadow] TIA
+-- $0330-035F [shadow] TIA
+-- $0360-037F [shadow-partial] TIA
+-- $0380-039F [shadow] 6532-PIA
+-- $03A0-03BF [shadow] 6532-PIA
+-- $03C0-03DF [shadow] 6532-PIA
+-- $03E0-03FF [shadow] 6532-PIA
+-- $0400-07FF [shadow] Repeat the pattern from $0000-03FF
+-- $0800-0BFF [shadow] Repeat the pattern from $0000-03FF
+-- $0C00-0FFF [shadow] Repeat the pattern from $0000-03FF
+--
+-- $1000-17FF Lower 2K Cartridge ROM (4K carts start here)
+-- $1800-1FFF Upper 2K Cartridge ROM (2K carts go here) 
 pureReadMemory :: MemoryType -> Word16 -> MonadAtari Word8
 pureReadMemory ROM  addr = pureReadRom addr
-pureReadMemory TIA  addr = readStella (addr .&. 0x3f)
+pureReadMemory TIA  addr = readStella (addr `mod` 0x30) -- surprising!
 pureReadMemory RIOT addr = readStella (0x280+(addr .&. 0x1f))
 pureReadMemory RAM  addr = do
     atari <- ask
@@ -655,6 +800,10 @@ writeStella addr v = do
        0x2a -> stellaHmove               -- HMOVE
        0x2b -> stellaHmclr               -- HMCLR
        0x2c -> stellaCxclr               -- CXCLR
+       0x280 -> do
+                 swcha @= v               -- XXX just added
+                 liftIO $ print $ "swcha=" ++ showHex v ""
+       0x281 -> swacnt @= v
        0x294 -> startIntervalTimerN 1 v
        0x295 -> startIntervalTimerN 8 v
        0x296 -> startIntervalTimerN 64 v
@@ -681,12 +830,18 @@ loopUntil n = do
 
 initHardware :: MonadAtari ()
 initHardware = do
+    store inpt0 0x80
+    store inpt1 0x80
+    store inpt2 0x80
+    store inpt3 0x80
     store inpt4 0x80
     store inpt5 0x80
     store swcha 0b11111111
+    store swacnt 0b00000000
     store swchb 0b00001011
     store xbreak (-1)
     store ybreak (-1)
+    forM_ [0..3] $ \i-> forM_ [0..5] $ \j -> store (kbd i j) False
     pclo <- readMemory 0x1ffc
     pchi <- readMemory 0x1ffd
     let initialPC = fromIntegral pclo+(fromIntegral pchi `shift` 8)
