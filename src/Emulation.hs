@@ -249,6 +249,18 @@ makePlayfield = do
 -- | key20 - D6 INPT4 | key21 - D6 INPT1 | key22 - D6 INPT0 | key23 - D6 INPT5 | key24 - D6 INPT3 | key25 - D6 INPT2 |
 -- | key30 - D7 INPT4 | key31 - D7 INPT1 | key32 - D7 INPT0 | key33 - D7 INPT5 | key34 - D7 INPT3 | key35 - D7 INPT2 |
 
+readKeypadColumn col =  do
+    k0 <- load (kbd 0 col)
+    k1 <- load (kbd 1 col)
+    k2 <- load (kbd 2 col)
+    k3 <- load (kbd 3 col)
+    swchaValue <- load swcha
+    let i = if k0 && not (testBit swchaValue 4)
+             || k1 && not (testBit swchaValue 5)
+             || k2 && not (testBit swchaValue 6)
+             || k3 && not (testBit swchaValue 7) then 0x00 else 0x80
+    return i
+
 {- INLINABLE readStella -}
 readStella :: Word16 -> MonadAtari Word8
 readStella addr = do
@@ -262,109 +274,115 @@ readStella addr = do
         0x05 -> load cxm1fb
         0x06 -> load cxblpf
         0x07 -> load cxppmm
-        0x08 -> do
-                    k02 <- load (kbd 0 2)
-                    k12 <- load (kbd 1 2)
-                    k22 <- load (kbd 2 2)
-                    k32 <- load (kbd 3 2)
-                    swchaValue <- load swcha
-                    liftIO $ print ("k02=", k02, "swcha", swchaValue, "testBit swchaValue 4", testBit swchaValue 4)
-                    let i0 = if k02 && not (testBit swchaValue 4)
-                             || k12 && not (testBit swchaValue 5)
-                             || k22 && not (testBit swchaValue 6)
-                             || k32 && not (testBit swchaValue 7) then 0x00 else 0x80
-                    liftIO $ putStrLn $ "Reading INPT0=" ++ showHex i0 ""
-                    return i0
+        0x08 -> readKeypadColumn 2
+--         0x08 -> do
+--                     k02 <- load (kbd 0 2)
+--                     k12 <- load (kbd 1 2)
+--                     k22 <- load (kbd 2 2)
+--                     k32 <- load (kbd 3 2)
+--                     swchaValue <- load swcha
+--                     liftIO $ print ("k02=", k02, "swcha", swchaValue, "testBit swchaValue 4", testBit swchaValue 4)
+--                     let i0 = if k02 && not (testBit swchaValue 4)
+--                              || k12 && not (testBit swchaValue 5)
+--                              || k22 && not (testBit swchaValue 6)
+--                              || k32 && not (testBit swchaValue 7) then 0x00 else 0x80
+--                     liftIO $ putStrLn $ "Reading INPT0=" ++ showHex i0 ""
+--                     return i0
 
 --                     i0 <- load inpt0
 --                     liftIO $ putStrLn $ "Reading INPT0=" ++ showHex i0 ""
 --                     return i0
-        0x09 -> do
-                    k01 <- load (kbd 0 1)
-                    k11 <- load (kbd 1 1)
-                    k21 <- load (kbd 2 1)
-                    k31 <- load (kbd 3 1)
-                    swchaValue <- load swcha
-                    liftIO $ print ("k01=", k01, "swcha", swchaValue, "testBit swchaValue 4", testBit swchaValue 4)
-                    let i1 = if k01 && not (testBit swchaValue 4)
-                             || k11 && not (testBit swchaValue 5)
-                             || k21 && not (testBit swchaValue 6)
-                             || k31 && not (testBit swchaValue 7) then 0x00 else 0x80
-                    liftIO $ putStrLn $ "Reading INPT1=" ++ showHex i1 ""
-                    return i1
+        0x09 -> readKeypadColumn 1
+--         0x09 -> do
+--                     k01 <- load (kbd 0 1)
+--                     k11 <- load (kbd 1 1)
+--                     k21 <- load (kbd 2 1)
+--                     k31 <- load (kbd 3 1)
+--                     swchaValue <- load swcha
+--                     liftIO $ print ("k01=", k01, "swcha", swchaValue, "testBit swchaValue 4", testBit swchaValue 4)
+--                     let i1 = if k01 && not (testBit swchaValue 4)
+--                              || k11 && not (testBit swchaValue 5)
+--                              || k21 && not (testBit swchaValue 6)
+--                              || k31 && not (testBit swchaValue 7) then 0x00 else 0x80
+--                     liftIO $ putStrLn $ "Reading INPT1=" ++ showHex i1 ""
+--                     return i1
 
 --                     i1 <- load inpt1
 --                     liftIO $ putStrLn $ "Reading INPT1=" ++ showHex i1 ""
 --                     return i1
-        0x0a -> do
-                    -- KEYBOARD
-                    k05 <- load (kbd 0 5)
-                    k15 <- load (kbd 1 5)
-                    k25 <- load (kbd 2 5)
-                    k35 <- load (kbd 3 5)
-                    swchaValue <- load swcha
-                    liftIO $ print ("k05=", k05, "swcha", swchaValue, "testBit swchaValue 4", testBit swchaValue 4)
-                    let i2 = if k05 && not (testBit swchaValue 4)
-                             || k15 && not (testBit swchaValue 5)
-                             || k25 && not (testBit swchaValue 6)
-                             || k35 && not (testBit swchaValue 7) then 0x00 else 0x80
-                    liftIO $ putStrLn $ "Reading INPT2=" ++ showHex i2 ""
-                    return i2
+        0x0a -> readKeypadColumn 5
+--         0x0a -> do
+--                     -- KEYBOARD
+--                     k05 <- load (kbd 0 5)
+--                     k15 <- load (kbd 1 5)
+--                     k25 <- load (kbd 2 5)
+--                     k35 <- load (kbd 3 5)
+--                     swchaValue <- load swcha
+--                     liftIO $ print ("k05=", k05, "swcha", swchaValue, "testBit swchaValue 4", testBit swchaValue 4)
+--                     let i2 = if k05 && not (testBit swchaValue 4)
+--                              || k15 && not (testBit swchaValue 5)
+--                              || k25 && not (testBit swchaValue 6)
+--                              || k35 && not (testBit swchaValue 7) then 0x00 else 0x80
+--                     liftIO $ putStrLn $ "Reading INPT2=" ++ showHex i2 ""
+--                     return i2
 
 --                     i2 <- load inpt2
 --                     liftIO $ putStrLn $ "Reading INPT2=" ++ showHex i2 ""
 --                     return i2
-        0x0b -> do
-                    -- KEYBOARD
-                    k04 <- load (kbd 0 4)
-                    k14 <- load (kbd 1 4)
-                    k24 <- load (kbd 2 4)
-                    k34 <- load (kbd 3 4)
-                    swchaValue <- load swcha
-                    liftIO $ print ("k04=", k04, "swcha", swchaValue, "testBit swchaValue 4", testBit swchaValue 4)
-                    let i3 = if k04 && not (testBit swchaValue 4)
-                             || k14 && not (testBit swchaValue 5)
-                             || k24 && not (testBit swchaValue 6)
-                             || k34 && not (testBit swchaValue 7) then 0x00 else 0x80
-                    liftIO $ putStrLn $ "Reading INPT3=" ++ showHex i3 ""
-                    return i3
+        0x0b -> readKeypadColumn 4
+--         0x0b -> do
+--                     -- KEYBOARD
+--                     k04 <- load (kbd 0 4)
+--                     k14 <- load (kbd 1 4)
+--                     k24 <- load (kbd 2 4)
+--                     k34 <- load (kbd 3 4)
+--                     swchaValue <- load swcha
+--                     liftIO $ print ("k04=", k04, "swcha", swchaValue, "testBit swchaValue 4", testBit swchaValue 4)
+--                     let i3 = if k04 && not (testBit swchaValue 4)
+--                              || k14 && not (testBit swchaValue 5)
+--                              || k24 && not (testBit swchaValue 6)
+--                              || k34 && not (testBit swchaValue 7) then 0x00 else 0x80
+--                     liftIO $ putStrLn $ "Reading INPT3=" ++ showHex i3 ""
+--                     return i3
 
 --                     i3 <- load inpt3
 --                     liftIO $ putStrLn $ "Reading INPT3=" ++ showHex i3 ""
 --                     return i3
-        0x0c -> do
-                    -- KEYBOARD
-                    k00 <- load (kbd 0 0)
-                    k10 <- load (kbd 1 0)
-                    k20 <- load (kbd 2 0)
-                    k30 <- load (kbd 3 0)
-                    swchaValue <- load swcha
-                    liftIO $ print ("k00=", k00, "swcha", swchaValue, "testBit swchaValue 4", testBit swchaValue 4)
-                    let i4 = if k00 && not (testBit swchaValue 4)
-                             || k10 && not (testBit swchaValue 5)
-                             || k20 && not (testBit swchaValue 6)
-                             || k30 && not (testBit swchaValue 7) then 0x00 else 0x80
-                    liftIO $ putStrLn $ "Reading INPT4=" ++ showHex i4 ""
-                    return i4
+        0x0c -> readKeypadColumn 0
+--         0x0c -> do
+--                     -- KEYBOARD
+--                     k00 <- load (kbd 0 0)
+--                     k10 <- load (kbd 1 0)
+--                     k20 <- load (kbd 2 0)
+--                     k30 <- load (kbd 3 0)
+--                     swchaValue <- load swcha
+--                     liftIO $ print ("k00=", k00, "swcha", swchaValue, "testBit swchaValue 4", testBit swchaValue 4)
+--                     let i4 = if k00 && not (testBit swchaValue 4)
+--                              || k10 && not (testBit swchaValue 5)
+--                              || k20 && not (testBit swchaValue 6)
+--                              || k30 && not (testBit swchaValue 7) then 0x00 else 0x80
+--                     liftIO $ putStrLn $ "Reading INPT4=" ++ showHex i4 ""
+--                     return i4
 
                     -- i4 <- load inpt4
                     -- liftIO $ putStrLn $ "Reading INPT4=" ++ showHex i4 ""
                     -- return i4
-        0x0d -> do
-                    -- KEYBOARD
-                    k03 <- load (kbd 0 3)
-                    k13 <- load (kbd 1 3)
-                    k23 <- load (kbd 2 3)
-                    k33 <- load (kbd 3 3)
-                    swchaValue <- load swcha
-                    liftIO $ print ("k03=", k03, "swcha", swchaValue, "testBit swchaValue 4", testBit swchaValue 4)
-                    let i5 = if k03 && not (testBit swchaValue 4)
-                             || k13 && not (testBit swchaValue 5)
-                             || k23 && not (testBit swchaValue 6)
-                             || k33 && not (testBit swchaValue 7) then 0x00 else 0x80
-                    liftIO $ putStrLn $ "Reading INPT5=" ++ showHex i5 ""
-                    return i5
-
+        0x0d -> readKeypadColumn 3
+--         0x0d -> do
+--                     -- KEYBOARD
+--                     k03 <- load (kbd 0 3)
+--                     k13 <- load (kbd 1 3)
+--                     k23 <- load (kbd 2 3)
+--                     k33 <- load (kbd 3 3)
+--                     swchaValue <- load swcha
+--                     liftIO $ print ("k03=", k03, "swcha", swchaValue, "testBit swchaValue 4", testBit swchaValue 4)
+--                     let i5 = if k03 && not (testBit swchaValue 4)
+--                              || k13 && not (testBit swchaValue 5)
+--                              || k23 && not (testBit swchaValue 6)
+--                              || k33 && not (testBit swchaValue 7) then 0x00 else 0x80
+--                     liftIO $ putStrLn $ "Reading INPT5=" ++ showHex i5 ""
+--                     return i5
+-- 
 --                     i5 <- load inpt5
 --                     liftIO $ putStrLn $ "Reading INPT5=" ++ showHex i5 ""
 --                     return i5
@@ -802,7 +820,6 @@ writeStella addr v = do
        0x2c -> stellaCxclr               -- CXCLR
        0x280 -> do
                  swcha @= v               -- XXX just added
-                 liftIO $ print $ "swcha=" ++ showHex v ""
        0x281 -> swacnt @= v
        0x294 -> startIntervalTimerN 1 v
        0x295 -> startIntervalTimerN 8 v
