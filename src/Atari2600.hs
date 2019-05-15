@@ -8,6 +8,7 @@
 module Atari2600(
                  MonadAtari(..),
                  Atari2600(..),
+                 Controllers(..),
                  xscale,
                  yscale,
                  load,
@@ -16,6 +17,7 @@ module Atari2600(
                  useStellaDebug,
                  modifyClock,
                  useStellaClock,
+                 controllers,
                  bankState,
                  ram,
                  rom,
@@ -58,6 +60,9 @@ import Memory
 import qualified Graphics.Rendering.OpenGL as GL
 import Asm
 
+-- Need to make left and right separately configurable
+data Controllers = Joysticks | Keypads deriving (Eq, Show, Read)
+
 data Atari2600 = Atari2600 {
     _bankState :: IORef BankState,
     _clock :: IORef Int64,
@@ -75,6 +80,8 @@ data Atari2600 = Atari2600 {
     _word8Array :: Segment Word8,
     _word16Array :: Segment Word16,
     _word64Array :: Segment Word64,
+
+    _controllers :: Controllers,
 
     _sdlWindow :: !SDL.Window,
     _textureData :: Ptr Word8,

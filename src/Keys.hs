@@ -191,6 +191,8 @@ data Options = Options {
     topOverscan :: Int,
     bottomOverscan :: Int,
 
+    controllerTypes :: String,
+
     joystick1Left :: [String],
     joystick1Right :: [String],
     joystick1Up :: [String],
@@ -241,6 +243,8 @@ defaultOptions = Options {
     screenScaleY = 3,
     topOverscan = 10,
     bottomOverscan = 10,
+
+    controllerTypes = "Joysticks",
 
     joystick1Left = ["Left"],
     joystick1Right = ["Right"],

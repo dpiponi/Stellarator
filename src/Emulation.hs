@@ -30,7 +30,9 @@ import Data.Array.IO
 --import Data.Array.Unboxed as U
 import Data.Bits hiding (bit)
 import Data.Bits.Lens
---import Data.Array.Storable
+#if TRACE
+import Data.Array.Storable
+#endif
 import Data.IORef
 import Data.Int
 import Data.Word
@@ -85,12 +87,13 @@ initState :: Int -> Int -> Int -> Int ->
              GL.TextureObject ->
              Ptr Word8 ->
              [(Word16, Int)] ->
+             Controllers ->
              IO Atari2600
 initState xscale' yscale' width height ram'
 #if TRACE
             record'
 #endif
-            initBankState rom' initialPC window prog attrib initTex initTextureData delayList = do
+            initBankState rom' initialPC window prog attrib initTex initTextureData delayList controllerType = do
           stellaDebug' <- newIORef DebugState.start
           bankState' <- newIORef initBankState
           clock' <- newIORef 0
@@ -126,6 +129,7 @@ initState xscale' yscale' width height ram'
               _word64Array = word64Array',
               _word16Array = word16Array',
               _word8Array = word8Array',
+              _controllers = controllerType,
               _sdlWindow = window,
               _textureData = initTextureData,
               _tex = initTex,
@@ -244,11 +248,12 @@ makePlayfield = do
 
 -- Keyboard wiring
 --
--- | key00 - D4 INPT4 | key01 - D4 INPT1 | key02 - D4 INPT0 | key03 - D4 INPT5 | key04 - D4 INPT3 | key05 - D4 INPT2 |
--- | key10 - D5 INPT4 | key11 - D5 INPT1 | key12 - D5 INPT0 | key13 - D5 INPT5 | key14 - D5 INPT3 | key15 - D5 INPT2 |
--- | key20 - D6 INPT4 | key21 - D6 INPT1 | key22 - D6 INPT0 | key23 - D6 INPT5 | key24 - D6 INPT3 | key25 - D6 INPT2 |
--- | key30 - D7 INPT4 | key31 - D7 INPT1 | key32 - D7 INPT0 | key33 - D7 INPT5 | key34 - D7 INPT3 | key35 - D7 INPT2 |
+-- |key00 - D4 IN4|key01 - D4 IN1|key02 - D4 IN0|key03 - D4 IN5|key04 - D4 IN3|key05 - D4 IN2|
+-- |key10 - D5 IN4|key11 - D5 IN1|key12 - D5 IN0|key13 - D5 IN5|key14 - D5 IN3|key15 - D5 IN2|
+-- |key20 - D6 IN4|key21 - D6 IN1|key22 - D6 IN0|key23 - D6 IN5|key24 - D6 IN3|key25 - D6 IN2|
+-- |key30 - D7 IN4|key31 - D7 IN1|key32 - D7 IN0|key33 - D7 IN5|key34 - D7 IN3|key35 - D7 IN2|
 
+readKeypadColumn :: Int -> MonadAtari Word8
 readKeypadColumn col =  do
     k0 <- load (kbd 0 col)
     k1 <- load (kbd 1 col)
@@ -261,10 +266,17 @@ readKeypadColumn col =  do
              || k3 && not (testBit swchaValue 7) then 0x00 else 0x80
     return i
 
+readInput :: Controllers -> TypedIndex Word8 -> Int -> MonadAtari Word8
+readInput controls input_register column =
+  case controls of
+      Keypads -> readKeypadColumn column
+      Joysticks -> load input_register
+
 {- INLINABLE readStella -}
 readStella :: Word16 -> MonadAtari Word8
 readStella addr = do
 --     liftIO $ putStrLn $ "reading 0x" ++ showHex addr ""
+    controls <- view controllers
     case addr of
         0x00 -> load cxm0p
         0x01 -> load cxm1p
@@ -274,30 +286,12 @@ readStella addr = do
         0x05 -> load cxm1fb
         0x06 -> load cxblpf
         0x07 -> load cxppmm
-        0x08 -> readKeypadColumn 2
---                     i0 <- load inpt0
---                     liftIO $ putStrLn $ "Reading INPT0=" ++ showHex i0 ""
---                     return i0
-        0x09 -> readKeypadColumn 1
---                     i1 <- load inpt1
---                     liftIO $ putStrLn $ "Reading INPT1=" ++ showHex i1 ""
---                     return i1
-        0x0a -> readKeypadColumn 5
---                     i2 <- load inpt2
---                     liftIO $ putStrLn $ "Reading INPT2=" ++ showHex i2 ""
---                     return i2
-        0x0b -> readKeypadColumn 4
---                     i3 <- load inpt3
---                     liftIO $ putStrLn $ "Reading INPT3=" ++ showHex i3 ""
---                     return i3
-        0x0c -> readKeypadColumn 0
-                    -- i4 <- load inpt4
-                    -- liftIO $ putStrLn $ "Reading INPT4=" ++ showHex i4 ""
-                    -- return i4
-        0x0d -> readKeypadColumn 3
---                     i5 <- load inpt5
---                     liftIO $ putStrLn $ "Reading INPT5=" ++ showHex i5 ""
---                     return i5
+        0x08 -> readInput controls inpt0 2
+        0x09 -> readInput controls inpt1 1
+        0x0a -> readInput controls inpt2 5
+        0x0b -> readInput controls inpt3 4
+        0x0c -> readInput controls inpt4 0
+        0x0d -> readInput controls inpt5 3
         0x0e -> liftIO $ do
                     putStrLn "Illegal read 0xe"
                     return 0xe

@@ -130,6 +130,8 @@ main = do
     let screenScaleY' = screenScaleY options'
     -- XXX Make list of default keys
     let Just atariKeys = keysFromOptions options'
+    let controllerTypeString = controllerTypes options'
+    let controllerType = read controllerTypeString
 
     SDL.initialize [SDL.InitVideo] --, SDL.InitAudio]
     window <- makeMainWindow screenScaleX' screenScaleY'
@@ -156,6 +158,7 @@ main = do
 #endif
                        initBankState romArray
                        0x0000 window prog attrib tex' textureData' delayList
+                       controllerType
 
     let loop = do
             events <- liftIO $ SDL.pollEvents

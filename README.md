@@ -67,6 +67,7 @@ I've never tested under Windows. Looking for a volunteer!
 
 Instructions
 ------------
+When using default options file:
 Use cursor keys to simulate the joystick and the space bar to fire the trigger.
 Only player 1 for now.
 
@@ -87,7 +88,7 @@ Command line options
 
     -o <options file>
             Default is .stellarator-options in current directory.
-            Allows setting of keys and window size.
+            Allows setting of keys, window size and controller type.
             Fragile file format so copy original as closely as
             possible.
 
@@ -233,6 +234,7 @@ Lots of games work:
 | Aquaventure            | seems to play fine.                                                      |
 | Air Sea Battle         | Seems to play fine.                                                      |
 | Asteroids              | Seems to play fine. Flicker is correct behaviour.                        |
+| Basic Programming      | Works fine. Select Keypads. Flicker is correct behaviour.                |
 | Battle Zone            | Seems to play fine.                                                      |
 | Centipede              | seems to play fine.                                                      |
 | Chopper Command        | Seems to play fine.                                                      |
@@ -312,11 +314,11 @@ Blue indicates fewer writes to those bits, yellow indicates more.
 Some notes on writing an emulator in Haskell
 ---------------------------------------------
 
-The obvious choice of language for an emulagtor is C. It's easy to write fast code for manipulating bits and bytes.
+The obvious choice of language for an emulator is C. It's easy to write fast code for manipulating bits and bytes.
 So writing in Haskell was an unusual choice and an interesting challenge. Here are some of the observations I made.
 
 * It took me a while to figure out how to write fast code. There's lots of mutable state and I think the garbage collector gets notified about these changes. So to hide everything from the garbage collector I put much of the state into arrays of bytes and words. You can see the code in `Asm.hs`. I called it that because it meant that a lot of my Haskell code looks like assembly language. Type safe assembly language at least.
-* I've never written so much code without getting random inexplicable bugs. Most bugs that came up were because I hadn't written code to cover all cases. Failures were largely because of me not understanding the weird Atari hardware, not because I'd failed to translate my understanding into Haskell. When bugs did arise it was often possible to fix them through simply thinking rather than my usual bug hunting methods. Very few segmentation faults. The moment I tried writing audio code I started getting crashes so I'm postponing that.
+* I've never written so much code *without* getting random inexplicable bugs. Most bugs that came up were because I hadn't written code to cover all cases. Failures were largely because of me not understanding the weird Atari hardware, not because I'd failed to translate my understanding into Haskell. When bugs did arise it was often possible to fix them through simply thinking rather than my usual bug hunting methods. Very few segmentation faults. The moment I tried writing audio code I started getting crashes so I'm postponing that.
 * It was frustrating not having the option to simply throw in global variables like I would in C. Any changes in state need to be threaded through all of the code. The `AtariMonad` hides much of this but it's still a bit painful. The pain does pay off in terms of having better behaved code though.
 * I loved that I was able to refactor code and have it run successfully first time (or almost first time). Strict types really do keep you safe. I already know Haskell is good for this, but it was surprising to see reality match theory.
 * Haskell can be prettty verbose. C code that looks like `(a<<8)&0xf0)|(a>>8)&0xf0` needs a lot of typing in Haskell. And some of the state updates were a bit verbose, even with some helper functions.
