@@ -258,7 +258,7 @@ Lots of games work:
 | Ikari Warriors         | Seems to play fine                                                       |
 | Indy 500               | Steering doesn't seem to work. Maybe expects different controller.       |
 | Midnight Magic         | Seems to work fine.                                                      |
-| Millipede              | No enemies seem to arrive.                                               |
+| Millipede              | Seems to work.                                                           |
 | Miner 2049er           | Use -b 3f. Seems to work fine.                                           |
 | Montezuma's Revenge    | Use -b e0. Seems to play fine.                                           |
 | Moonsweeper            | Seems to play fine.                                                      |

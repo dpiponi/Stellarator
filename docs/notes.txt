@@ -11,3 +11,11 @@ PF0,1,2 = 3 Missing pixel
 Commando Raid
 -------------
 Reads 0xf
+
+Driving Controller
+------------------
+Uses Gray code
+See http://atariage.com/forums/topic/154568-driving-controllers/
+http://www.videogames.org/html/2600Stuff/DrivingControllers
+
+If you play indy 500 try entering 2 bit gray code via up/down on joystick
