@@ -12,7 +12,8 @@ It'll run Adventure if you have the rom.
 
 News
 ----
-Implemented on-cartridge "Super Chip" RAM. That gives an extra 128 bytes of RAM to some Atari games such as Secret Quest.
+* Added keypad support and now Basic Programming works.
+* Implemented on-cartridge "Super Chip" RAM. That gives an extra 128 bytes of RAM to some Atari games such as Secret Quest.
 
 Screenshots
 -----------
