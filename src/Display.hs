@@ -122,21 +122,21 @@ createShaderProgram = do
 
 -- | Bind textures to appropriate locations in shader program.
 connectProgramToTextures :: GL.Program -> GL.TextureObject -> GL.TextureObject -> IO ()
-connectProgramToTextures program tex tex2 = do
+connectProgramToTextures program screen_tex lut_tex = do
     GL.currentProgram $= Just program
-    texLoc <- GL.uniformLocation program "texture"
-    texLoc2 <- GL.uniformLocation program "table"
+    screenTexLog <- GL.uniformLocation program "texture"
+    lutTexLoc <- GL.uniformLocation program "table"
 
     GL.activeTexture $= GL.TextureUnit 0
     GL.texture GL.Texture2D $= GL.Enabled
-    GL.textureBinding GL.Texture2D $= Just tex
+    GL.textureBinding GL.Texture2D $= Just screen_tex
 
     GL.activeTexture $= GL.TextureUnit 1
-    GL.textureBinding GL.Texture1D $= Just tex2
+    GL.textureBinding GL.Texture1D $= Just lut_tex
     GL.texture GL.Texture1D $= GL.Enabled
 
-    GL.uniform texLoc $= GL.Index1 (0::GL.GLint)
-    GL.uniform texLoc2 $= GL.Index1 (1::GL.GLint)
+    GL.uniform screenTexLog $= GL.Index1 (0::GL.GLint)
+    GL.uniform lutTexLoc $= GL.Index1 (1::GL.GLint)
 
     GL.validateProgram program
     status <- GL.get $ GL.validateStatus program
@@ -150,15 +150,15 @@ connectProgramToTextures program tex tex2 = do
 -- | Create all OpenGL objects required including shaders and textures.
 initResources :: IO (GL.Program, GL.AttribLocation, GL.TextureObject, Ptr Word8)
 initResources = do
-    [tex, tex2] <- GL.genObjectNames 2 :: IO [GL.TextureObject]
+    [screen_tex, lut_tex] <- GL.genObjectNames 2 :: IO [GL.TextureObject]
 
-    textureData <- createImageTexture tex
-    createLUTTexture tex2
+    textureData <- createImageTexture screen_tex
+    createLUTTexture lut_tex
 
     program <- createShaderProgram
-    connectProgramToTextures program tex tex2
+    connectProgramToTextures program screen_tex lut_tex
 
-    return (program, GL.AttribLocation 0, tex, textureData)
+    return (program, GL.AttribLocation 0, screen_tex, textureData)
 
 -- | Render VCS screen as pair of triangles.
 draw :: SDL.Window -> Int -> Int -> GL.Program -> GL.AttribLocation -> IO ()
