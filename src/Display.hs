@@ -121,15 +121,15 @@ createShaderProgram = do
     return program
 
 -- | Bind textures to appropriate locations in shader program.
-connectProgramToTextures :: GL.Program -> GL.TextureObject -> GL.TextureObject -> IO ()
-connectProgramToTextures program screen_tex lut_tex = do
+connectProgramToTextures :: GL.Program -> GL.TextureObject -> GL.TextureObject -> GL.TextureObject -> IO ()
+connectProgramToTextures program current_frame_tex last_frame_tex lut_tex = do
     GL.currentProgram $= Just program
-    screenTexLog <- GL.uniformLocation program "texture"
+    screenTexLog <- GL.uniformLocation program "current_frame"
     lutTexLoc <- GL.uniformLocation program "table"
 
     GL.activeTexture $= GL.TextureUnit 0
     GL.texture GL.Texture2D $= GL.Enabled
-    GL.textureBinding GL.Texture2D $= Just screen_tex
+    GL.textureBinding GL.Texture2D $= Just current_frame_tex
 
     GL.activeTexture $= GL.TextureUnit 1
     GL.textureBinding GL.Texture1D $= Just lut_tex
@@ -150,15 +150,16 @@ connectProgramToTextures program screen_tex lut_tex = do
 -- | Create all OpenGL objects required including shaders and textures.
 initResources :: IO (GL.Program, GL.AttribLocation, GL.TextureObject, Ptr Word8)
 initResources = do
-    [screen_tex, lut_tex] <- GL.genObjectNames 2 :: IO [GL.TextureObject]
+    [current_frame_tex, last_frame_tex, lut_tex] <- GL.genObjectNames 3 :: IO [GL.TextureObject]
 
-    textureData <- createImageTexture screen_tex
+    textureData <- createImageTexture current_frame_tex
+    lastTextureData <- createImageTexture last_frame_tex
     createLUTTexture lut_tex
 
     program <- createShaderProgram
-    connectProgramToTextures program screen_tex lut_tex
+    connectProgramToTextures program current_frame_tex last_frame_tex lut_tex
 
-    return (program, GL.AttribLocation 0, screen_tex, textureData)
+    return (program, GL.AttribLocation 0, current_frame_tex, textureData)
 
 -- | Render VCS screen as pair of triangles.
 draw :: SDL.Window -> Int -> Int -> GL.Program -> GL.AttribLocation -> IO ()
@@ -195,14 +196,14 @@ fsSource = BS.intercalate "\n"
            [
                 "#version 110",
                 "",
-                "uniform sampler2D texture;",
+                "uniform sampler2D current_frame;",
                 "uniform sampler1D table;",
                 "varying vec2 texcoord;",
                 "",
                 "void main()",
                 "{",
                 "",
-                "    vec4 index = texture2D(texture, texcoord);",
+                "    vec4 index = texture2D(current_frame, texcoord);",
                 "    gl_FragColor = texture1D(table, index.x);",
                 "}"
            ]
