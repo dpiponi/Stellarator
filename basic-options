@@ -46,7 +46,7 @@ Options {
     keyboardController30 = ["Backspace"],
     keyboardController31 = ["LAlt"],
     keyboardController32 = ["LCtrl"],
-    keyboardController33 = ["Return", "Space", "Slash"],
+    keyboardController33 = ["0", "Return", "Space"],
     keyboardController34 = ["T"],
-    keyboardController35 = ["S"]
+    keyboardController35 = ["S", "Equals"]
 }
