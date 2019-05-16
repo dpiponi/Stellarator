@@ -12,6 +12,7 @@ It'll run Adventure if you have the rom.
 
 News
 ----
+* I'm sure millipede didn't used to work but now it does!
 * Added motion blur. Makes Asteroids and Basic look nice.
 * Added keypad support and now Basic Programming works.
 * Implemented on-cartridge "Super Chip" RAM. That gives an extra 128 bytes of RAM to some Atari games such as Secret Quest.
