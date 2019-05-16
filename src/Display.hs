@@ -124,7 +124,8 @@ createShaderProgram = do
 connectProgramToTextures :: GL.Program -> GL.TextureObject -> GL.TextureObject -> GL.TextureObject -> IO ()
 connectProgramToTextures program current_frame_tex last_frame_tex lut_tex = do
     GL.currentProgram $= Just program
-    screenTexLog <- GL.uniformLocation program "current_frame"
+    current_screen_tex_loc <- GL.uniformLocation program "current_frame"
+    last_screen_tex_loc <- GL.uniformLocation program "last_frame"
     lutTexLoc <- GL.uniformLocation program "table"
 
     GL.activeTexture $= GL.TextureUnit 0
@@ -132,11 +133,16 @@ connectProgramToTextures program current_frame_tex last_frame_tex lut_tex = do
     GL.textureBinding GL.Texture2D $= Just current_frame_tex
 
     GL.activeTexture $= GL.TextureUnit 1
+    GL.textureBinding GL.Texture1D $= Just last_frame_tex
+    GL.texture GL.Texture1D $= GL.Enabled
+
+    GL.activeTexture $= GL.TextureUnit 2
     GL.textureBinding GL.Texture1D $= Just lut_tex
     GL.texture GL.Texture1D $= GL.Enabled
 
-    GL.uniform screenTexLog $= GL.Index1 (0::GL.GLint)
-    GL.uniform lutTexLoc $= GL.Index1 (1::GL.GLint)
+    GL.uniform current_screen_tex_loc $= GL.Index1 (0::GL.GLint)
+    GL.uniform last_screen_tex_loc $= GL.Index1 (1::GL.GLint)
+    GL.uniform lutTexLoc $= GL.Index1 (2::GL.GLint)
 
     GL.validateProgram program
     status <- GL.get $ GL.validateStatus program
@@ -148,7 +154,7 @@ connectProgramToTextures program current_frame_tex last_frame_tex lut_tex = do
     GL.currentProgram $= Just program
 
 -- | Create all OpenGL objects required including shaders and textures.
-initResources :: IO (GL.Program, GL.AttribLocation, GL.TextureObject, Ptr Word8)
+initResources :: IO (GL.Program, GL.AttribLocation, GL.TextureObject, GL.TextureObject, Ptr Word8, Ptr Word8)
 initResources = do
     [current_frame_tex, last_frame_tex, lut_tex] <- GL.genObjectNames 3 :: IO [GL.TextureObject]
 
@@ -159,7 +165,7 @@ initResources = do
     program <- createShaderProgram
     connectProgramToTextures program current_frame_tex last_frame_tex lut_tex
 
-    return (program, GL.AttribLocation 0, current_frame_tex, textureData)
+    return (program, GL.AttribLocation 0, current_frame_tex, last_frame_tex, textureData, lastTextureData)
 
 -- | Render VCS screen as pair of triangles.
 draw :: SDL.Window -> Int -> Int -> GL.Program -> GL.AttribLocation -> IO ()
@@ -197,14 +203,17 @@ fsSource = BS.intercalate "\n"
                 "#version 110",
                 "",
                 "uniform sampler2D current_frame;",
+                "uniform sampler2D last_frame;",
                 "uniform sampler1D table;",
                 "varying vec2 texcoord;",
                 "",
                 "void main()",
                 "{",
                 "",
-                "    vec4 index = texture2D(current_frame, texcoord);",
-                "    gl_FragColor = texture1D(table, index.x);",
+                "    vec4 current_index = texture2D(current_frame, texcoord);",
+                "    vec4 last_index = texture2D(last_frame, texcoord);",
+                "    float alpha = 0.5;",
+                "    gl_FragColor = alpha*texture1D(table, current_index.x)+(1.0-alpha)*texture1D(table, last_index.x);",
                 "}"
            ]
 

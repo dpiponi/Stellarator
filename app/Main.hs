@@ -136,7 +136,7 @@ main = do
     SDL.initialize [SDL.InitVideo] --, SDL.InitAudio]
     window <- makeMainWindow screenScaleX' screenScaleY'
 
-    (prog, attrib, tex', textureData') <- initResources
+    (prog, attrib, tex', lastTex', textureData', lastTextureData') <- initResources
 
     romArray <- newArray (0, 0x7fff) 0 :: IO (IOUArray Int Word8)
     ramArray <- newArray (0, 0x7f) 0 :: IO (IOUArray Int Word8)
@@ -157,7 +157,7 @@ main = do
                        recordArray
 #endif
                        initBankState romArray
-                       0x0000 window prog attrib tex' textureData' delayList
+                       0x0000 window prog attrib tex' lastTex' textureData' lastTextureData' delayList
                        controllerType
 
     let loop = do

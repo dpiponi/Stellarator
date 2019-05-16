@@ -85,6 +85,8 @@ initState :: Int -> Int -> Int -> Int ->
              GL.Program ->
              GL.AttribLocation ->
              GL.TextureObject ->
+             GL.TextureObject ->
+             Ptr Word8 ->
              Ptr Word8 ->
              [(Word16, Int)] ->
              Controllers ->
@@ -93,7 +95,7 @@ initState xscale' yscale' width height ram'
 #if TRACE
             record'
 #endif
-            initBankState rom' initialPC window prog attrib initTex initTextureData delayList controllerType = do
+            initBankState rom' initialPC window prog attrib initTex initLastTex initTextureData initLastTextureData delayList controllerType = do
           stellaDebug' <- newIORef DebugState.start
           bankState' <- newIORef initBankState
           clock' <- newIORef 0
@@ -132,7 +134,9 @@ initState xscale' yscale' width height ram'
               _controllers = controllerType,
               _sdlWindow = window,
               _textureData = initTextureData,
+              _lastTextureData = initLastTextureData,
               _tex = initTex,
+              _lastTex = initLastTex,
               _glProg = prog,
               _glAttrib = attrib,
               _delays = delayArray
