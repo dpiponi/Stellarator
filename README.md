@@ -20,7 +20,9 @@ Screenshots
 -----------
 ![Adventure screenshot](docs/adventure.gif?raw=true "Adventure Screenshot")
 
-![Pitfall screenshot](docs/pitfall.gif?raw=true "Pitfall Screenshot")
+![Pitfall! screenshot](docs/pitfall.gif?raw=true "Pitfall! Screenshot")
+
+![Basic Programming screenshot](docs/basic.gif?raw=true "Basic Programming Screenshot")
 
 Installation
 ------------
