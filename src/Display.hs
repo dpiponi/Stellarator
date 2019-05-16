@@ -133,12 +133,12 @@ connectProgramToTextures program current_frame_tex last_frame_tex lut_tex = do
     GL.textureBinding GL.Texture2D $= Just current_frame_tex
 
     GL.activeTexture $= GL.TextureUnit 1
-    GL.textureBinding GL.Texture1D $= Just last_frame_tex
-    GL.texture GL.Texture1D $= GL.Enabled
+    GL.texture GL.Texture2D $= GL.Enabled
+    GL.textureBinding GL.Texture2D $= Just last_frame_tex
 
     GL.activeTexture $= GL.TextureUnit 2
-    GL.textureBinding GL.Texture1D $= Just lut_tex
     GL.texture GL.Texture1D $= GL.Enabled
+    GL.textureBinding GL.Texture1D $= Just lut_tex
 
     GL.uniform current_screen_tex_loc $= GL.Index1 (0::GL.GLint)
     GL.uniform last_screen_tex_loc $= GL.Index1 (1::GL.GLint)
@@ -212,7 +212,7 @@ fsSource = BS.intercalate "\n"
                 "",
                 "    vec4 current_index = texture2D(current_frame, texcoord);",
                 "    vec4 last_index = texture2D(last_frame, texcoord);",
-                "    float alpha = 0.5;",
+                "    float alpha = 0.9;",
                 "    gl_FragColor = alpha*texture1D(table, current_index.x)+(1.0-alpha)*texture1D(table, last_index.x);",
                 "}"
            ]

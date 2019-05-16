@@ -368,6 +368,9 @@ stellaTick n ptr' = do
         blank <- load vblank
         pendingHmove' <- load pendingHmove
         let renderBlank = testBit blank 1 || pendingHmove' && pixelx < 8
+
+        -- This is the place where the final pixel goes into
+        -- the frame buffer
         pixel <- if renderBlank
             then return 0
             else compositeAndCollide pixelx hpos'

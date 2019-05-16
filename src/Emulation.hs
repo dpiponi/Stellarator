@@ -98,6 +98,7 @@ initState xscale' yscale' width height ram'
             initBankState rom' initialPC window prog attrib initTex initLastTex initTextureData initLastTextureData delayList controllerType = do
           stellaDebug' <- newIORef DebugState.start
           bankState' <- newIORef initBankState
+          parity <- newIORef False
           clock' <- newIORef 0
           -- debug' <- newIORef 8
           stellaClock' <- newIORef 0
@@ -112,6 +113,7 @@ initState xscale' yscale' width height ram'
           liftIO $ st word16Array' pc initialPC
           delayArray <- makeDelayArray delayList
           return $ Atari2600 {
+              _frameParity = parity,
               _xscale = xscale',
               _yscale = yscale',
               _windowWidth = width,
@@ -379,7 +381,9 @@ stellaTickFor' diff = do
         -- XXX surely this must be done every time - collisions
         clampMissiles resmp0' resmp1'
 
-        ptr' <- view textureData
+        parityRef <- view frameParity
+        parity <- liftIO $ readIORef parityRef
+        ptr' <- view (if parity then textureData else lastTextureData)
         -- XXX Not sure stellaDebug actually changes here so may be some redundancy
         stellaTick (fromIntegral diff) ptr'
 
@@ -742,11 +746,22 @@ renderDisplay = do
     window <- view sdlWindow
     prog <- view glProg
     attrib <- view glAttrib
+    parityRef <- view frameParity
+    parity <- liftIO $ readIORef parityRef
+    liftIO $ modifyIORef parityRef not
     tex' <- view tex
+    lastTex' <- view lastTex
     ptr <- view textureData
+    lastPtr <- view lastTextureData
     windowWidth' <- view windowWidth
     windowHeight' <- view windowHeight
-    liftIO $ updateTexture tex' ptr
+    if parity
+      then do
+        liftIO $ updateTexture tex' ptr
+        liftIO $ updateTexture lastTex' lastPtr
+      else do
+        liftIO $ updateTexture tex' lastPtr
+        liftIO $ updateTexture lastTex' ptr
     liftIO $ draw window windowWidth' windowHeight' prog attrib
     return ()
 

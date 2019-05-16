@@ -24,6 +24,7 @@ module Atari2600(
                  useClock,
                  putStellaDebug,
                  sdlWindow,
+                 frameParity,
                  textureData,
                  lastTextureData,
                  windowWidth,
@@ -66,6 +67,7 @@ import Asm
 data Controllers = Joysticks | Keypads deriving (Eq, Show, Read)
 
 data Atari2600 = Atari2600 {
+    _frameParity :: IORef Bool,
     _bankState :: IORef BankState,
     _clock :: IORef Int64,
     _stellaClock :: IORef Int64,
