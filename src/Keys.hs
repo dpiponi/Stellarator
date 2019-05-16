@@ -190,6 +190,7 @@ data Options = Options {
     screenScaleY :: Int,
     topOverscan :: Int,
     bottomOverscan :: Int,
+    motionBlurAlpha :: Float,
 
     controllerTypes :: String,
 
@@ -243,6 +244,7 @@ defaultOptions = Options {
     screenScaleY = 3,
     topOverscan = 10,
     bottomOverscan = 10,
+    motionBlurAlpha = 1.0,
 
     controllerTypes = "Joysticks",
 

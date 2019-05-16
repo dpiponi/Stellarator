@@ -121,12 +121,15 @@ createShaderProgram = do
     return program
 
 -- | Bind textures to appropriate locations in shader program.
-connectProgramToTextures :: GL.Program -> GL.TextureObject -> GL.TextureObject -> GL.TextureObject -> IO ()
-connectProgramToTextures program current_frame_tex last_frame_tex lut_tex = do
+connectProgramToTextures :: GL.Program -> Float -> GL.TextureObject -> GL.TextureObject -> GL.TextureObject -> IO ()
+connectProgramToTextures program alpha current_frame_tex last_frame_tex lut_tex = do
     GL.currentProgram $= Just program
     current_screen_tex_loc <- GL.uniformLocation program "current_frame"
     last_screen_tex_loc <- GL.uniformLocation program "last_frame"
     lutTexLoc <- GL.uniformLocation program "table"
+    alpha_loc <- GL.uniformLocation program "alpha"
+
+    GL.uniform alpha_loc $= alpha
 
     GL.activeTexture $= GL.TextureUnit 0
     GL.texture GL.Texture2D $= GL.Enabled
@@ -154,8 +157,8 @@ connectProgramToTextures program current_frame_tex last_frame_tex lut_tex = do
     GL.currentProgram $= Just program
 
 -- | Create all OpenGL objects required including shaders and textures.
-initResources :: IO (GL.Program, GL.AttribLocation, GL.TextureObject, GL.TextureObject, Ptr Word8, Ptr Word8)
-initResources = do
+initResources :: Float -> IO (GL.Program, GL.AttribLocation, GL.TextureObject, GL.TextureObject, Ptr Word8, Ptr Word8)
+initResources alpha = do
     [current_frame_tex, last_frame_tex, lut_tex] <- GL.genObjectNames 3 :: IO [GL.TextureObject]
 
     textureData <- createImageTexture current_frame_tex
@@ -163,7 +166,7 @@ initResources = do
     createLUTTexture lut_tex
 
     program <- createShaderProgram
-    connectProgramToTextures program current_frame_tex last_frame_tex lut_tex
+    connectProgramToTextures program alpha current_frame_tex last_frame_tex lut_tex
 
     return (program, GL.AttribLocation 0, current_frame_tex, last_frame_tex, textureData, lastTextureData)
 
@@ -205,6 +208,7 @@ fsSource = BS.intercalate "\n"
                 "uniform sampler2D current_frame;",
                 "uniform sampler2D last_frame;",
                 "uniform sampler1D table;",
+                "uniform float alpha;",
                 "varying vec2 texcoord;",
                 "",
                 "void main()",
@@ -212,7 +216,6 @@ fsSource = BS.intercalate "\n"
                 "",
                 "    vec4 current_index = texture2D(current_frame, texcoord);",
                 "    vec4 last_index = texture2D(last_frame, texcoord);",
-                "    float alpha = 0.9;",
                 "    gl_FragColor = alpha*texture1D(table, current_index.x)+(1.0-alpha)*texture1D(table, last_index.x);",
                 "}"
            ]

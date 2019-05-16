@@ -3,6 +3,7 @@ Options {
     screenScaleY = 3,
     topOverscan = 10,
     bottomOverscan = 10,
+    motionBlurAlpha = 0.5,
 
     controllerTypes = "Keypads",
 

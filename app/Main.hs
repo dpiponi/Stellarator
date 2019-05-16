@@ -132,11 +132,12 @@ main = do
     let Just atariKeys = keysFromOptions options'
     let controllerTypeString = controllerTypes options'
     let controllerType = read controllerTypeString
+    let alpha = motionBlurAlpha options'
 
     SDL.initialize [SDL.InitVideo] --, SDL.InitAudio]
     window <- makeMainWindow screenScaleX' screenScaleY'
 
-    (prog, attrib, tex', lastTex', textureData', lastTextureData') <- initResources
+    (prog, attrib, tex', lastTex', textureData', lastTextureData') <- initResources alpha
 
     romArray <- newArray (0, 0x7fff) 0 :: IO (IOUArray Int Word8)
     ramArray <- newArray (0, 0x7f) 0 :: IO (IOUArray Int Word8)
