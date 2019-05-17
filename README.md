@@ -295,7 +295,7 @@ Lots of games work:
 | SW: The Arcade Game    | Use -b e0. Seems to play fine. Too hard using keyboard!                  |
 | Tank City              | Seems to play fine apart from some misrendered score digits              |
 | Tank Brigade           | Seems to play fine.                                                      |
-| Towering Inferno       | I need to implement joystick 2.                                          |
+| Towering Inferno       | Seems to play fine.                                                      |
 | Tutankh                | Use -b e0. At first I thought it wasn't working but it's just bad.       |
 | Vanguard               | Seems to play fine                                                       |
 | Video Checkers         | Seems to play fine. Use pairs of arrow keys to make diagonal moves.      |
