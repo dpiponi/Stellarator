@@ -106,6 +106,10 @@ handleKey atariKeys motion sym = do
                 Joystick1Down    -> modify swcha $ bitAt 5 .~ not pressed
                 Joystick1Left    -> modify swcha $ bitAt 6 .~ not pressed
                 Joystick1Right   -> modify swcha $ bitAt 7 .~ not pressed
+                Joystick2Up      -> modify swcha $ bitAt 0 .~ not pressed
+                Joystick2Down    -> modify swcha $ bitAt 1 .~ not pressed
+                Joystick2Left    -> modify swcha $ bitAt 2 .~ not pressed
+                Joystick2Right   -> modify swcha $ bitAt 3 .~ not pressed
                 Joystick1Trigger -> trigger1Pressed pressed
                 Joystick2Trigger -> trigger2Pressed pressed
                 TVType           -> modify swchb $ bitAt 3 .~ not pressed

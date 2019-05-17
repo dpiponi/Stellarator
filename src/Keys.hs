@@ -198,6 +198,10 @@ data Options = Options {
     joystick1Right :: [String],
     joystick1Up :: [String],
     joystick1Down :: [String],
+    joystick2Left :: [String],
+    joystick2Right :: [String],
+    joystick2Up :: [String],
+    joystick2Down :: [String],
     joystick1Trigger :: [String],
     joystick2Trigger :: [String],
     dumpState :: [String],
@@ -252,6 +256,10 @@ defaultOptions = Options {
     joystick1Right = ["Right"],
     joystick1Up = ["Up"],
     joystick1Down = ["Down"],
+    joystick2Left = ["LeftBracket"],
+    joystick2Right = ["RightBracket"],
+    joystick2Up = ["Equals"],
+    joystick2Down = ["Apostrophe"],
     joystick1Trigger = ["Space"],
     joystick2Trigger = ["Return"],
     dumpState = ["1"],
@@ -262,10 +270,10 @@ defaultOptions = Options {
     enterDebugger = ["Escape"],
     debugMode = ["Backslash"],
     writeRecord = ["W"],
-    delayLeft = ["LeftBracket"],
-    delayRight = ["RightBracket"],
-    delayUp = ["Equals"],
-    delayDown = ["Minus"],
+    delayLeft = [],
+    delayRight = [],
+    delayUp = [],
+    delayDown = [],
     keyboardController00 = ["7"],
     keyboardController01 = ["6"],
     keyboardController02 = ["5"],
@@ -293,6 +301,7 @@ defaultOptions = Options {
 }
 
 data AtariKey = Joystick1Left | Joystick1Right | Joystick1Up | Joystick1Down
+              | Joystick2Left | Joystick2Right | Joystick2Up | Joystick2Down
               | Joystick1Trigger |Joystick2Trigger
               | GameSelect | GameReset | TVType
               | GameQuit | DumpState | EnterDebugger | DebugMode
@@ -302,16 +311,17 @@ data AtariKey = Joystick1Left | Joystick1Right | Joystick1Up | Joystick1Down
 
 type AtariKeys = M.Map Scancode AtariKey
 
-plop :: Show a => a -> a
-plop a = trace (show a) a
-
 keysFromOptions :: Options -> Maybe AtariKeys
 keysFromOptions options = do
-    scancodes <- plop $ sequence $ map (sequence . map scancodeFromString) [
+    scancodes <- sequence $ map (sequence . map scancodeFromString) [
                     joystick1Left options,
                     joystick1Right options,
                     joystick1Up options,
                     joystick1Down options,
+                    joystick2Left options,
+                    joystick2Right options,
+                    joystick2Up options,
+                    joystick2Down options,
                     joystick1Trigger options,
                     joystick2Trigger options,
                     dumpState options,
@@ -356,6 +366,10 @@ keysFromOptions options = do
                     Joystick1Right,
                     Joystick1Up,
                     Joystick1Down,
+                    Joystick2Left,
+                    Joystick2Right,
+                    Joystick2Up,
+                    Joystick2Down,
                     Joystick1Trigger,
                     Joystick2Trigger,
                     DumpState,

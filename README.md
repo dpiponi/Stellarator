@@ -12,6 +12,7 @@ It'll run Adventure if you have the rom.
 
 News
 ----
+* Added second joystick emulation.
 * I'm sure millipede didn't used to work but now it does!
 * Added motion blur. Makes Asteroids and Basic look nice.
 * Added keypad support and now Basic Programming works.
@@ -238,6 +239,7 @@ Lots of games work:
 | Adventure              | Seems to play fine.                                                      |
 | Aquaventure            | seems to play fine.                                                      |
 | Air Sea Battle         | Seems to play fine.                                                      |
+| Armor Ambush           | Seems to play fine.                                                      |
 | Asteroids              | Seems to play fine. Flicker is correct behaviour.                        |
 | Basic Programming      | Works fine. Select Keypads. Flicker is correct behaviour.                |
 | Battle Zone            | Seems to play fine.                                                      |
@@ -247,6 +249,7 @@ Lots of games work:
 | Combat                 | Seems to play fine. Stellarator has no 2 player support though.          |
 | Commando Raid          | Seems to play fine. Ugly "comb" effect is correct.                       |
 | Cosmic Ark             | Seems to play fine but star rendering is replaced by ugly vertical line. |
+| Cosmic Swarm           | Flays fine. Better with motion blur.                                     |
 | Defender:              | Seems to play fine.                                                      |
 | Dig Dug                | Use -b f6sc. Seems to play fine apart from some stray pixels.            |
 | Demon Attack           | Seems to play fine. I quite like this one.                               |
@@ -292,8 +295,10 @@ Lots of games work:
 | SW: The Arcade Game    | Use -b e0. Seems to play fine. Too hard using keyboard!                  |
 | Tank City              | Seems to play fine apart from some misrendered score digits              |
 | Tank Brigade           | Seems to play fine.                                                      |
+| Towering Inferno       | I need to implement joystick 2.                                          |
 | Tutankh                | Use -b e0. At first I thought it wasn't working but it's just bad.       |
 | Vanguard               | Seems to play fine                                                       |
+| Video Checkers         | Seems to play fine. Use pairs of arrow keys to make diagonal moves.      |
 | Xenohpobe              | Seems to play fine                                                       |
 | Xevious                | Seems to play fine.                                                      |
 | Yar's Revenge          | Seems to play fine.                                                      |
