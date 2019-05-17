@@ -299,6 +299,7 @@ Lots of games work:
 | Tutankh                | Use -b e0. At first I thought it wasn't working but it's just bad.       |
 | Vanguard               | Seems to play fine                                                       |
 | Video Checkers         | Seems to play fine. Use pairs of arrow keys to make diagonal moves.      |
+| Wall Defender          | Seems to play fine.                                                      |
 | Xenohpobe              | Seems to play fine                                                       |
 | Xevious                | Seems to play fine.                                                      |
 | Yar's Revenge          | Seems to play fine.                                                      |
