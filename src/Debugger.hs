@@ -4,12 +4,12 @@ import Asm
 import Atari2600
 import Control.Monad
 import Control.Monad.State.Strict
-import Core
+-- import Core
 import Data.Bits
 import DebugCmd
 import DebugState
 import Disasm
-import Emulation()
+import Emulation
 import VideoOps
 import Numeric
 import System.Console.Haskeline
@@ -99,7 +99,7 @@ eval (PeekWord expr) = do
         EInt addr -> do
             lo <- readMemory (fromIntegral addr)
             hi <- readMemory (fromIntegral addr+1)
-            return (EInt $ fromIntegral $ Core.make16 lo hi)
+            return (EInt $ fromIntegral $ Disasm.make16 lo hi)
         _ -> return EFail
 
 eval (Not expr) = do
