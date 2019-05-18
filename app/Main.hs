@@ -21,6 +21,7 @@ import Data.Binary hiding (get)
 import Data.Array.Storable
 #endif
 import Emulation
+import Step
 import Memory
 import Metrics
 import Prelude hiding (last)

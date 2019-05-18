@@ -2,6 +2,7 @@ module Debugger(runDebugger) where
 
 import Asm
 import Atari2600
+import Step
 import Control.Monad
 import Control.Monad.State.Strict
 import Data.Bits

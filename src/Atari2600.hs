@@ -9,6 +9,33 @@ module Atari2600(
                  MonadAtari(..),
                  Atari2600(..),
                  Controllers(..),
+                 getX,
+                 putX,
+                 getPC,
+                 putC,
+                 getC,
+                 putZ,
+                 getZ,
+                 putI,
+                 getI,
+                 putD,
+                 getD,
+                 putB,
+                 getB,
+                 putV,
+                 getV,
+                 putN,
+                 getN,
+                 getA,
+                 putA,
+                 getS,
+                 putS,
+                 getP,
+                 putP,
+                 getY,
+                 putY,
+                 putPC,
+                 addPC,
                  xscale,
                  yscale,
                  load,
@@ -53,6 +80,7 @@ import Data.Array.Base
 import Data.Array.Storable
 #endif
 import Data.Array.IO
+import Data.Bits.Lens
 import Data.IORef
 import Data.Int
 import Data.Word
@@ -107,6 +135,7 @@ $(makeLenses ''Atari2600)
 newtype MonadAtari a = M { unM :: ReaderT Atari2600 IO a }
       deriving (Functor, Applicative, Monad, MonadReader Atari2600, MonadIO)
 
+-- Do I still want Reg type class?
 instance Reg Word8 MonadAtari where
     {-# INLINE load #-}
     load r = do
@@ -201,3 +230,90 @@ modifyStellaClock :: ASetter Int64 Int64 a b -> (a -> b) -> MonadAtari ()
 modifyStellaClock lens' modifier = do
     atari <- ask
     liftIO $ modifyIORef' (atari ^. stellaClock) (over lens' modifier)
+
+-- 6502 registers
+
+-- {-# INLINE getX #-}
+getX :: MonadAtari Word8
+getX = load x
+
+-- {-# INLINE putX #-}
+putX :: Word8 -> MonadAtari ()
+putX r = x @= r 
+
+getPC :: MonadAtari Word16
+putC :: Bool -> MonadAtari ()
+getC :: MonadAtari Bool
+putZ :: Bool -> MonadAtari ()
+getZ :: MonadAtari Bool
+putI :: Bool -> MonadAtari ()
+getI :: MonadAtari Bool
+putD :: Bool -> MonadAtari ()
+getD :: MonadAtari Bool
+putB :: Bool -> MonadAtari ()
+getB :: MonadAtari Bool
+putV :: Bool -> MonadAtari ()
+getV :: MonadAtari Bool
+putN :: Bool -> MonadAtari ()
+getN :: MonadAtari Bool
+getA :: MonadAtari Word8
+putA :: Word8 -> MonadAtari ()
+getS :: MonadAtari Word8
+putS :: Word8 -> MonadAtari ()
+getP :: MonadAtari Word8
+putP :: Word8 -> MonadAtari ()
+getY :: MonadAtari Word8
+putY :: Word8 -> MonadAtari ()
+putPC :: Word16 -> MonadAtari ()
+addPC :: Int -> MonadAtari ()
+--
+-- {-# INLINE getPC #-}
+getPC = load pc
+-- {-# INLINE putC #-}
+putC b = do { p' <- load p; p @= (p' & bitAt 0 .~ b) }
+-- {-# INLINE getC #-}
+getC = do { p' <- load p; return (p' ^. bitAt 0) }
+-- {-# INLINE putZ #-}
+putZ b = do { p' <- load p; p @= (p' & bitAt 1 .~ b) }
+-- {-# INLINE getZ #-}
+getZ = do { p' <- load p; return (p' ^. bitAt 1) }
+-- {-# INLINE putI #-}
+putI b = do { p' <- load p; p @= (p' & bitAt 2 .~ b) }
+-- {-# INLINE getI #-}
+getI = do { p' <- load p; return (p' ^. bitAt 2) }
+-- {-# INLINE putD #-}
+putD b = do { p' <- load p; p @= (p' & bitAt 3 .~ b) }
+-- {-# INLINE getD #-}
+getD = do { p' <- load p; return (p' ^. bitAt 3) }
+-- {-# INLINE putB #-}
+putB b = do { p' <- load p; p @= (p' & bitAt 4 .~ b) }
+-- {-# INLINE getB #-}
+getB = do { p' <- load p; return (p' ^. bitAt 4) }
+-- {-# INLINE putV #-}
+putV b = do { p' <- load p; p @= (p' & bitAt 6 .~ b) }
+-- {-# INLINE getV #-}
+getV = do { p' <- load p; return (p' ^. bitAt 6) }
+-- {-# INLINE putN #-}
+putN b = do { p' <- load p; p @= (p' & bitAt 7 .~ b) }
+-- {-# INLINE getN #-}
+getN = do { p' <- load p; return (p' ^. bitAt 7) }
+-- {-# INLINE getA #-}
+getA = load a
+-- {-# INLINE putA #-}
+putA r = a @= r
+-- {-# INLINE getS #-}
+getS = load s
+-- {-# INLINE putS #-}
+putS r = s @= r
+-- {-# INLINE getP #-}
+getP = load p
+-- {-# INLINE putP #-}
+putP r = p @= r 
+-- {-# INLINE getY #-}
+getY = load y
+-- {-# INLINE putY #-}
+putY r = y @= r
+-- {-# INLINE putPC #-}
+putPC r = pc @= r
+-- {-# INLINE addPC #-}
+addPC n = modify pc (+ fromIntegral n)
