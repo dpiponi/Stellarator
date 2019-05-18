@@ -266,17 +266,14 @@ readKeypadColumn col =  do
     k2 <- load (kbd 2 col)
     k3 <- load (kbd 3 col)
     swchaValue <- load swcha
-    let i = if k0 && not (testBit swchaValue 4)
+    return $ if k0 && not (testBit swchaValue 4)
              || k1 && not (testBit swchaValue 5)
              || k2 && not (testBit swchaValue 6)
              || k3 && not (testBit swchaValue 7) then 0x00 else 0x80
-    return i
 
 readInput :: Controllers -> TypedIndex Word8 -> Int -> MonadAtari Word8
-readInput controls input_register column =
-  case controls of
-      Keypads -> readKeypadColumn column
-      Joysticks -> load input_register
+readInput Keypads   _              column  = readKeypadColumn column
+readInput Joysticks input_register _       = load input_register
 
 {- INLINABLE readStella -}
 readStella :: Word16 -> MonadAtari Word8
@@ -760,8 +757,8 @@ renderDisplay = do
         liftIO $ updateTexture tex' ptr
         liftIO $ updateTexture lastTex' lastPtr
       else do
-        liftIO $ updateTexture tex' lastPtr
         liftIO $ updateTexture lastTex' ptr
+        liftIO $ updateTexture tex' lastPtr
     liftIO $ draw window windowWidth' windowHeight' prog attrib
     return ()
 

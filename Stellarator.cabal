@@ -23,7 +23,7 @@ library
   extensions:          
   exposed-modules:     TIAColors, Binary, Core, Disasm,
                        DebugCmd, Memory, Asm, DebugState, Atari2600, Debugger, Metrics, BitManips, Emulation, VideoOps, Display, Keys, Events
-  build-depends:       base >= 4.7 && < 5
+  build-depends:       base
                      , sdl2
                      , bytestring
                      , vector

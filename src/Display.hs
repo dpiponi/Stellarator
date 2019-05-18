@@ -235,7 +235,7 @@ makeMainWindow :: Int -> Int -> IO SDL.Window
 makeMainWindow screenScaleX' screenScaleY' = do
     window <- SDL.createWindow "Stellarator"
                 SDL.defaultWindow {
-                    --SDL.windowMode = SDL.FullscreenDesktop,
+--                     SDL.windowMode = SDL.FullscreenDesktop,
                     SDL.windowInitialSize = V2 (fromIntegral $ screenScaleX'*screenWidth)
                     (fromIntegral $ screenScaleY'*screenHeight),
                     SDL.windowOpenGL = Just $ SDL.OpenGLConfig {
@@ -249,5 +249,6 @@ makeMainWindow screenScaleX' screenScaleY' = do
     SDL.showWindow window
     _ <- SDL.glCreateContext window
     SDL.swapInterval $= SDL.SynchronizedUpdates
+--     SDL.swapInterval $= SDL.ImmediateUpdates
 
     return window

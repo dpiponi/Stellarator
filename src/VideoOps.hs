@@ -1,5 +1,6 @@
 {-# LANGUAGE BinaryLiterals #-}
 {-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE Strict #-}
 
 module VideoOps(clampMissiles,
                 stellaTick,
