@@ -22,14 +22,12 @@ module Emulation where
 
 import Asm()
 import Graphics.Rendering.OpenGL as GL
---import Graphics.Rendering.OpenGL.GL.PixelRectangles.Rasterization
 import Atari2600
 import BitManips
 import Display
 import Control.Lens hiding (set)
 import Control.Monad.Reader
 import Data.Array.IO
---import Data.Array.Unboxed as U
 import Data.Bits hiding (bit)
 import Data.Bits.Lens
 #if TRACE
@@ -37,7 +35,6 @@ import Data.Array.Storable
 #endif
 import Data.IORef
 import Data.Int
--- import Data.Word
 import DebugState
 import Disasm hiding (make16)
 import Foreign.Ptr
@@ -49,106 +46,151 @@ import Asm
 import VideoOps hiding (bit)
 import qualified SDL
 import Data.Word
--- import Control.Monad.State hiding (modify)
 import Data.Bits hiding (bit)
 import Numeric
 
-class (Monad m, MonadIO m) => Emu6502 m where
-    readMemory :: Word16 -> m Word8
-    writeMemory :: Word16 -> Word8 -> m ()
-    getPC :: m Word16
-    tick :: Int -> m ()
-    putC :: Bool -> m ()
-    getC :: m Bool
-    putZ :: Bool -> m ()
-    getZ :: m Bool
-    putI :: Bool -> m ()
-    getI :: m Bool
-    putD :: Bool -> m ()
-    getD :: m Bool
-    putB :: Bool -> m ()
-    getB :: m Bool
-    putV :: Bool -> m ()
-    getV :: m Bool
-    putN :: Bool -> m ()
-    getN :: m Bool
-    getA :: m Word8
-    putA :: Word8 -> m ()
-    getS :: m Word8
-    putS :: Word8 -> m ()
-    getX :: m Word8
-    putX :: Word8 -> m ()
-    getP :: m Word8
-    putP :: Word8 -> m ()
-    getY :: m Word8
-    putY :: Word8 -> m ()
-    putPC :: Word16 -> m ()
-    addPC :: Int -> m ()
-    illegal :: Word8 -> m ()
+readMemory :: Word16 -> MonadAtari Word8
+writeMemory :: Word16 -> Word8 -> MonadAtari ()
+getPC :: MonadAtari Word16
+tick :: Int -> MonadAtari ()
+putC :: Bool -> MonadAtari ()
+getC :: MonadAtari Bool
+putZ :: Bool -> MonadAtari ()
+getZ :: MonadAtari Bool
+putI :: Bool -> MonadAtari ()
+getI :: MonadAtari Bool
+putD :: Bool -> MonadAtari ()
+getD :: MonadAtari Bool
+putB :: Bool -> MonadAtari ()
+getB :: MonadAtari Bool
+putV :: Bool -> MonadAtari ()
+getV :: MonadAtari Bool
+putN :: Bool -> MonadAtari ()
+getN :: MonadAtari Bool
+getA :: MonadAtari Word8
+putA :: Word8 -> MonadAtari ()
+getS :: MonadAtari Word8
+putS :: Word8 -> MonadAtari ()
+getX :: MonadAtari Word8
+putX :: Word8 -> MonadAtari ()
+getP :: MonadAtari Word8
+putP :: Word8 -> MonadAtari ()
+getY :: MonadAtari Word8
+putY :: Word8 -> MonadAtari ()
+putPC :: Word16 -> MonadAtari ()
+addPC :: Int -> MonadAtari ()
+illegal :: Word8 -> MonadAtari ()
 
-    debugStr :: Int -> String -> m ()
-    debugStrLn :: Int -> String -> m ()
+--
+-- {-# INLINE readMemory #-}
+readMemory addr' = do
+    let addr = addr' .&. 0x1fff -- 6507
+    byte <- pureReadMemory (memoryType addr) addr
 
--- {-# INLINABLE dumpRegisters #-}
--- dumpRegisters :: MonadAtari ()
--- dumpRegisters = do
---     -- XXX bring clock back
---     --tClock <- use clock
---     --debugStr 9 $ "clock = " ++ show tClock
---     regPC <- getPC
---     debugStr 9 $ " pc = " ++ showHex regPC ""
---     regP <- getP
---     debugStr 9 $ " flags = " ++ showHex regP ""
---     debugStr 9 $ "(N=" ++ showHex ((regP `shift` (-7)) .&. 1) ""
---     debugStr 9 $ ",V=" ++ showHex ((regP `shift` (-6)) .&. 1) ""
---     debugStr 9 $ ",B=" ++ showHex (regP `shift` ((-4)) .&. 1) ""
---     debugStr 9 $ ",D=" ++ showHex (regP `shift` ((-3)) .&. 1) ""
---     debugStr 9 $ ",I=" ++ showHex (regP `shift` ((-2)) .&. 1) ""
---     debugStr 9 $ ",Z=" ++ showHex (regP `shift` ((-1)) .&. 1) ""
---     debugStr 9 $ ",C=" ++ showHex (regP .&. 1) ""
---     regA <- getA 
---     debugStr 9 $ ") A = " ++ showHex regA ""
---     regX <- getX
---     debugStr 9 $ " X = " ++ showHex regX ""
---     regY <- getY
---     debugStrLn 9 $ " Y = " ++ showHex regY ""
---     regS <- getS
---     debugStrLn 9 $ " N = " ++ showHex regS ""
+    atari <- ask
+    let bankStateRef = atari ^. bankState
+    liftIO $ modifyIORef bankStateRef $ bankSwitch addr 0
 
--- {-# INLINABLE dumpMemory #-}
--- dumpMemory :: MonadAtari ()
--- dumpMemory = do
---     regPC <- getPC
---     b0 <- readMemory regPC
---     b1 <- readMemory (regPC+1)
---     b2 <- readMemory (regPC+2)
---     debugStr 9 $ "(PC) = "
---     debugStr 9 $ showHex b0 "" ++ " "
---     debugStr 9 $ showHex b1 "" ++ " "
---     debugStrLn 9 $ showHex b2 ""
+    return byte
 
--- {-# INLINABLE dumpState #-}
--- dumpState :: MonadAtari ()
--- dumpState = do
---     dumpMemory
---     dumpRegisters
+-- {-# INLINE writeMemory #-}
+writeMemory addr' v = do
+    let addr = addr' .&. 0x1fff -- 6507
+    pureWriteMemory (memoryType addr) addr v
 
-{-# INLINE make16 #-}
+    atari <- ask
+    let bankStateRef = atari ^. bankState
+    liftIO $ modifyIORef bankStateRef $ bankSwitch addr v
+
+-- {-# INLINE getPC #-}
+getPC = load pc
+-- {-# INLINE tick #-}
+tick n = do
+    modifyClock id (+ fromIntegral n)
+    -- c <- useClock id
+    stellaTickFor (3*n)
+-- {-# INLINE putC #-}
+putC b = do { p' <- load p; p @= (p' & bitAt 0 .~ b) }
+-- {-# INLINE getC #-}
+getC = do { p' <- load p; return (p' ^. bitAt 0) }
+-- {-# INLINE putZ #-}
+putZ b = do { p' <- load p; p @= (p' & bitAt 1 .~ b) }
+-- {-# INLINE getZ #-}
+getZ = do { p' <- load p; return (p' ^. bitAt 1) }
+-- {-# INLINE putI #-}
+putI b = do { p' <- load p; p @= (p' & bitAt 2 .~ b) }
+-- {-# INLINE getI #-}
+getI = do { p' <- load p; return (p' ^. bitAt 2) }
+-- {-# INLINE putD #-}
+putD b = do { p' <- load p; p @= (p' & bitAt 3 .~ b) }
+-- {-# INLINE getD #-}
+getD = do { p' <- load p; return (p' ^. bitAt 3) }
+-- {-# INLINE putB #-}
+putB b = do { p' <- load p; p @= (p' & bitAt 4 .~ b) }
+-- {-# INLINE getB #-}
+getB = do { p' <- load p; return (p' ^. bitAt 4) }
+-- {-# INLINE putV #-}
+putV b = do { p' <- load p; p @= (p' & bitAt 6 .~ b) }
+-- {-# INLINE getV #-}
+getV = do { p' <- load p; return (p' ^. bitAt 6) }
+-- {-# INLINE putN #-}
+putN b = do { p' <- load p; p @= (p' & bitAt 7 .~ b) }
+-- {-# INLINE getN #-}
+getN = do { p' <- load p; return (p' ^. bitAt 7) }
+-- {-# INLINE getA #-}
+getA = load a
+-- {-# INLINE putA #-}
+putA r = a @= r
+-- {-# INLINE getS #-}
+getS = load s
+-- {-# INLINE putS #-}
+putS r = s @= r
+-- {-# INLINE getX #-}
+getX = load x
+-- {-# INLINE putX #-}
+putX r = x @= r 
+-- {-# INLINE getP #-}
+getP = load p
+-- {-# INLINE putP #-}
+putP r = p @= r 
+-- {-# INLINE getY #-}
+getY = load y
+-- {-# INLINE putY #-}
+putY r = y @= r
+-- {-# INLINE putPC #-}
+putPC r = pc @= r
+-- {-# INLINE addPC #-}
+addPC n = modify pc (+ fromIntegral n)
+
+-- {-# INLINE debugStr #-}
+debugStr _ _ = return ()
+-- {-# INLINE debugStrLn #-}
+debugStrLn _ _ = return ()
+
+-- {- INLINE illegal -}
+illegal i = do
+    dumpState
+    error $ "Illegal opcode 0x" ++ showHex i ""
+
+debugStr :: Int -> String -> MonadAtari ()
+debugStrLn :: Int -> String -> MonadAtari ()
+
+-- {-# INLINE make16 #-}
 make16 :: Word8 -> Word8 -> Word16
 make16 lo0 hi0 = (i16 hi0 `shift` 8)+i16 lo0
 
-{-# INLINE incPC #-}
+-- {-# INLINE incPC #-}
 incPC :: MonadAtari ()
 incPC = addPC 1
 
-{-# INLINABLE read16 #-}
+-- {-# INLINABLE read16 #-}
 read16 :: Word16 -> MonadAtari Word16
 read16 addr = do
     lo0 <- readMemory addr
     hi0 <- readMemory (addr+1)
     return $ make16 lo0 hi0
 
-{-# INLINABLE read16tick #-}
+-- {-# INLINABLE read16tick #-}
 read16tick :: Word16 -> MonadAtari Word16
 read16tick addr = do
     tick 1
@@ -157,7 +199,7 @@ read16tick addr = do
     hi0 <- readMemory (addr+1)
     return $ make16 lo0 hi0
 
-{-# INLINABLE read16zpTick #-}
+-- {-# INLINABLE read16zpTick #-}
 read16zpTick :: Word8 -> MonadAtari Word16
 read16zpTick addr = do
     tick 1
@@ -168,15 +210,15 @@ read16zpTick addr = do
 
 -- http://www.emulator101.com/6502-addressing-modes.html
 
-{-# INLINE i8 #-}
+-- {-# INLINE i8 #-}
 i8 :: Integral a => a -> Word8
 i8 = fromIntegral
 
-{-# INLINE i16 #-}
+-- {-# INLINE i16 #-}
 i16 :: Integral a => a -> Word16
 i16 = fromIntegral
 
-{-# INLINE iz #-}
+-- {-# INLINE iz #-}
 iz :: Integral a => a -> Int
 iz = fromIntegral
 
@@ -184,7 +226,7 @@ iz = fromIntegral
 -- regardless of what instruction is being executed.
 
 -- 6 clock cycles...
-{-# INLINABLE writeIndX #-}
+-- {-# INLINABLE writeIndX #-}
 writeIndX :: Word8 -> MonadAtari ()
 writeIndX src = do
     tick 1
@@ -201,7 +243,7 @@ writeIndX src = do
     incPC
 
 -- 3 clock cycles
-{-# INLINABLE writeZeroPage #-}
+-- {-# INLINABLE writeZeroPage #-}
 writeZeroPage :: Word8 -> MonadAtari ()
 writeZeroPage src = do
     tick 1
@@ -212,7 +254,7 @@ writeZeroPage src = do
     incPC
 
 -- 4 clock cycles
-{-# INLINABLE writeAbs #-}
+-- {-# INLINABLE writeAbs #-}
 writeAbs :: Word8 -> MonadAtari()
 writeAbs src = do
     addr <- getPC >>= read16tick
@@ -222,7 +264,7 @@ writeAbs src = do
     addPC 2
 
 -- 6 clock cycles
-{-# INLINABLE writeIndY #-}
+-- {-# INLINABLE writeIndY #-}
 writeIndY :: Word8 -> MonadAtari ()
 writeIndY src = do
     tick 1
@@ -241,7 +283,7 @@ writeIndY src = do
     incPC
 
 -- 4 clock cycles
-{-# INLINABLE writeZeroPageX #-}
+-- {-# INLINABLE writeZeroPageX #-}
 writeZeroPageX :: Word8 -> MonadAtari ()
 writeZeroPageX src = do
     tick 1
@@ -256,7 +298,7 @@ writeZeroPageX src = do
     incPC
 
 -- 4 clock cycles
-{-# INLINABLE writeZeroPageY #-}
+-- {-# INLINABLE writeZeroPageY #-}
 writeZeroPageY :: Word8 -> MonadAtari ()
 writeZeroPageY src = do
     tick 1
@@ -271,7 +313,7 @@ writeZeroPageY src = do
     incPC
 
 -- 5 clock cycles
-{-# INLINABLE writeAbsY #-}
+-- {-# INLINABLE writeAbsY #-}
 writeAbsY :: Word8 -> MonadAtari ()
 writeAbsY src = do
     index <- getY
@@ -286,7 +328,7 @@ writeAbsY src = do
     addPC 2
 
 -- 5 clock cycles
-{-# INLINABLE writeAbsX #-}
+-- {-# INLINABLE writeAbsX #-}
 writeAbsX :: Word8 -> MonadAtari ()
 writeAbsX src = do
     index <- getX
@@ -301,7 +343,7 @@ writeAbsX src = do
     addPC 2
 
 -- 6 clock cycles
-{-# INLINABLE readIndX #-}
+-- {-# INLINABLE readIndX #-}
 readIndX :: MonadAtari Word8
 readIndX = do
     tick 1
@@ -318,7 +360,7 @@ readIndX = do
     readMemory addr1
 
 -- 3 clock cycles
-{-# INLINABLE readZeroPage #-}
+-- {-# INLINABLE readZeroPage #-}
 readZeroPage :: MonadAtari Word8
 readZeroPage = do
     tick 1
@@ -330,7 +372,7 @@ readZeroPage = do
     return src
 
 -- 2 clock cycles
-{-# INLINABLE readImm #-}
+-- {-# INLINABLE readImm #-}
 readImm :: MonadAtari Word8
 readImm = do
     tick 1
@@ -340,7 +382,7 @@ readImm = do
 
 -- XXX consider applicable ops like *>
 -- 4 clock cycles
-{-# INLINABLE readAbs #-}
+-- {-# INLINABLE readAbs #-}
 readAbs :: MonadAtari Word8
 readAbs = do
     p0 <- getPC
@@ -349,7 +391,7 @@ readAbs = do
     return src
 
 -- 5-6 clock cycles
-{-# INLINABLE readIndY #-}
+-- {-# INLINABLE readIndY #-}
 readIndY :: MonadAtari Word8
 readIndY = do
     tick 1
@@ -370,7 +412,7 @@ readIndY = do
     return src
 
 -- 4 clock cycles
-{-# INLINABLE readZeroPageX #-}
+-- {-# INLINABLE readZeroPageX #-}
 readZeroPageX :: MonadAtari Word8
 readZeroPageX = do
     tick 1
@@ -385,7 +427,7 @@ readZeroPageX = do
     readMemory (i16 $ addr+index)
 
 -- 4 clock cycles
-{-# INLINABLE readZeroPageY #-}
+-- {-# INLINABLE readZeroPageY #-}
 readZeroPageY :: MonadAtari Word8
 readZeroPageY = do
     tick 1
@@ -405,14 +447,14 @@ halfSum addr index =
     let fullSum = addr+i16 index
     in (make16 (lo addr+index) (hi addr), fullSum)
 
-{-# INLINABLE halfSignedSum #-}
+-- {-# INLINABLE halfSignedSum #-}
 halfSignedSum :: Word16 -> Word8 -> (Word16, Word16)
 halfSignedSum addr index = 
     let fullSum = if index < 0x80 then addr+i16 index else addr+i16 index-0x100
     in (make16 (lo addr+index) (hi addr), fullSum)
 
 -- 4-5 clock cycles
-{-# INLINABLE readAbsX #-}
+-- {-# INLINABLE readAbsX #-}
 readAbsX :: MonadAtari Word8
 readAbsX = do
     index <- getX
@@ -428,7 +470,7 @@ readAbsX = do
     readMemory addrX
 
 -- 4-5 clock cycles
-{-# INLINABLE readAbsY #-}
+-- {-# INLINABLE readAbsY #-}
 readAbsY :: MonadAtari Word8
 readAbsY = do
     index <- getY
@@ -444,7 +486,7 @@ readAbsY = do
     readMemory addrY
 
 -- 2-4 clock cycles
-{-# INLINABLE bra #-}
+-- {-# INLINABLE bra #-}
 bra :: MonadAtari Bool -> Bool -> MonadAtari ()
 bra getFlag value = do
     tick 1
@@ -464,7 +506,7 @@ bra getFlag value = do
         putPC addr
 
 -- 2 clock cycles
-{-# INLINABLE set #-}
+-- {-# INLINABLE set #-}
 set :: (Bool -> MonadAtari ()) -> Bool -> MonadAtari ()
 set putFlag value = do
     tick 1
@@ -472,7 +514,7 @@ set putFlag value = do
     putFlag value
 
 -- 2 clock cycles
-{-# INLINABLE nop #-}
+-- {-# INLINABLE nop #-}
 nop :: MonadAtari ()
 nop = do
     tick 1
@@ -480,7 +522,7 @@ nop = do
 
 {-
 -- 3 clock cycles. Undocumented.
-{-# INLINABLE nop #-}
+-- {-# INLINABLE nop #-}
 dop :: MonadAtari ()
 nop = do
     tick 1
@@ -488,7 +530,7 @@ nop = do
 -}
 
 -- 3 clock cycles
-{-# INLINABLE jmp #-}
+-- {-# INLINABLE jmp #-}
 jmp :: MonadAtari ()
 jmp = getPC >>= read16tick >>= putPC
 
@@ -497,17 +539,17 @@ jmp = getPC >>= read16tick >>= putPC
 -- Not correct here.
 -- Looks like the torture test might not catch this.
 -- Aha! That's why ALIGN is used before addresses!
-{-# INLINABLE jmp_indirect #-}
+-- {-# INLINABLE jmp_indirect #-}
 jmp_indirect :: MonadAtari ()
 jmp_indirect = do
     getPC >>= read16tick >>= read16tick >>= putPC
 
-{-# INLINABLE uselessly #-}
+-- {-# INLINABLE uselessly #-}
 uselessly :: m () -> m ()
 uselessly = id
 
 -- 5 clock cycles
-{-# INLINABLE withZeroPage #-}
+-- {-# INLINABLE withZeroPage #-}
 withZeroPage :: (Word8 -> MonadAtari Word8) -> MonadAtari ()
 withZeroPage op = do
     tick 1
@@ -524,7 +566,7 @@ withZeroPage op = do
     incPC
 
 -- 2 clock cycles
-{-# INLINABLE withAcc #-}
+-- {-# INLINABLE withAcc #-}
 withAcc :: (Word8 -> MonadAtari Word8) -> MonadAtari ()
 withAcc op = do
     tick 1
@@ -532,7 +574,7 @@ withAcc op = do
     getA >>= op >>= putA
 
 -- 6 clock cycles
-{-# INLINE withAbs #-}
+-- {-# INLINE withAbs #-}
 withAbs :: (Word8 -> MonadAtari Word8) -> MonadAtari ()
 withAbs op = do
     addr <- getPC >>= read16tick
@@ -571,7 +613,7 @@ withZeroPageX op = do
     incPC
  
 -- 7 clock cycles
-{-# INLINE withAbsX #-}
+-- {-# INLINE withAbsX #-}
 withAbsX :: (Word8 -> MonadAtari Word8) -> MonadAtari ()
 withAbsX op = do
     p0 <- getPC
@@ -594,23 +636,23 @@ withAbsX op = do
     dst <- op src
     writeMemory addrX dst
 
-{-# INLINABLE setN #-}
+-- {-# INLINABLE setN #-}
 setN :: Word8 -> MonadAtari ()
 setN r = putN $ r >= 0x80
 
-{-# INLINABLE setZ #-}
+-- {-# INLINABLE setZ #-}
 setZ :: Word8 -> MonadAtari ()
 setZ r = putZ $ r == 0
 
-{-# INLINABLE setNZ #-}
+-- {-# INLINABLE setNZ #-}
 setNZ :: Word8 -> MonadAtari Word8
 setNZ r = setN r >> setZ r >> return r
 
-{-# INLINABLE setNZ_ #-}
+-- {-# INLINABLE setNZ_ #-}
 setNZ_ :: Word8 -> MonadAtari ()
 setNZ_ r = setN r >> setZ r
 
-{-# INLINABLE ora #-}
+-- {-# INLINABLE ora #-}
 ora :: MonadAtari Word8 -> MonadAtari ()
 ora mode = do
     src <- mode
@@ -619,13 +661,13 @@ ora mode = do
     putA newA
     setNZ_ newA
 
-{-# INLINABLE and #-}
+-- {-# INLINABLE and #-}
 and :: MonadAtari Word8 -> MonadAtari ()
 and mode = do
     src <- mode
     getA >>= setNZ . (src .&.) >>= putA
 
-{-# INLINABLE eor #-}
+-- {-# INLINABLE eor #-}
 eor :: MonadAtari Word8 -> MonadAtari ()
 eor mode = do
     src <- mode
@@ -634,15 +676,15 @@ eor mode = do
     putA newA
     void $ setNZ newA
 
-{-# INLINABLE lda #-}
+-- {-# INLINABLE lda #-}
 lda :: MonadAtari Word8 -> MonadAtari ()
 lda mode = mode >>= setNZ >>= putA
 
-{-# INLINABLE sta #-}
+-- {-# INLINABLE sta #-}
 sta :: (Word8 -> MonadAtari()) -> MonadAtari ()
 sta mode = getA >>= mode
 
-{-# INLINABLE adc #-}
+-- {-# INLINABLE adc #-}
 adc :: MonadAtari Word8 -> MonadAtari ()
 adc mode = do
     src <- mode
@@ -667,7 +709,7 @@ adc mode = do
             putC $ newA > 0xff
             putA $ fromIntegral (newA .&. 0xff)
 
-{-# INLINABLE sbc #-}
+-- {-# INLINABLE sbc #-}
 sbc :: MonadAtari Word8 -> MonadAtari ()
 sbc mode = do
     src <- mode
@@ -691,7 +733,7 @@ sbc mode = do
             putA $ fromIntegral (newA .&. 0xff)
             putC $ newA < 0x100
 
-{-# INLINABLE cmp #-}
+-- {-# INLINABLE cmp #-}
 cmp :: MonadAtari Word8 -> MonadAtari ()
 cmp mode = do
     src <- mode
@@ -700,14 +742,14 @@ cmp mode = do
     putC $ new < 0x100
     setNZ_ $ i8 new
 
-{-# INLINABLE asl #-}
+-- {-# INLINABLE asl #-}
 asl :: ((Word8 -> MonadAtari Word8) -> MonadAtari ()) -> MonadAtari ()
 asl mode = mode $ \src -> do
     putC $ src .&. 0x80 > 0
     let new = src `shift` 1
     setNZ new
 
-{-# INLINABLE rol #-}
+-- {-# INLINABLE rol #-}
 rol :: ((Word8 -> MonadAtari Word8) -> MonadAtari ()) -> MonadAtari ()
 rol mode = mode $ \src -> do
     fc <- getC
@@ -715,7 +757,7 @@ rol mode = mode $ \src -> do
     let new = (src `shift` 1) + if fc then 1 else 0
     setNZ new
 
-{-# INLINABLE lsr #-}
+-- {-# INLINABLE lsr #-}
 lsr :: ((Word8 -> MonadAtari Word8) -> MonadAtari ()) -> MonadAtari ()
 lsr mode = mode $ \src -> do
     putC $ src .&. 0x01 > 0
@@ -724,7 +766,7 @@ lsr mode = mode $ \src -> do
     setZ new
     return new
 
-{-# INLINABLE ror #-}
+-- {-# INLINABLE ror #-}
 ror :: ((Word8 -> MonadAtari Word8) -> MonadAtari ()) -> MonadAtari ()
 ror mode = mode $ \src -> do
     fc <- getC
@@ -732,26 +774,26 @@ ror mode = mode $ \src -> do
     let new = (src `shift` (-1))+if fc then 0x80 else 0x00
     setNZ new
 
-{-# INLINABLE stx #-}
+-- {-# INLINABLE stx #-}
 stx :: (Word8 -> MonadAtari()) -> MonadAtari ()
 stx mode = getX >>= mode
 
-{-# INLINABLE ldx #-}
+-- {-# INLINABLE ldx #-}
 ldx :: MonadAtari Word8 -> MonadAtari ()
 ldx mode = do
     src <- mode
     putX src
     setNZ_ src
 
-{-# INLINABLE dec #-}
+-- {-# INLINABLE dec #-}
 dec :: ((Word8 -> MonadAtari Word8) -> MonadAtari ()) -> MonadAtari ()
 dec mode = mode $ \src -> setNZ (src-1)
 
-{-# INLINABLE inc #-}
+-- {-# INLINABLE inc #-}
 inc :: ((Word8 -> MonadAtari Word8) -> MonadAtari ()) -> MonadAtari ()
 inc mode = mode $ \src -> setNZ (src+1)
 
-{-# INLINABLE bit #-}
+-- {-# INLINABLE bit #-}
 bit :: MonadAtari Word8 -> MonadAtari ()
 bit mode = do
     src <- mode
@@ -760,15 +802,15 @@ bit mode = do
     putV $ src .&. 0x40 > 0
     setZ $ ra .&. src
 
-{-# INLINABLE sty #-}
+-- {-# INLINABLE sty #-}
 sty :: (Word8 -> MonadAtari ()) -> MonadAtari ()
 sty mode = getY >>= mode
 
-{-# INLINABLE ldy #-}
+-- {-# INLINABLE ldy #-}
 ldy :: MonadAtari Word8 -> MonadAtari ()
 ldy mode = mode >>= setNZ >>= putY
 
-{-# INLINABLE cpx #-}
+-- {-# INLINABLE cpx #-}
 cpx :: MonadAtari Word8 -> MonadAtari ()
 cpx mode = do
     src <- mode
@@ -777,7 +819,7 @@ cpx mode = do
     discard $ setNZ $ i8 new
     putC $ new < 0x100
 
-{-# INLINABLE cpy #-}
+-- {-# INLINABLE cpy #-}
 cpy :: MonadAtari Word8 -> MonadAtari ()
 cpy mode = do
     src <- mode
@@ -787,7 +829,7 @@ cpy mode = do
     setNZ_ $ i8 new
 
 -- 2 clock cycles
-{-# INLINABLE txs #-}
+-- {-# INLINABLE txs #-}
 txs :: MonadAtari ()
 txs = do
     tick 1
@@ -795,7 +837,7 @@ txs = do
     getX >>= putS
 
 -- 2 clock cycles
-{-# INLINABLE tra #-}
+-- {-# INLINABLE tra #-}
 tra :: MonadAtari Word8 -> (Word8 -> MonadAtari ()) ->
        MonadAtari ()
 tra getReg putReg = do
@@ -804,7 +846,7 @@ tra getReg putReg = do
     getReg >>= setNZ >>= putReg
 
 -- 2 clock cycles
-{-# INLINABLE inr #-}
+-- {-# INLINABLE inr #-}
 inr :: MonadAtari Word8 -> (Word8 -> MonadAtari ()) -> MonadAtari ()
 inr getReg putReg = do
     tick 1
@@ -815,7 +857,7 @@ inr getReg putReg = do
     putReg v1
 
 -- 2 clock cycles
-{-# INLINABLE der #-}
+-- {-# INLINABLE der #-}
 der :: MonadAtari Word8 -> (Word8 -> MonadAtari ()) -> MonadAtari ()
 der getReg putReg = do
     tick 1
@@ -829,7 +871,7 @@ discard :: MonadAtari Word8 -> MonadAtari ()
 discard = void
 
 -- 7 clock cycles
-{-# INLINABLE brk #-}
+-- {-# INLINABLE brk #-}
 brk :: MonadAtari ()
 brk = do
     tick 1
@@ -856,7 +898,7 @@ brk = do
 
 -- Am I using wrong address for IRQ. Should it be 0xfffe for IRQ, 0xfffa for NMI?
 -- XXX not supported correctly for now
-{-# INLINABLE irq #-}
+-- {-# INLINABLE irq #-}
 irq :: MonadAtari ()
 irq = do
     fi <- getI
@@ -864,14 +906,14 @@ irq = do
         then nmi False
         else return ()
 
-{-# INLINABLE push #-}
+-- {-# INLINABLE push #-}
 push :: Word8 -> MonadAtari ()
 push v = do
     sp <- getS
     writeMemory (0x100+i16 sp) v
     putS (sp-1)
 
-{-# INLINABLE pull #-}
+-- {-# INLINABLE pull #-}
 pull :: MonadAtari Word8
 pull = do
     sp <- getS
@@ -880,7 +922,7 @@ pull = do
     readMemory (0x100+i16 sp')
 
 -- 3 clock cycles
-{-# INLINABLE pha #-}
+-- {-# INLINABLE pha #-}
 pha :: MonadAtari ()
 pha = do
     tick 1
@@ -890,7 +932,7 @@ pha = do
     getA >>= push
 
 -- 3 clock cycles
-{-# INLINABLE php #-}
+-- {-# INLINABLE php #-}
 php :: MonadAtari ()
 php = do
     tick 1
@@ -900,7 +942,7 @@ php = do
     getP >>= push . (.|. 0x30)
 
 -- 4 clock cycles
-{-# INLINABLE plp #-}
+-- {-# INLINABLE plp #-}
 plp :: MonadAtari ()
 plp = do
     tick 1
@@ -915,7 +957,7 @@ plp = do
     pull >>= putP
 
 -- 4 clock cycles
-{-# INLINABLE pla #-}
+-- {-# INLINABLE pla #-}
 pla :: MonadAtari ()
 pla = do
     tick 1
@@ -929,15 +971,15 @@ pla = do
     tick 1
     pull >>= setNZ >>= putA
 
-{-# INLINABLE lo #-}
+-- {-# INLINABLE lo #-}
 lo :: Word16 -> Word8
 lo = i8
 
-{-# INLINABLE hi #-}
+-- {-# INLINABLE hi #-}
 hi :: Word16 -> Word8
 hi a = i8 (a `shift` (-8))
 
-{-# INLINABLE nmi #-}
+-- {-# INLINABLE nmi #-}
 nmi :: Bool -> MonadAtari ()
 nmi sw = do
     p0 <- getPC
@@ -950,7 +992,7 @@ nmi sw = do
     tick 7
 
 -- 6 clock cycles
-{-# INLINABLE rti #-}
+-- {-# INLINABLE rti #-}
 rti :: MonadAtari ()
 rti = do
     tick 1
@@ -967,7 +1009,7 @@ rti = do
     make16 <$> (tick 1 >> pull) <*> (tick 1 >> pull) >>= putPC
 
 -- 6 clock cycles
-{-# INLINABLE jsr #-}
+-- {-# INLINABLE jsr #-}
 jsr :: MonadAtari ()
 jsr = do
     tick 1
@@ -993,7 +1035,7 @@ jsr = do
     putPC $ make16 pcl pch
 
 -- 6 clock cycles
-{-# INLINABLE rts #-}
+-- {-# INLINABLE rts #-}
 rts :: MonadAtari ()
 rts = do
     tick 1
@@ -1009,7 +1051,7 @@ rts = do
     discard $ readMemory p0
     putPC (p0+1)
 
--- Trying not having this inlined {-# IGNOREINLINABLE step #-}
+-- -- Trying not having this inlined {-# IGNOREINLINABLE step #-}
 step :: MonadAtari ()
 step = do
     --dumpState
@@ -1276,17 +1318,17 @@ initState xscale' yscale' width height ram'
               _delays = delayArray
           }
 
-{- INLINE stellaHmclr -}
+-- {- INLINE stellaHmclr -}
 stellaHmclr :: MonadAtari ()
 stellaHmclr =
     mapM_ (@= 0) [hmp0, hmp1, hmm0, hmm1, hmbl]
 
-{- INLINE stellaCxclr -}
+-- {- INLINE stellaCxclr -}
 stellaCxclr :: MonadAtari ()
 stellaCxclr =
     mapM_ (@= 0) [cxm0p, cxm1p, cxm0fb, cxm1fb, cxp0fb, cxp1fb, cxblpf, cxppmm]
 
-{- INLINE stellaHmove -}
+-- {- INLINE stellaHmove -}
 stellaHmove :: MonadAtari ()
 stellaHmove = do
     pendingHmove @= True
@@ -1306,13 +1348,13 @@ stellaHmove = do
     boffset <- load hmbl
     modify bpos $ \bpos' -> wrap160 (bpos'-clockMove boffset)
 
-{-# INLINE wrap160 #-}
+-- {-# INLINE wrap160 #-}
 wrap160 :: Int -> Int
 wrap160 i | i < picx = wrap160 (i+160)
           | i >= picx+160 = wrap160 (i-160)
 wrap160 i = i
 
--- {-# INLINE iz #-}
+-- -- {-# INLINE iz #-}
 -- iz :: Word16 -> Int -- or NUM
 -- iz = fromIntegral
 
@@ -1366,7 +1408,7 @@ Overscan        sta WSYNC
                 jmp StartOfFrame
 -}
 
-{- INLINE stellaVblank -}
+-- {- INLINE stellaVblank -}
 stellaVblank :: Word8 -> MonadAtari ()
 stellaVblank v = do
     trigger1' <- load trigger1
@@ -1407,7 +1449,7 @@ readInput :: Controllers -> TypedIndex Word8 -> Int -> MonadAtari Word8
 readInput Keypads   _              column  = readKeypadColumn column
 readInput Joysticks input_register _       = load input_register
 
-{- INLINABLE readStella -}
+-- {- INLINABLE readStella -}
 readStella :: Word16 -> MonadAtari Word8
 readStella addr = do
 --     liftIO $ putStrLn $ "reading 0x" ++ showHex addr ""
@@ -1469,7 +1511,7 @@ readStella addr = do
         0x285 -> load timint
         _ -> return 0 
 
-{- INLINE stellaVsync -}
+-- {- INLINE stellaVsync -}
 stellaVsync :: Word8 -> MonadAtari ()
 stellaVsync v = do
     oldv <- load vsync
@@ -1478,7 +1520,7 @@ stellaVsync v = do
         renderDisplay
     vsync @= v
 
-{- INLINE stellaWsync -}
+-- {- INLINE stellaWsync -}
 stellaWsync :: MonadAtari ()
 stellaWsync = do
     hpos' <- load hpos
@@ -1516,7 +1558,7 @@ stellaTickFor' diff = do
         -- XXX Not sure stellaDebug actually changes here so may be some redundancy
         stellaTick (fromIntegral diff) ptr'
 
-{-# INLINE pureReadRom #-}
+-- {-# INLINE pureReadRom #-}
 -- | pureReadRom sees address in full 6507 range 0x0000-0x1fff
 pureReadRom :: Word16 -> MonadAtari Word8
 pureReadRom addr = do
@@ -1527,7 +1569,7 @@ pureReadRom addr = do
     let bankedAddress = bankAddress bankState' addr
     liftIO $ readArray m bankedAddress
 
-{-# INLINE pureWriteRom #-}
+-- {-# INLINE pureWriteRom #-}
 -- | pureWriteRom sees address in full 6507 range 0x0000-0x1fff
 -- You can write to Super Chip "ROM"
 pureWriteRom :: Word16 -> Word8 -> MonadAtari ()
@@ -1540,7 +1582,7 @@ pureWriteRom addr v = do
         let bankedAddress = bankAddress bankState' addr
         liftIO $ writeArray m bankedAddress v
 
-{-# INLINE pureReadMemory #-}
+-- {-# INLINE pureReadMemory #-}
 -- | pureReadMemory expects an address in range 0x0000-0x1fff
 -- The 'pure' refers to the fact that there are no side effects,
 -- i.e. it won't trigger bank switching.
@@ -1548,7 +1590,7 @@ pureWriteRom addr v = do
 -- From http://atariage.com/forums/topic/27190-session-5-memory-architecture/
 --
 -- Atari 2600 Memory Map:
--- ----------------------
+----------------------
 -- $0000-002F TIA Primary Image
 -- $0030-005F [shadow] TIA
 -- $0060-007F [shadow-partial] TIA
@@ -1586,7 +1628,7 @@ pureReadMemory RAM  addr = do
     let m = atari ^. ram
     liftIO $ readArray m (iz addr .&. 0x7f)
 
-{-# INLINE pureWriteMemory #-}
+-- {-# INLINE pureWriteMemory #-}
 pureWriteMemory :: MemoryType -> Word16 -> Word8 -> MonadAtari ()
 pureWriteMemory TIA  addr v = writeStella (addr .&. 0x3f) v
 pureWriteMemory RIOT addr v = writeStella (0x280+(addr .&. 0x1f)) v
@@ -1606,98 +1648,8 @@ pureWriteMemory RAM  addr v = do
     liftIO $ writeIORef (atari ^. recordPtr) (i+2)
 #endif
 
-instance Emu6502 MonadAtari where
-    {-# INLINE readMemory #-}
-    readMemory addr' = do
-        let addr = addr' .&. 0x1fff -- 6507
-        byte <- pureReadMemory (memoryType addr) addr
 
-        atari <- ask
-        let bankStateRef = atari ^. bankState
-        liftIO $ modifyIORef bankStateRef $ bankSwitch addr 0
-
-        return byte
-
-    {-# INLINE writeMemory #-}
-    writeMemory addr' v = do
-        let addr = addr' .&. 0x1fff -- 6507
-        pureWriteMemory (memoryType addr) addr v
-
-        atari <- ask
-        let bankStateRef = atari ^. bankState
-        liftIO $ modifyIORef bankStateRef $ bankSwitch addr v
-
-    {-# INLINE getPC #-}
-    getPC = load pc
-    {-# INLINE tick #-}
-    tick n = do
-        modifyClock id (+ fromIntegral n)
-        -- c <- useClock id
-        stellaTickFor (3*n)
-    {-# INLINE putC #-}
-    putC b = do { p' <- load p; p @= (p' & bitAt 0 .~ b) }
-    {-# INLINE getC #-}
-    getC = do { p' <- load p; return (p' ^. bitAt 0) }
-    {-# INLINE putZ #-}
-    putZ b = do { p' <- load p; p @= (p' & bitAt 1 .~ b) }
-    {-# INLINE getZ #-}
-    getZ = do { p' <- load p; return (p' ^. bitAt 1) }
-    {-# INLINE putI #-}
-    putI b = do { p' <- load p; p @= (p' & bitAt 2 .~ b) }
-    {-# INLINE getI #-}
-    getI = do { p' <- load p; return (p' ^. bitAt 2) }
-    {-# INLINE putD #-}
-    putD b = do { p' <- load p; p @= (p' & bitAt 3 .~ b) }
-    {-# INLINE getD #-}
-    getD = do { p' <- load p; return (p' ^. bitAt 3) }
-    {-# INLINE putB #-}
-    putB b = do { p' <- load p; p @= (p' & bitAt 4 .~ b) }
-    {-# INLINE getB #-}
-    getB = do { p' <- load p; return (p' ^. bitAt 4) }
-    {-# INLINE putV #-}
-    putV b = do { p' <- load p; p @= (p' & bitAt 6 .~ b) }
-    {-# INLINE getV #-}
-    getV = do { p' <- load p; return (p' ^. bitAt 6) }
-    {-# INLINE putN #-}
-    putN b = do { p' <- load p; p @= (p' & bitAt 7 .~ b) }
-    {-# INLINE getN #-}
-    getN = do { p' <- load p; return (p' ^. bitAt 7) }
-    {-# INLINE getA #-}
-    getA = load a
-    {-# INLINE putA #-}
-    putA r = a @= r
-    {-# INLINE getS #-}
-    getS = load s
-    {-# INLINE putS #-}
-    putS r = s @= r
-    {-# INLINE getX #-}
-    getX = load x
-    {-# INLINE putX #-}
-    putX r = x @= r 
-    {-# INLINE getP #-}
-    getP = load p
-    {-# INLINE putP #-}
-    putP r = p @= r 
-    {-# INLINE getY #-}
-    getY = load y
-    {-# INLINE putY #-}
-    putY r = y @= r
-    {-# INLINE putPC #-}
-    putPC r = pc @= r
-    {-# INLINE addPC #-}
-    addPC n = modify pc (+ fromIntegral n)
-
-    {-# INLINE debugStr #-}
-    debugStr _ _ = return ()
-    {-# INLINE debugStrLn #-}
-    debugStrLn _ _ = return ()
-
-    {- INLINE illegal -}
-    illegal i = do
-        dumpState
-        error $ "Illegal opcode 0x" ++ showHex i ""
-
-{-# INLINABLE dumpMemory #-}
+-- {-# INLINABLE dumpMemory #-}
 dumpMemory :: MonadAtari ()
 dumpMemory = do
     regPC <- getPC
@@ -1711,7 +1663,7 @@ dumpMemory = do
     let (_, mne, _) = disasm regPC [b0, b1, b2]
     liftIO $ putStrLn $ mne
 
-{-# INLINABLE dumpRegisters #-}
+-- {-# INLINABLE dumpRegisters #-}
 dumpRegisters :: MonadAtari ()
 dumpRegisters = do
     regPC <- getPC
@@ -1735,7 +1687,7 @@ dumpRegisters = do
     regS <- getS
     liftIO $ putStrLn $ " N = " ++ showHex regS ""
 
-{-# INLINABLE dumpState #-}
+-- {-# INLINABLE dumpState #-}
 dumpState :: MonadAtari ()
 dumpState = do
     dumpMemory
@@ -1804,7 +1756,7 @@ graphicsDelay d = do
 
 -}
 
-{- INLINABLE writeStella -}
+-- {- INLINABLE writeStella -}
 writeStella :: Word16 -> Word8 -> MonadAtari ()
 writeStella addr v = do
     when (addr <= 0x2c) $ do
