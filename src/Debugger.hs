@@ -4,7 +4,6 @@ import Asm
 import Atari2600
 import Control.Monad
 import Control.Monad.State.Strict
--- import Core
 import Data.Bits
 import DebugCmd
 import DebugState

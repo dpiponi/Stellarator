@@ -28,7 +28,6 @@ import BitManips
 import Display
 import Control.Lens hiding (set)
 import Control.Monad.Reader
--- import Core
 import Data.Array.IO
 --import Data.Array.Unboxed as U
 import Data.Bits hiding (bit)
@@ -91,7 +90,7 @@ class (Monad m, MonadIO m) => Emu6502 m where
     debugStrLn :: Int -> String -> m ()
 
 -- {-# INLINABLE dumpRegisters #-}
--- dumpRegisters :: Emu6502 m => m ()
+-- dumpRegisters :: MonadAtari ()
 -- dumpRegisters = do
 --     -- XXX bring clock back
 --     --tClock <- use clock
@@ -117,7 +116,7 @@ class (Monad m, MonadIO m) => Emu6502 m where
 --     debugStrLn 9 $ " N = " ++ showHex regS ""
 
 -- {-# INLINABLE dumpMemory #-}
--- dumpMemory :: Emu6502 m => m ()
+-- dumpMemory :: MonadAtari ()
 -- dumpMemory = do
 --     regPC <- getPC
 --     b0 <- readMemory regPC
@@ -129,7 +128,7 @@ class (Monad m, MonadIO m) => Emu6502 m where
 --     debugStrLn 9 $ showHex b2 ""
 
 -- {-# INLINABLE dumpState #-}
--- dumpState :: Emu6502 m => m ()
+-- dumpState :: MonadAtari ()
 -- dumpState = do
 --     dumpMemory
 --     dumpRegisters
@@ -139,18 +138,18 @@ make16 :: Word8 -> Word8 -> Word16
 make16 lo0 hi0 = (i16 hi0 `shift` 8)+i16 lo0
 
 {-# INLINE incPC #-}
-incPC :: Emu6502 m => m ()
+incPC :: MonadAtari ()
 incPC = addPC 1
 
 {-# INLINABLE read16 #-}
-read16 :: Emu6502 m => Word16 -> m Word16
+read16 :: Word16 -> MonadAtari Word16
 read16 addr = do
     lo0 <- readMemory addr
     hi0 <- readMemory (addr+1)
     return $ make16 lo0 hi0
 
 {-# INLINABLE read16tick #-}
-read16tick :: Emu6502 m => Word16 -> m Word16
+read16tick :: Word16 -> MonadAtari Word16
 read16tick addr = do
     tick 1
     lo0 <- readMemory addr
@@ -159,7 +158,7 @@ read16tick addr = do
     return $ make16 lo0 hi0
 
 {-# INLINABLE read16zpTick #-}
-read16zpTick :: Emu6502 m => Word8 -> m Word16
+read16zpTick :: Word8 -> MonadAtari Word16
 read16zpTick addr = do
     tick 1
     lo0 <- readMemory (i16 addr)
@@ -186,7 +185,7 @@ iz = fromIntegral
 
 -- 6 clock cycles...
 {-# INLINABLE writeIndX #-}
-writeIndX :: Emu6502 m => Word8 -> m ()
+writeIndX :: Word8 -> MonadAtari ()
 writeIndX src = do
     tick 1
     index <- getX
@@ -203,7 +202,7 @@ writeIndX src = do
 
 -- 3 clock cycles
 {-# INLINABLE writeZeroPage #-}
-writeZeroPage :: Emu6502 m => Word8 -> m ()
+writeZeroPage :: Word8 -> MonadAtari ()
 writeZeroPage src = do
     tick 1
     addr <- getPC >>= readMemory
@@ -214,7 +213,7 @@ writeZeroPage src = do
 
 -- 4 clock cycles
 {-# INLINABLE writeAbs #-}
-writeAbs :: Emu6502 m => Word8 -> m()
+writeAbs :: Word8 -> MonadAtari()
 writeAbs src = do
     addr <- getPC >>= read16tick
 
@@ -224,7 +223,7 @@ writeAbs src = do
 
 -- 6 clock cycles
 {-# INLINABLE writeIndY #-}
-writeIndY :: Emu6502 m => Word8 -> m ()
+writeIndY :: Word8 -> MonadAtari ()
 writeIndY src = do
     tick 1
     index <- getY
@@ -243,7 +242,7 @@ writeIndY src = do
 
 -- 4 clock cycles
 {-# INLINABLE writeZeroPageX #-}
-writeZeroPageX :: Emu6502 m => Word8 -> m ()
+writeZeroPageX :: Word8 -> MonadAtari ()
 writeZeroPageX src = do
     tick 1
     index <- getX
@@ -258,7 +257,7 @@ writeZeroPageX src = do
 
 -- 4 clock cycles
 {-# INLINABLE writeZeroPageY #-}
-writeZeroPageY :: Emu6502 m => Word8 -> m ()
+writeZeroPageY :: Word8 -> MonadAtari ()
 writeZeroPageY src = do
     tick 1
     index <- getY
@@ -273,7 +272,7 @@ writeZeroPageY src = do
 
 -- 5 clock cycles
 {-# INLINABLE writeAbsY #-}
-writeAbsY :: Emu6502 m => Word8 -> m ()
+writeAbsY :: Word8 -> MonadAtari ()
 writeAbsY src = do
     index <- getY
     addr <- getPC >>= read16tick
@@ -288,7 +287,7 @@ writeAbsY src = do
 
 -- 5 clock cycles
 {-# INLINABLE writeAbsX #-}
-writeAbsX :: Emu6502 m => Word8 -> m ()
+writeAbsX :: Word8 -> MonadAtari ()
 writeAbsX src = do
     index <- getX
     addr <- getPC >>= read16tick
@@ -303,7 +302,7 @@ writeAbsX src = do
 
 -- 6 clock cycles
 {-# INLINABLE readIndX #-}
-readIndX :: Emu6502 m => m Word8
+readIndX :: MonadAtari Word8
 readIndX = do
     tick 1
     index <- getX
@@ -320,7 +319,7 @@ readIndX = do
 
 -- 3 clock cycles
 {-# INLINABLE readZeroPage #-}
-readZeroPage :: Emu6502 m => m Word8
+readZeroPage :: MonadAtari Word8
 readZeroPage = do
     tick 1
     addr <- getPC >>= readMemory
@@ -332,7 +331,7 @@ readZeroPage = do
 
 -- 2 clock cycles
 {-# INLINABLE readImm #-}
-readImm :: Emu6502 m => m Word8
+readImm :: MonadAtari Word8
 readImm = do
     tick 1
     src <- getPC >>= readMemory
@@ -342,7 +341,7 @@ readImm = do
 -- XXX consider applicable ops like *>
 -- 4 clock cycles
 {-# INLINABLE readAbs #-}
-readAbs :: Emu6502 m => m Word8
+readAbs :: MonadAtari Word8
 readAbs = do
     p0 <- getPC
     src <- (read16tick p0 <* tick 1) >>= readMemory
@@ -351,7 +350,7 @@ readAbs = do
 
 -- 5-6 clock cycles
 {-# INLINABLE readIndY #-}
-readIndY :: Emu6502 m => m Word8
+readIndY :: MonadAtari Word8
 readIndY = do
     tick 1
     addr' <- getPC >>= readMemory
@@ -372,7 +371,7 @@ readIndY = do
 
 -- 4 clock cycles
 {-# INLINABLE readZeroPageX #-}
-readZeroPageX :: Emu6502 m => m Word8
+readZeroPageX :: MonadAtari Word8
 readZeroPageX = do
     tick 1
     index <- getX
@@ -387,7 +386,7 @@ readZeroPageX = do
 
 -- 4 clock cycles
 {-# INLINABLE readZeroPageY #-}
-readZeroPageY :: Emu6502 m => m Word8
+readZeroPageY :: MonadAtari Word8
 readZeroPageY = do
     tick 1
     index <- getY
@@ -414,7 +413,7 @@ halfSignedSum addr index =
 
 -- 4-5 clock cycles
 {-# INLINABLE readAbsX #-}
-readAbsX :: Emu6502 m => m Word8
+readAbsX :: MonadAtari Word8
 readAbsX = do
     index <- getX
     addr <- getPC >>= read16tick
@@ -430,7 +429,7 @@ readAbsX = do
 
 -- 4-5 clock cycles
 {-# INLINABLE readAbsY #-}
-readAbsY :: Emu6502 m => m Word8
+readAbsY :: MonadAtari Word8
 readAbsY = do
     index <- getY
     addr <- getPC >>= read16tick
@@ -446,7 +445,7 @@ readAbsY = do
 
 -- 2-4 clock cycles
 {-# INLINABLE bra #-}
-bra :: Emu6502 m => m Bool -> Bool -> m ()
+bra :: MonadAtari Bool -> Bool -> MonadAtari ()
 bra getFlag value = do
     tick 1
     offset <- getPC >>= readMemory
@@ -466,7 +465,7 @@ bra getFlag value = do
 
 -- 2 clock cycles
 {-# INLINABLE set #-}
-set :: Emu6502 m => (Bool -> m ()) -> Bool -> m ()
+set :: (Bool -> MonadAtari ()) -> Bool -> MonadAtari ()
 set putFlag value = do
     tick 1
     discard $ getPC >>= readMemory
@@ -474,7 +473,7 @@ set putFlag value = do
 
 -- 2 clock cycles
 {-# INLINABLE nop #-}
-nop :: Emu6502 m => m ()
+nop :: MonadAtari ()
 nop = do
     tick 1
     discard $ getPC >>= readMemory
@@ -482,7 +481,7 @@ nop = do
 {-
 -- 3 clock cycles. Undocumented.
 {-# INLINABLE nop #-}
-dop :: Emu6502 m => m ()
+dop :: MonadAtari ()
 nop = do
     tick 1
     discard $ getPC >>= readMemory
@@ -490,7 +489,7 @@ nop = do
 
 -- 3 clock cycles
 {-# INLINABLE jmp #-}
-jmp :: Emu6502 m => m ()
+jmp :: MonadAtari ()
 jmp = getPC >>= read16tick >>= putPC
 
 -- 5 clock cycles
@@ -499,7 +498,7 @@ jmp = getPC >>= read16tick >>= putPC
 -- Looks like the torture test might not catch this.
 -- Aha! That's why ALIGN is used before addresses!
 {-# INLINABLE jmp_indirect #-}
-jmp_indirect :: Emu6502 m => m ()
+jmp_indirect :: MonadAtari ()
 jmp_indirect = do
     getPC >>= read16tick >>= read16tick >>= putPC
 
@@ -509,7 +508,7 @@ uselessly = id
 
 -- 5 clock cycles
 {-# INLINABLE withZeroPage #-}
-withZeroPage :: Emu6502 m => (Word8 -> m Word8) -> m ()
+withZeroPage :: (Word8 -> MonadAtari Word8) -> MonadAtari ()
 withZeroPage op = do
     tick 1
     addr <- getPC >>= readMemory
@@ -526,7 +525,7 @@ withZeroPage op = do
 
 -- 2 clock cycles
 {-# INLINABLE withAcc #-}
-withAcc :: Emu6502 m => (Word8 -> m Word8) -> m ()
+withAcc :: (Word8 -> MonadAtari Word8) -> MonadAtari ()
 withAcc op = do
     tick 1
     discard $ getPC >>= readMemory
@@ -534,7 +533,7 @@ withAcc op = do
 
 -- 6 clock cycles
 {-# INLINE withAbs #-}
-withAbs :: Emu6502 m => (Word8 -> m Word8) -> m ()
+withAbs :: (Word8 -> MonadAtari Word8) -> MonadAtari ()
 withAbs op = do
     addr <- getPC >>= read16tick
     
@@ -550,7 +549,7 @@ withAbs op = do
     writeMemory addr dst
 
 -- 6 clock cycles
-withZeroPageX :: Emu6502 m => (Word8 -> m Word8) -> m ()
+withZeroPageX :: (Word8 -> MonadAtari Word8) -> MonadAtari ()
 withZeroPageX op = do
     tick 1
     index <- getX
@@ -573,7 +572,7 @@ withZeroPageX op = do
  
 -- 7 clock cycles
 {-# INLINE withAbsX #-}
-withAbsX :: Emu6502 m => (Word8 -> m Word8) -> m ()
+withAbsX :: (Word8 -> MonadAtari Word8) -> MonadAtari ()
 withAbsX op = do
     p0 <- getPC
     index <- getX
@@ -596,23 +595,23 @@ withAbsX op = do
     writeMemory addrX dst
 
 {-# INLINABLE setN #-}
-setN :: Emu6502 m => Word8 -> m ()
+setN :: Word8 -> MonadAtari ()
 setN r = putN $ r >= 0x80
 
 {-# INLINABLE setZ #-}
-setZ :: Emu6502 m => Word8 -> m ()
+setZ :: Word8 -> MonadAtari ()
 setZ r = putZ $ r == 0
 
 {-# INLINABLE setNZ #-}
-setNZ :: Emu6502 m => Word8 -> m Word8
+setNZ :: Word8 -> MonadAtari Word8
 setNZ r = setN r >> setZ r >> return r
 
 {-# INLINABLE setNZ_ #-}
-setNZ_ :: Emu6502 m => Word8 -> m ()
+setNZ_ :: Word8 -> MonadAtari ()
 setNZ_ r = setN r >> setZ r
 
 {-# INLINABLE ora #-}
-ora :: Emu6502 m => m Word8 -> m ()
+ora :: MonadAtari Word8 -> MonadAtari ()
 ora mode = do
     src <- mode
     oldA <- getA
@@ -621,13 +620,13 @@ ora mode = do
     setNZ_ newA
 
 {-# INLINABLE and #-}
-and :: Emu6502 m => m Word8 -> m ()
+and :: MonadAtari Word8 -> MonadAtari ()
 and mode = do
     src <- mode
     getA >>= setNZ . (src .&.) >>= putA
 
 {-# INLINABLE eor #-}
-eor :: Emu6502 m => m Word8 -> m ()
+eor :: MonadAtari Word8 -> MonadAtari ()
 eor mode = do
     src <- mode
     oldA <- getA
@@ -636,15 +635,15 @@ eor mode = do
     void $ setNZ newA
 
 {-# INLINABLE lda #-}
-lda :: Emu6502 m => m Word8 -> m ()
+lda :: MonadAtari Word8 -> MonadAtari ()
 lda mode = mode >>= setNZ >>= putA
 
 {-# INLINABLE sta #-}
-sta :: Emu6502 m => (Word8 -> m()) -> m ()
+sta :: (Word8 -> MonadAtari()) -> MonadAtari ()
 sta mode = getA >>= mode
 
 {-# INLINABLE adc #-}
-adc :: Emu6502 m => m Word8 -> m ()
+adc :: MonadAtari Word8 -> MonadAtari ()
 adc mode = do
     src <- mode
     oldA <- getA
@@ -669,7 +668,7 @@ adc mode = do
             putA $ fromIntegral (newA .&. 0xff)
 
 {-# INLINABLE sbc #-}
-sbc :: Emu6502 m => m Word8 -> m ()
+sbc :: MonadAtari Word8 -> MonadAtari ()
 sbc mode = do
     src <- mode
     oldA <- getA
@@ -693,7 +692,7 @@ sbc mode = do
             putC $ newA < 0x100
 
 {-# INLINABLE cmp #-}
-cmp :: Emu6502 m => m Word8 -> m ()
+cmp :: MonadAtari Word8 -> MonadAtari ()
 cmp mode = do
     src <- mode
     oldA <- getA
@@ -702,14 +701,14 @@ cmp mode = do
     setNZ_ $ i8 new
 
 {-# INLINABLE asl #-}
-asl :: Emu6502 m => ((Word8 -> m Word8) -> m ()) -> m ()
+asl :: ((Word8 -> MonadAtari Word8) -> MonadAtari ()) -> MonadAtari ()
 asl mode = mode $ \src -> do
     putC $ src .&. 0x80 > 0
     let new = src `shift` 1
     setNZ new
 
 {-# INLINABLE rol #-}
-rol :: Emu6502 m => ((Word8 -> m Word8) -> m ()) -> m ()
+rol :: ((Word8 -> MonadAtari Word8) -> MonadAtari ()) -> MonadAtari ()
 rol mode = mode $ \src -> do
     fc <- getC
     putC $ src .&. 0x80 > 0
@@ -717,7 +716,7 @@ rol mode = mode $ \src -> do
     setNZ new
 
 {-# INLINABLE lsr #-}
-lsr :: Emu6502 m => ((Word8 -> m Word8) -> m ()) -> m ()
+lsr :: ((Word8 -> MonadAtari Word8) -> MonadAtari ()) -> MonadAtari ()
 lsr mode = mode $ \src -> do
     putC $ src .&. 0x01 > 0
     let new = src `shift` (-1)
@@ -726,7 +725,7 @@ lsr mode = mode $ \src -> do
     return new
 
 {-# INLINABLE ror #-}
-ror :: Emu6502 m => ((Word8 -> m Word8) -> m ()) -> m ()
+ror :: ((Word8 -> MonadAtari Word8) -> MonadAtari ()) -> MonadAtari ()
 ror mode = mode $ \src -> do
     fc <- getC
     putC $ src .&. 0x01 > 0
@@ -734,26 +733,26 @@ ror mode = mode $ \src -> do
     setNZ new
 
 {-# INLINABLE stx #-}
-stx :: Emu6502 m => (Word8 -> m()) -> m ()
+stx :: (Word8 -> MonadAtari()) -> MonadAtari ()
 stx mode = getX >>= mode
 
 {-# INLINABLE ldx #-}
-ldx :: Emu6502 m => m Word8 -> m ()
+ldx :: MonadAtari Word8 -> MonadAtari ()
 ldx mode = do
     src <- mode
     putX src
     setNZ_ src
 
 {-# INLINABLE dec #-}
-dec :: Emu6502 m => ((Word8 -> m Word8) -> m ()) -> m ()
+dec :: ((Word8 -> MonadAtari Word8) -> MonadAtari ()) -> MonadAtari ()
 dec mode = mode $ \src -> setNZ (src-1)
 
 {-# INLINABLE inc #-}
-inc :: Emu6502 m => ((Word8 -> m Word8) -> m ()) -> m ()
+inc :: ((Word8 -> MonadAtari Word8) -> MonadAtari ()) -> MonadAtari ()
 inc mode = mode $ \src -> setNZ (src+1)
 
 {-# INLINABLE bit #-}
-bit :: Emu6502 m => m Word8 -> m ()
+bit :: MonadAtari Word8 -> MonadAtari ()
 bit mode = do
     src <- mode
     ra <- getA
@@ -762,15 +761,15 @@ bit mode = do
     setZ $ ra .&. src
 
 {-# INLINABLE sty #-}
-sty :: Emu6502 m => (Word8 -> m ()) -> m ()
+sty :: (Word8 -> MonadAtari ()) -> MonadAtari ()
 sty mode = getY >>= mode
 
 {-# INLINABLE ldy #-}
-ldy :: Emu6502 m => m Word8 -> m ()
+ldy :: MonadAtari Word8 -> MonadAtari ()
 ldy mode = mode >>= setNZ >>= putY
 
 {-# INLINABLE cpx #-}
-cpx :: Emu6502 m => m Word8 -> m ()
+cpx :: MonadAtari Word8 -> MonadAtari ()
 cpx mode = do
     src <- mode
     rx <- getX
@@ -779,7 +778,7 @@ cpx mode = do
     putC $ new < 0x100
 
 {-# INLINABLE cpy #-}
-cpy :: Emu6502 m => m Word8 -> m ()
+cpy :: MonadAtari Word8 -> MonadAtari ()
 cpy mode = do
     src <- mode
     ry <- getY
@@ -789,7 +788,7 @@ cpy mode = do
 
 -- 2 clock cycles
 {-# INLINABLE txs #-}
-txs :: Emu6502 m => m ()
+txs :: MonadAtari ()
 txs = do
     tick 1
     discard $ getPC >>= readMemory
@@ -797,9 +796,8 @@ txs = do
 
 -- 2 clock cycles
 {-# INLINABLE tra #-}
-tra :: Emu6502 m =>
-                     m Word8 -> (Word8 -> m ()) ->
-                     m ()
+tra :: MonadAtari Word8 -> (Word8 -> MonadAtari ()) ->
+       MonadAtari ()
 tra getReg putReg = do
     tick 1
     discard $ getPC >>= readMemory
@@ -807,7 +805,7 @@ tra getReg putReg = do
 
 -- 2 clock cycles
 {-# INLINABLE inr #-}
-inr :: Emu6502 m => m Word8 -> (Word8 -> m ()) -> m ()
+inr :: MonadAtari Word8 -> (Word8 -> MonadAtari ()) -> MonadAtari ()
 inr getReg putReg = do
     tick 1
     discard $ getPC >>= readMemory
@@ -818,7 +816,7 @@ inr getReg putReg = do
 
 -- 2 clock cycles
 {-# INLINABLE der #-}
-der :: Emu6502 m => m Word8 -> (Word8 -> m ()) -> m ()
+der :: MonadAtari Word8 -> (Word8 -> MonadAtari ()) -> MonadAtari ()
 der getReg putReg = do
     tick 1
     discard $ getPC >>= readMemory
@@ -827,12 +825,12 @@ der getReg putReg = do
     discard $ setNZ v1
     putReg v1
 
-discard :: Emu6502 m => m Word8 -> m ()
+discard :: MonadAtari Word8 -> MonadAtari ()
 discard = void
 
 -- 7 clock cycles
 {-# INLINABLE brk #-}
-brk :: Emu6502 m => m ()
+brk :: MonadAtari ()
 brk = do
     tick 1
     p0 <- getPC
@@ -859,7 +857,7 @@ brk = do
 -- Am I using wrong address for IRQ. Should it be 0xfffe for IRQ, 0xfffa for NMI?
 -- XXX not supported correctly for now
 {-# INLINABLE irq #-}
-irq :: Emu6502 m => m ()
+irq :: MonadAtari ()
 irq = do
     fi <- getI
     if not fi
@@ -867,14 +865,14 @@ irq = do
         else return ()
 
 {-# INLINABLE push #-}
-push :: Emu6502 m => Word8 -> m ()
+push :: Word8 -> MonadAtari ()
 push v = do
     sp <- getS
     writeMemory (0x100+i16 sp) v
     putS (sp-1)
 
 {-# INLINABLE pull #-}
-pull :: Emu6502 m => m Word8
+pull :: MonadAtari Word8
 pull = do
     sp <- getS
     let sp' = sp+1
@@ -883,7 +881,7 @@ pull = do
 
 -- 3 clock cycles
 {-# INLINABLE pha #-}
-pha ::Emu6502 m => m ()
+pha :: MonadAtari ()
 pha = do
     tick 1
     discard $ getPC >>= readMemory
@@ -893,7 +891,7 @@ pha = do
 
 -- 3 clock cycles
 {-# INLINABLE php #-}
-php :: Emu6502 m => m ()
+php :: MonadAtari ()
 php = do
     tick 1
     discard $ getPC >>= readMemory
@@ -903,7 +901,7 @@ php = do
 
 -- 4 clock cycles
 {-# INLINABLE plp #-}
-plp :: Emu6502 m => m ()
+plp :: MonadAtari ()
 plp = do
     tick 1
     p0 <- getPC
@@ -918,7 +916,7 @@ plp = do
 
 -- 4 clock cycles
 {-# INLINABLE pla #-}
-pla :: Emu6502 m => m ()
+pla :: MonadAtari ()
 pla = do
     tick 1
     p0 <- getPC
@@ -940,7 +938,7 @@ hi :: Word16 -> Word8
 hi a = i8 (a `shift` (-8))
 
 {-# INLINABLE nmi #-}
-nmi :: Emu6502 m => Bool -> m ()
+nmi :: Bool -> MonadAtari ()
 nmi sw = do
     p0 <- getPC
     push $ hi p0
@@ -953,7 +951,7 @@ nmi sw = do
 
 -- 6 clock cycles
 {-# INLINABLE rti #-}
-rti :: Emu6502 m => m ()
+rti :: MonadAtari ()
 rti = do
     tick 1
     p0 <- getPC
@@ -970,7 +968,7 @@ rti = do
 
 -- 6 clock cycles
 {-# INLINABLE jsr #-}
-jsr :: Emu6502 m => m ()
+jsr :: MonadAtari ()
 jsr = do
     tick 1
     p0 <- getPC
@@ -996,7 +994,7 @@ jsr = do
 
 -- 6 clock cycles
 {-# INLINABLE rts #-}
-rts :: Emu6502 m => m ()
+rts :: MonadAtari ()
 rts = do
     tick 1
     discard $ getPC >>= readMemory

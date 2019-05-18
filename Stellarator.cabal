@@ -21,7 +21,7 @@ library
   extensions: CPP
   cpp-options: -DTRACE=0
   extensions:          
-  exposed-modules:     TIAColors, Binary, Core, Disasm,
+  exposed-modules:     TIAColors, Binary, Disasm,
                        DebugCmd, Memory, Asm, DebugState, Atari2600, Debugger, Metrics, BitManips, Emulation, VideoOps, Display, Keys, Events
   build-depends:       base
                      , sdl2
