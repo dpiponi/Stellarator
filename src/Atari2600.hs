@@ -65,7 +65,9 @@ module Atari2600(
                  clock,
                  stellaClock,
                  delays,
-                 modifyStellaDebug
+                 modifyStellaDebug,
+                 readKeypadColumn,
+                 readInput,
 #if TRACE
                                   ,
                  record,
@@ -76,6 +78,7 @@ module Atari2600(
 import Control.Lens
 import Control.Monad.Reader
 import Data.Array.Base
+import Data.Bits
 #if TRACE
 import Data.Array.Storable
 #endif
@@ -317,3 +320,19 @@ putY r = y @= r
 putPC r = pc @= r
 -- {-# INLINE addPC #-}
 addPC n = modify pc (+ fromIntegral n)
+
+readKeypadColumn :: Int -> MonadAtari Word8
+readKeypadColumn col =  do
+    k0 <- load (kbd 0 col)
+    k1 <- load (kbd 1 col)
+    k2 <- load (kbd 2 col)
+    k3 <- load (kbd 3 col)
+    swchaValue <- load swcha
+    return $ if k0 && not (testBit swchaValue 4)
+             || k1 && not (testBit swchaValue 5)
+             || k2 && not (testBit swchaValue 6)
+             || k3 && not (testBit swchaValue 7) then 0x00 else 0x80
+
+readInput :: Controllers -> TypedIndex Word8 -> Int -> MonadAtari Word8
+readInput Keypads   _              column  = readKeypadColumn column
+readInput Joysticks input_register _       = load input_register

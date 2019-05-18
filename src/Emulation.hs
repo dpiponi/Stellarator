@@ -1182,22 +1182,6 @@ makePlayfield = do
 -- |key20 - D6 IN4|key21 - D6 IN1|key22 - D6 IN0|key23 - D6 IN5|key24 - D6 IN3|key25 - D6 IN2|
 -- |key30 - D7 IN4|key31 - D7 IN1|key32 - D7 IN0|key33 - D7 IN5|key34 - D7 IN3|key35 - D7 IN2|
 
-readKeypadColumn :: Int -> MonadAtari Word8
-readKeypadColumn col =  do
-    k0 <- load (kbd 0 col)
-    k1 <- load (kbd 1 col)
-    k2 <- load (kbd 2 col)
-    k3 <- load (kbd 3 col)
-    swchaValue <- load swcha
-    return $ if k0 && not (testBit swchaValue 4)
-             || k1 && not (testBit swchaValue 5)
-             || k2 && not (testBit swchaValue 6)
-             || k3 && not (testBit swchaValue 7) then 0x00 else 0x80
-
-readInput :: Controllers -> TypedIndex Word8 -> Int -> MonadAtari Word8
-readInput Keypads   _              column  = readKeypadColumn column
-readInput Joysticks input_register _       = load input_register
-
 -- {- INLINABLE readStella -}
 readStella :: Word16 -> MonadAtari Word8
 readStella addr = do
