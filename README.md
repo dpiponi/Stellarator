@@ -266,7 +266,8 @@ Lots of games work:
 | Haunted House          | Seems to play fine. Needs a special hack to make SBC #$0f work.          |
 | Ikari Warriors         | Seems to play fine                                                       |
 | Indy 500               | Steering doesn't seem to work. Maybe expects different controller.       |
-| James Bond 007         | Seems to work find.                                                      |
+| James Bond 007         | Seems to work fine.                                                      |
+| Mega Force             | Seems to work fine.                                                      |
 | Midnight Magic         | Seems to work fine.                                                      |
 | Millipede              | Seems to work.                                                           |
 | Miner 2049er           | Use -b 3f. Seems to work fine.                                           |
@@ -292,12 +293,14 @@ Lots of games work:
 | Stargate               | Screen mostly blank? In debug mode you can see some stuff.               |
 | Stargunner             | Seems to play fine.                                                      |
 | Strategy X             | Seems to play fine apart from minor sprite misalignment.                 |
+| Surround               | Seems to play fine.                                                      |
 | Super Cobra            | Use -b e0 Landscape has some stray blocks in sky.                        |
 | SW: Empire Strikes Back| Seems to play fine.                                                      |
 | SW: Death Star Battle  | Use -b e0. Seems to play fine.                                           |
 | SW: The Arcade Game    | Use -b e0. Seems to play fine. Too hard using keyboard!                  |
 | Tank City              | Seems to play fine apart from some misrendered score digits              |
 | Tank Brigade           | Seems to play fine.                                                      |
+| Tanks But No Tanks     | Seems to play fine.                                                      |
 | Towering Inferno       | Seems to play fine.                                                      |
 | Tutankh                | Use -b e0. At first I thought it wasn't working but it's just bad.       |
 | Vanguard               | Seems to play fine                                                       |
