@@ -1,7 +1,5 @@
 module Keys where
 
---import Data.Maybe
-import Debug.Trace
 import SDL.Input.Keyboard
 import qualified Data.Map.Strict as M
 
@@ -409,5 +407,5 @@ keysFromOptions options = do
                     KeyboardController 3 4,
                     KeyboardController 3 5
                 ]
-    return $ M.fromList $ concat $ [zip scancodes (repeat deviceKeys) |
-                                    (scancodes, deviceKeys) <- zip scancodes atariKeys]
+    return $ M.fromList $ concat $ [zip scancodeLists (repeat deviceKeys) |
+                                    (scancodeLists, deviceKeys) <- zip scancodes atariKeys]

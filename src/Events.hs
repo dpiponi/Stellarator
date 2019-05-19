@@ -11,13 +11,10 @@ import Control.Monad.Reader
 import Control.Lens
 import Asm
 import Data.Bits
-import Data.IORef
 import Data.Bits.Lens
-import Numeric
 import System.Exit
 import Control.Concurrent
 import Metrics
-import System.IO
 import Data.Array.Storable
 import Debugger
 import qualified Data.Map.Strict as M

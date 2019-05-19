@@ -20,37 +20,32 @@
 
 module Emulation where
 
-import Asm()
-import System.Clock
-import Graphics.Rendering.OpenGL as GL
+import Asm hiding (a, s)
 import Atari2600
 import BitManips
-import Display
-import Control.Lens hiding (set)
-import Control.Concurrent
+import Control.Lens hiding (set, op, index)
 import Control.Monad.Reader
-import System.Clock
-import Data.Array.IO
+import Data.Array.IO hiding (index)
 import Data.Bits hiding (bit)
 import Data.Bits.Lens
-#if TRACE
-import Data.Array.Storable
-#endif
 import Data.IORef
 import Data.Int
+import Data.Word
 import DebugState
 import Disasm hiding (make16)
+import Display
 import Foreign.Ptr
 import Memory
 import Metrics
 import Numeric
 import Prelude hiding (last, and)
-import Asm
+import System.Clock
 import VideoOps hiding (bit)
+import qualified Graphics.Rendering.OpenGL as GL
 import qualified SDL
-import Data.Word
-import Data.Bits hiding (bit)
-import Numeric
+#if TRACE
+import Data.Array.Storable
+#endif
 
 readMemory :: Word16 -> MonadAtari Word8
 writeMemory :: Word16 -> Word8 -> MonadAtari ()
@@ -1582,13 +1577,13 @@ renderDisplay = do
     lastPtr <- view lastTextureData
     windowWidth' <- view windowWidth
     windowHeight' <- view windowHeight
-    if parity
+    liftIO $ if parity
       then do
-        liftIO $ updateTexture tex' ptr
-        liftIO $ updateTexture lastTex' lastPtr
+        updateTexture tex' ptr
+        updateTexture lastTex' lastPtr
       else do
-        liftIO $ updateTexture lastTex' ptr
-        liftIO $ updateTexture tex' lastPtr
+        updateTexture lastTex' ptr
+        updateTexture tex' lastPtr
     liftIO $ draw window windowWidth' windowHeight' prog attrib
 
     waitUntilNextFrameDue
@@ -1607,8 +1602,8 @@ resetNextFrame = do
     liftIO $ writeIORef nextFrameTimeRef nt
 
 gtTime :: TimeSpec -> TimeSpec -> Bool
-gtTime (TimeSpec a b) (TimeSpec c d) =
-    a > c || a==c && b > d
+gtTime (TimeSpec sec0 nsec0) (TimeSpec sec1 nsec1) =
+    sec0 > sec1 || sec0 == sec1 && nsec0 > nsec1
 
 waitUntilNextFrameDue :: MonadAtari ()
 waitUntilNextFrameDue = do
@@ -1621,8 +1616,6 @@ waitUntilNextFrameDue = do
     let timeToGo = fromIntegral secondsToGo+fromIntegral nanosecondsToGo/1e9 :: Double
     when (nextFrameTime' `gtTime` t) $ do
         let milliSecondsToGo = 1000.0 * timeToGo
---         liftIO $ print $ "Delay = " ++ show milliSecondsToGo
---         liftIO $ threadDelay $ floor milliSecondsToGo
         liftIO $ SDL.delay $ floor milliSecondsToGo
 
 initHardware :: MonadAtari ()
