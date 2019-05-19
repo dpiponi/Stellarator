@@ -21,12 +21,15 @@
 module Emulation where
 
 import Asm()
+import System.Clock
 import Graphics.Rendering.OpenGL as GL
 import Atari2600
 import BitManips
 import Display
 import Control.Lens hiding (set)
+import Control.Concurrent
 import Control.Monad.Reader
+import System.Clock
 import Data.Array.IO
 import Data.Bits hiding (bit)
 import Data.Bits.Lens
@@ -1021,6 +1024,9 @@ initState xscale' yscale' width height ram'
             initBankState rom' initialPC window prog attrib initTex initLastTex initTextureData initLastTextureData delayList controllerType = do
           stellaDebug' <- newIORef DebugState.start
           bankState' <- newIORef initBankState
+          t <- liftIO $ getTime Realtime
+          let nt = addTime t (1000000000 `div` 60)
+          nextFrameTime' <- newIORef nt
           parity <- newIORef False
           clock' <- newIORef 0
           -- debug' <- newIORef 8
@@ -1037,6 +1043,7 @@ initState xscale' yscale' width height ram'
           delayArray <- makeDelayArray delayList
           return $ Atari2600 {
               _frameParity = parity,
+              _nextFrameTime = nextFrameTime',
               _xscale = xscale',
               _yscale = yscale',
               _windowWidth = width,
@@ -1555,6 +1562,12 @@ writeStella addr v = do
        0x297 -> startIntervalTimerN 1024 v
        _ -> return () -- liftIO $ putStrLn $ "writing TIA 0x" ++ showHex addr ""
 
+-- add nanoseconds
+addTime :: TimeSpec -> Int64 -> TimeSpec
+addTime (TimeSpec a b) c =
+    let d = b + c
+    in if d >= 1000000000 then TimeSpec (a+1) (d-1000000000) else TimeSpec a d
+
 renderDisplay :: MonadAtari ()
 renderDisplay = do
     window <- view sdlWindow
@@ -1577,6 +1590,17 @@ renderDisplay = do
         liftIO $ updateTexture lastTex' ptr
         liftIO $ updateTexture tex' lastPtr
     liftIO $ draw window windowWidth' windowHeight' prog attrib
+
+    nextFrameTimeRef <- view nextFrameTime
+    nextFrameTime' <- liftIO $ readIORef nextFrameTimeRef
+    t <- liftIO $ getTime Realtime
+    let nt = addTime nextFrameTime' (1000000000 `div` 60)
+    liftIO $ writeIORef nextFrameTimeRef nt
+    let TimeSpec {sec=elapsedSec, nsec=elapsedNSec} = diffTimeSpec nextFrameTime' t
+    let tt = fromIntegral elapsedSec+fromIntegral elapsedNSec/1000000000.0 :: Double
+    when (tt > 0) $
+        liftIO $ threadDelay $ floor $ 1000.0 * tt
+    liftIO $ SDL.glSwapWindow window
     return ()
 
 initHardware :: MonadAtari ()

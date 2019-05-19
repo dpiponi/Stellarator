@@ -4,6 +4,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Display where
 
+import System.Clock
 import Control.Monad
 import Data.Array.Unboxed
 import Data.Bits
@@ -184,7 +185,7 @@ draw window windowWidth windowHeight program attrib = do
           (GL.ToFloat, GL.VertexArrayDescriptor 2 GL.Float 0 ptr)
     GL.drawArrays GL.Triangles 0 6
     GL.vertexAttribArray attrib $= GL.Disabled
-    SDL.glSwapWindow window
+--     SDL.glSwapWindow window
 
 vsSource, fsSource :: BS.ByteString
 vsSource = BS.intercalate "\n"

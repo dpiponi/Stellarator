@@ -25,6 +25,7 @@ library
                        DebugCmd, Memory, Asm, DebugState, Atari2600, Debugger, Metrics, BitManips, Step, Emulation, VideoOps, Display, Keys, Events
   build-depends:       base
                      , sdl2
+                     , clock
                      , bytestring
                      , vector
                      , OpenGL
@@ -47,6 +48,7 @@ executable stellarator-exe
   cpp-options: -DTRACE=0
   build-depends:       base
                      , sdl2
+                     , clock
                      , bytestring
                      , vector
                      , OpenGL
@@ -72,6 +74,7 @@ executable experiment-exe
   ghc-options:         -O -Wall -fwarn-missing-signatures -ddump-simpl -ddump-asm 
   build-depends:       base
                      , sdl2
+                     , clock
                      , bytestring
                      , vector
                      , array

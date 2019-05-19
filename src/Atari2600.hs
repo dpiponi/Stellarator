@@ -48,6 +48,7 @@ module Atari2600(
                  bankState,
                  ram,
                  rom,
+                 nextFrameTime,
                  useClock,
                  putStellaDebug,
                  sdlWindow,
@@ -77,6 +78,7 @@ module Atari2600(
 
 import Control.Lens
 import Control.Monad.Reader
+import System.Clock
 import Data.Array.Base
 import Data.Bits
 #if TRACE
@@ -103,6 +105,8 @@ data Atari2600 = Atari2600 {
     _clock :: IORef Int64,
     _stellaClock :: IORef Int64,
     _stellaDebug :: IORef DebugState,
+
+    _nextFrameTime :: IORef TimeSpec,
 
     _ram :: IOUArray Int Word8,
 #if TRACE
