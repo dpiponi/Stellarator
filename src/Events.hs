@@ -91,6 +91,7 @@ trigger2Pressed pressed = do
         (True, False) -> return ()
         (True, True ) -> modify inpt5 $ bitAt 7 .~ False
 
+-- XXX probably get ride of case
 handleKey :: AtariKeys -> InputMotion -> Keysym -> MonadAtari ()
 handleKey atariKeys motion sym = do
     let scancode = keysymScancode sym
@@ -118,10 +119,13 @@ handleKey atariKeys motion sym = do
                 DumpState        -> Emulation.dumpState
                 GameQuit         -> liftIO $ exitSuccess
                 EnterDebugger    -> when pressed $ do
+                                        -- Throw away SDL events
+                                        -- Rewrite as a withXXX XXX
                                         t <- liftIO $ forkIO $ let spin = SDL.pollEvents >> spin in spin
                                         Emulation.dumpState
                                         runDebugger
                                         liftIO $ killThread t
+                                        resetNextFrame
                 DebugMode        -> when pressed $ modify debugColours not
 #if TRACE
                 WriteRecord      -> when pressed $ do

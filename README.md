@@ -12,6 +12,7 @@ It'll run Adventure if you have the rom.
 
 News
 ----
+* Runs at correct frame rate now. (Code a bit messy though.)
 * Added second joystick emulation.
 * I'm sure millipede didn't used to work but now it does!
 * Added motion blur. Makes Asteroids and Basic look nice.
@@ -260,10 +261,12 @@ Lots of games work:
 | Freeway                | Seems to play fine.                                                      |
 | Fun with Numbers       | Works. Pity the kids that learnt mathematics using this.                 |
 | Galaxians              | Seems to play fine despite extra column of galaxians.                    |
+| Glacier Patrol         | Seems to play fine, if you can stay awake.                               |
 | Gyruss                 | Use -b e8. Seems to play fine.                                           |
 | Haunted House          | Seems to play fine. Needs a special hack to make SBC #$0f work.          |
 | Ikari Warriors         | Seems to play fine                                                       |
 | Indy 500               | Steering doesn't seem to work. Maybe expects different controller.       |
+| James Bond 007         | Seems to work find.                                                      |
 | Midnight Magic         | Seems to work fine.                                                      |
 | Millipede              | Seems to work.                                                           |
 | Miner 2049er           | Use -b 3f. Seems to work fine.                                           |

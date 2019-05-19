@@ -1591,17 +1591,39 @@ renderDisplay = do
         liftIO $ updateTexture tex' lastPtr
     liftIO $ draw window windowWidth' windowHeight' prog attrib
 
+    waitUntilNextFrameDue
+    liftIO $ SDL.glSwapWindow window
+    return ()
+
+-- If the emulator is just starting, or restarting after a pause,
+-- then the time for the next frame needs to be pushed forward
+-- until after the current time.
+resetNextFrame :: MonadAtari ()
+resetNextFrame = do
+    liftIO $ print "Resetting clock"
+    t <- liftIO $ getTime Realtime
+    let nt = addTime t (1000000000 `div` fps)
+    nextFrameTimeRef <- view nextFrameTime
+    liftIO $ writeIORef nextFrameTimeRef nt
+
+gtTime :: TimeSpec -> TimeSpec -> Bool
+gtTime (TimeSpec a b) (TimeSpec c d) =
+    a > c || a==c && b > d
+
+waitUntilNextFrameDue :: MonadAtari ()
+waitUntilNextFrameDue = do
     nextFrameTimeRef <- view nextFrameTime
     nextFrameTime' <- liftIO $ readIORef nextFrameTimeRef
     t <- liftIO $ getTime Realtime
-    let nt = addTime nextFrameTime' (1000000000 `div` 60)
-    liftIO $ writeIORef nextFrameTimeRef nt
-    let TimeSpec {sec=elapsedSec, nsec=elapsedNSec} = diffTimeSpec nextFrameTime' t
-    let tt = fromIntegral elapsedSec+fromIntegral elapsedNSec/1000000000.0 :: Double
-    when (tt > 0) $
-        liftIO $ threadDelay $ floor $ 1000.0 * tt
-    liftIO $ SDL.glSwapWindow window
-    return ()
+    let frameTimeAfter = addTime nextFrameTime' (1000000000 `div` fps)
+    liftIO $ writeIORef nextFrameTimeRef frameTimeAfter
+    let TimeSpec {sec=secondsToGo, nsec=nanosecondsToGo} = diffTimeSpec nextFrameTime' t
+    let timeToGo = fromIntegral secondsToGo+fromIntegral nanosecondsToGo/1e9 :: Double
+    when (nextFrameTime' `gtTime` t) $ do
+        let milliSecondsToGo = 1000.0 * timeToGo
+--         liftIO $ print $ "Delay = " ++ show milliSecondsToGo
+--         liftIO $ threadDelay $ floor milliSecondsToGo
+        liftIO $ SDL.delay $ floor milliSecondsToGo
 
 initHardware :: MonadAtari ()
 initHardware = do

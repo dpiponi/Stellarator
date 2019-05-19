@@ -135,6 +135,7 @@ disassemble addr n = do
     bytes <- forM [startPC..startPC+3*fromIntegral n'] readMemory
     liftIO $ dis n' startPC bytes
 
+-- Rewrite without case
 execCommand :: Command -> MonadAtari DebugAction
 execCommand cmd = 
     case cmd of

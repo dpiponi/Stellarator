@@ -174,6 +174,7 @@ main = do
     _ <- flip runReaderT state $ unM $ do
             initHardware
             when (debugStart args') runDebugger
+            resetNextFrame
             loop
 
     SDL.destroyWindow window
