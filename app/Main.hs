@@ -9,29 +9,27 @@
 
 module Main where
 
---import Graphics.Rendering.OpenGL
 import Atari2600
 import Binary
-import Display
 import Control.Monad
 import Control.Monad.Reader
 import Data.Array.IO
 import Data.Binary hiding (get)
-#if TRACE
-import Data.Array.Storable
-#endif
+import Debugger
+import Display
 import Emulation
-import Step
+import Events
+import Keys
 import Memory
 import Metrics
 import Prelude hiding (last)
 import SDL.Event
---import SDL.Vect
+import Step
 import System.Console.CmdArgs hiding ((+=))
-import Keys
 import qualified SDL
-import Events
-import Debugger
+#if TRACE
+import Data.Array.Storable
+#endif
 
 data Args = Args { file :: String, bank :: String, options :: String, debugStart :: Bool } deriving (Show, Data, Typeable)
 

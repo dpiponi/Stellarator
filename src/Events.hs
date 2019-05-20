@@ -123,7 +123,17 @@ handleKey atariKeys motion sym = do
                                         runDebugger
                                         liftIO $ killThread t
                                         resetNextFrame
-                DebugMode        -> when pressed $ modify debugColours not
+                DebugMode        -> when pressed $ do
+                                        modify debugColours not
+                                        debugMode <- load debugColours
+                                        when debugMode $ liftIO $ do
+                                            print "COLUBK -- black"
+                                            print "COLUPF -- white"
+                                            print "COLUB  -- gray"
+                                            print "COLUP0 -- dark red"
+                                            print "COLUP1 -- dark blue"
+                                            print "COLUM0 -- light red"
+                                            print "COLUM1 -- light blue"
 #if TRACE
                 WriteRecord      -> when pressed $ do
                                         liftIO $ print "Write record!"

@@ -12,6 +12,7 @@ import Data.Functor.Identity
 import Numeric
 
 data Command = Cont
+             | Help
              | DumpGraphics | Step
              | Until Expr Command
              | Print [Expr]
@@ -62,6 +63,7 @@ parseCommand = Block <$> (braces lexer $ semiSep1 lexer parseCommand)
            <|> (char 'c' >> whiteSpace lexer >> return Cont)
            <|> (char 'g' >> whiteSpace lexer >> return DumpGraphics)
            <|> (char 's' >> whiteSpace lexer >> return Step)
+           <|> (char 'h' >> whiteSpace lexer >> return Help)
            <|> Repeat <$> (char 'r' >> whiteSpace lexer >> parseExpr) <*> parseCommand
            <|> Execute <$> (char 'x' >> whiteSpace lexer >> parseExpr)
            <|> List <$> (char 'l' >> whiteSpace lexer >> optionMaybe parseExpr) <*> optionMaybe parseExpr

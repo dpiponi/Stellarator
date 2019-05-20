@@ -158,6 +158,7 @@ execCommand cmd =
         Cont -> do
             liftIO $ putStrLn "Continuing..."
             return Continue
+        Help -> execHelp
         DumpGraphics -> dumpStella >> return KeepDebugging
         Step -> (pc @-> pcStep) >> step >> return KeepDebugging
         Print es -> execPrint es
@@ -194,6 +195,50 @@ execPrint es = do
             EInt w -> liftIO $ putStr ("0x" ++ showHex w "")
             _ -> liftIO $ putStr (show val)
     liftIO $ putStrLn ""
+    return KeepDebugging
+
+execHelp :: MonadAtari DebugAction
+execHelp = do
+    liftIO $ do
+        putStrLn ""
+        putStrLn "Debugger Help"
+        putStrLn "============="
+        putStrLn "{<statement>;<statement>...} - block"
+        putStrLn "Put multiple commands in a block, eg. r100{s;l} will step and list the current instruction 100 times."
+        putStrLn ""
+        putStrLn "c - continue"
+        putStrLn "Return to playing game"
+        putStrLn ""
+        putStrLn "g - dump graphics state"
+        putStrLn "Eg. r10{s;g} will step through 10 instructions dumping graphics state each step."
+        putStrLn ""
+        putStrLn "s - single instruction step"
+        putStrLn "Eg. r100000s will step 100000 instructions"
+        putStrLn ""
+        putStrLn "r<expr><statement> - repeat statement"
+        putStrLn "Eg. r(2*y){s;l} will step and list instructions a number of times given by double the Y register."
+        putStrLn "(You can leave out the 'r' if the expression can be unambiguously read as an expression.)"
+        putStrLn ""
+        putStrLn "x<string> - execute command"
+        putStrLn "Executes command in string. Eg. x\"p1\" will putStrLn 1."
+        putStrLn ""
+        putStrLn "l<expr>"
+        putStrLn "l<expr>expr> - list disassembly"
+        putStrLn "Disassemble from given expression with optional number of instructions."
+        putStrLn "Eg. l(pc+2)10 lists 10 instructions starting at PC+2."
+        putStrLn ""
+        putStrLn "p<expr> - putStrLn"
+        putStrLn "Print expression. Eg. p?0x9c7f putStrLns byte at address 0x9c7f"
+        putStrLn ""
+        putStrLn "u<expr><statement> - until"
+        putStrLn "Perform statement until condition met."
+        putStrLn "Eg. u(row==160){s};u(row>160){s;l} will step until row 160 of screen is reached and will then step, disassembling each instruction, until row 160 is finished."
+        putStrLn "Eg. u(y>x){l;s} will step until Y register is larger than X."
+        putStrLn ""
+        putStrLn "<var>=<expr>"
+        putStrLn "Set value of variable."
+        putStrLn "Eg. U=1;V=2;pU+V will putStrLn 3."
+        putStrLn ""
     return KeepDebugging
 
 execUntil :: Expr -> Command -> MonadAtari DebugAction

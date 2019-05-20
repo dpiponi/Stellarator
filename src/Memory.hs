@@ -20,6 +20,16 @@ import Data.Word
 import Data.Bits
 import Data.Data
 
+-- Atari 2600 uses a 6507 which is a 6502 with a 13 bit
+-- address bus.
+-- It can address 8K, ie. 0x2000
+-- 4K ROM appears in second half
+-- 1 << 12 = 0x1000
+-- So ROM in 0x1000-0x1fff
+--           0x3000-0x3fff
+--           ...
+--           0xf000-0xffff
+
 --
 -- Decision tree for type of memory
 --
@@ -106,27 +116,6 @@ bankSwitch    0x1ff7    _        (BankF6SC _)     = BankF6SC 0x1000
 bankSwitch    0x1ff8    _        (BankF6SC _)     = BankF6SC 0x2000
 bankSwitch    0x1ff9    _        (BankF6SC _)     = BankF6SC 0x3000
 
-#if 0
--- https://hackaday.io/project/12961-atari-2600-bankswitch-cartridge
--- See "Particularities of the 32K cartridge"
--- Bits 1 and 3 swapped
-bankSwitch    0x1ff4    _        (BankF4 _)       = BankF4 0x0000
-bankSwitch    0x1ff5    _        (BankF4 _)       = BankF4 0x1000
-bankSwitch    0x1ff6    _        (BankF4 _)       = BankF4 0x4000
-bankSwitch    0x1ff7    _        (BankF4 _)       = BankF4 0x5000
-bankSwitch    0x1ff8    _        (BankF4 _)       = BankF4 0x2000
-bankSwitch    0x1ff9    _        (BankF4 _)       = BankF4 0x3000
-bankSwitch    0x1ffA    _        (BankF4 _)       = BankF4 0x6000
-bankSwitch    0x1ffB    _        (BankF4 _)       = BankF4 0x7000
-bankSwitch    0x1ff4    _        (BankF4SC _)       = BankF4SC 0x0000
-bankSwitch    0x1ff5    _        (BankF4SC _)       = BankF4SC 0x1000
-bankSwitch    0x1ff6    _        (BankF4SC _)       = BankF4SC 0x4000
-bankSwitch    0x1ff7    _        (BankF4SC _)       = BankF4SC 0x5000
-bankSwitch    0x1ff8    _        (BankF4SC _)       = BankF4SC 0x2000
-bankSwitch    0x1ff9    _        (BankF4SC _)       = BankF4SC 0x3000
-bankSwitch    0x1ffA    _        (BankF4SC _)       = BankF4SC 0x6000
-bankSwitch    0x1ffB    _        (BankF4SC _)       = BankF4SC 0x7000
-#else
 bankSwitch    0x1ff4    _        (BankF4 _)       = BankF4 0x0000
 bankSwitch    0x1ff5    _        (BankF4 _)       = BankF4 0x1000
 bankSwitch    0x1ff6    _        (BankF4 _)       = BankF4 0x2000
@@ -168,7 +157,6 @@ bankSwitch    0x1ff4    _        (BankE0 a b _)     = BankE0 a b 0x1000
 bankSwitch    0x1ff5    _        (BankE0 a b _)     = BankE0 a b 0x1400
 bankSwitch    0x1ff6    _        (BankE0 a b _)     = BankE0 a b 0x1800
 bankSwitch    0x1ff7    _        (BankE0 a b _)     = BankE0 a b 0x1c00
-#endif
 
 -- My implementation of 3F doesn't fit the description at
 -- http://blog.kevtris.org/blogfiles/Atari%202600%20Mappers.txt
@@ -188,17 +176,21 @@ bankSwitch    _         _        state            = state
 -- write-only and the next are a read-only mirror.
 -- In theory a read operation on the write-only section could write something.
 -- I've not implemented that.
+-- `offset` is typically offset into ROM file
+-- For XXsc, address into 'ROM' under 0x100 wrap at 0x80.
+
+superchipRamAddress :: Word16 -> Word16 -> Int
+superchipRamAddress offset addr = let zaddr = iz addr .&. 0xfff
+                                  in if zaddr < 0x100 then (zaddr .&. 0x7f) else zaddr+iz offset
+
 bankAddress :: BankState ->      Word16 -> Int
 bankAddress    NoBank            addr   = iz (addr .&. 0xfff)
 bankAddress    (BankF8 offset)   addr   = ((iz addr .&. 0xfff)+iz offset)
-bankAddress    (BankF8SC offset) addr   = let zaddr = iz addr .&. 0xfff
-                                          in if zaddr < 0x100 then (zaddr .&. 0x7f) else zaddr+iz offset
+bankAddress    (BankF8SC offset) addr   = superchipRamAddress offset addr
 bankAddress    (BankF6 offset)   addr   = ((iz addr .&. 0xfff)+iz offset)
-bankAddress    (BankF6SC offset) addr   = let zaddr = iz addr .&. 0xfff
-                                          in if zaddr < 0x100 then (zaddr .&. 0x7f) else zaddr+iz offset
+bankAddress    (BankF6SC offset) addr   = superchipRamAddress offset addr
 bankAddress    (BankF4 offset)   addr   = ((iz addr .&. 0xfff)+iz offset)
-bankAddress    (BankF4SC offset) addr   = let zaddr = iz addr .&. 0xfff
-                                          in if zaddr < 0x100 then (zaddr .&. 0x7f) else zaddr+iz offset
+bankAddress    (BankF4SC offset) addr   = superchipRamAddress offset addr
 
 bankAddress    (BankE0 a b c)    addr =   let zaddr = iz addr .&. 0x3ff -- 1K blocks
                                           in case addr .&. 0x0c00 of
@@ -211,7 +203,7 @@ bankAddress    (Bank3F _)        addr   | addr > 0x1800 = iz addr
 bankAddress    (Bank3F offset)   addr   = ((iz addr .&. 0x7ff)+iz offset)
 
 {-# INLINE bankWritable #-}
--- | bankAddress sees the full 6507 address
+-- | bankAddress function sees the full 6507 address
 -- i.e. it is in range 0x0000-0x1fff
 -- though we only expect to see values in range 0x1000-0x1fff
 -- as we only reach this function if the 6507 is reading from ROM.

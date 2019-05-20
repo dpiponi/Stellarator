@@ -234,13 +234,13 @@ spriteColour COLUM0 = colup0
 spriteColour COLUM1 = colup1
 
 debugColour :: Sprite -> Word8
-debugColour COLUBK = 0x00
-debugColour COLUPF = 0x0e
-debugColour COLUB  = 0x08
+debugColour COLUBK = 0x00 -- black
+debugColour COLUPF = 0x0e -- white
+debugColour COLUB  = 0x08 -- gray
 debugColour COLUP0 = 0x42 -- dark red
 debugColour COLUP1 = 0x82 -- dark blue
-debugColour COLUM0 = 0x4e
-debugColour COLUM1 = 0x8e
+debugColour COLUM0 = 0x4e -- light red
+debugColour COLUM1 = 0x8e -- light blue
 
 --
 --           Pri   sco   pf    ball  m0    m1   p0     p1    pixelx
@@ -267,11 +267,22 @@ bit :: Int -> Bool -> Word8
 bit _ False = 0
 bit n True  = 1 `shift` n
 
-{-
- - Build matrix of 6C2 possible collisions between 6 sprites
- -}
+--
+-- Build matrix of 6C2 possible collisions between 6 sprites. XXX incomplete!
+--
+-- 6-bit Address Address Name  7   6   5   4   3   2   1   0  Function    D7    D6
+-- 0             CXM0P         1   1   .   .   .   .   .   .  read collision    M0 P1    M0 P0
+-- 1             CXM1P         1   1   .   .   .   .   .   .  read collision    M1 P0    M1 P1
+-- 2             CXP0FB        1   1   .   .   .   .   .   .  read collision    P0 PF    P0 BL
+-- 3             CXP1FB        1   1   .   .   .   .   .   .  read collision    P1 PF    P1 BL
+-- 4             CXM0FB        1   1   .   .   .   .   .   .  read collision    M0 PF    M0 BL
+-- 5             CXM1FB        1   1   .   .   .   .   .   .  read collision    M1 PF    M1 BL
+-- 6             CXBLPF        1   .   .   .   .   .   .   .  read collision    BL PF    unused
+-- 7             CXPPMM        1   1   .   .   .   .   .   .  read collision    P0 P1    M0 M1
 doCollisions :: Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> MonadAtari ()
 doCollisions lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1 = do
+    -- Combine playfield and ball into single byte
+    -- Remember `&` is reverse function application, not logical AND
     let playball = 0 & bitAt 7 .~ lplayfield & bitAt 6 .~ lball
     when lmissile0 $ do
         modify cxm0p  $ (bitAt 7 ||~ lplayer1) . (bitAt 6 ||~ lplayer0)

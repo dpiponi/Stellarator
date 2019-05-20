@@ -267,6 +267,7 @@ Lots of games work:
 | Ikari Warriors         | Seems to play fine                                                       |
 | Indy 500               | Steering doesn't seem to work. Maybe expects different controller.       |
 | James Bond 007         | Seems to work fine.                                                      |
+| Jr. Pacman             | Seems to work fine. Superchip. Use -b f6sc                               |
 | Mega Force             | Seems to work fine.                                                      |
 | Midnight Magic         | Seems to work fine.                                                      |
 | Millipede              | Seems to work.                                                           |
@@ -290,7 +291,7 @@ Lots of games work:
 | Star Fox               | Plays fine (if you can call it "play"). Unsteady opening screen.         |
 | Star Master            | ?? Lack of aliens to shoot is in Stella too. Half crosshair missing.     |
 | Star Trek: SOS         | Seems to play fine.                                                      |
-| Stargate               | Screen mostly blank? In debug mode you can see some stuff.               |
+| Stargate               | You can see some stuff in debug mode. Maybe sudden death each start.     |
 | Stargunner             | Seems to play fine.                                                      |
 | Strategy X             | Seems to play fine apart from minor sprite misalignment.                 |
 | Surround               | Seems to play fine.                                                      |
