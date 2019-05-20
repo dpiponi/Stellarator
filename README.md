@@ -268,6 +268,7 @@ Lots of games work:
 | Indy 500               | Steering doesn't seem to work. Maybe expects different controller.       |
 | James Bond 007         | Seems to work fine.                                                      |
 | Jr. Pacman             | Seems to work fine. Superchip. Use -b f6sc                               |
+| Laser Blast            | Seems to work fine.                                                      |
 | Mega Force             | Seems to work fine.                                                      |
 | Midnight Magic         | Seems to work fine.                                                      |
 | Millipede              | Seems to work.                                                           |

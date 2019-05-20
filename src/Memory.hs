@@ -179,9 +179,11 @@ bankSwitch    _         _        state            = state
 -- `offset` is typically offset into ROM file
 -- For XXsc, address into 'ROM' under 0x100 wrap at 0x80.
 
+-- Superchip RAM is the same no matter which bank we're looking at
 superchipRamAddress :: Word16 -> Word16 -> Int
-superchipRamAddress offset addr = let zaddr = iz addr .&. 0xfff
-                                  in if zaddr < 0x100 then (zaddr .&. 0x7f) else zaddr+iz offset
+superchipRamAddress offset addr =
+    let zaddr = iz addr .&. 0xfff
+    in if zaddr < 0x100 then (zaddr .&. 0x7f) else zaddr+iz offset
 
 bankAddress :: BankState ->      Word16 -> Int
 bankAddress    NoBank            addr   = iz (addr .&. 0xfff)
@@ -207,6 +209,9 @@ bankAddress    (Bank3F offset)   addr   = ((iz addr .&. 0x7ff)+iz offset)
 -- i.e. it is in range 0x0000-0x1fff
 -- though we only expect to see values in range 0x1000-0x1fff
 -- as we only reach this function if the 6507 is reading from ROM.
+-- When superchip is present there is 128 bytes of RAM
+-- Writable at: 0xf0000 - 0xf07f
+-- Reada
 bankWritable :: BankState -> Word16 -> Bool
 bankWritable    (BankF6SC _) addr = (addr .&. 0xfff) < 0x100
 bankWritable    _            _    = False

@@ -577,6 +577,7 @@ ora mode = do
     let newA = oldA .|. src
     putA newA
     setNZ_ newA
+--     getA & fmap (.|. src) 
 
 -- {-# INLINABLE and #-}
 and :: MonadAtari Word8 -> MonadAtari ()
@@ -768,10 +769,12 @@ inr :: MonadAtari Word8 -> (Word8 -> MonadAtari ()) -> MonadAtari ()
 inr getReg putReg = do
     tick 1
     discard $ getPC >>= readMemory
-    v0 <- getReg
-    let v1 = v0+1
-    discard $ setNZ v1
-    putReg v1
+--     v0 <- getReg
+--     let v1 = v0+1
+--     discard $ setNZ v1
+--     putReg v1
+--     getReg >>= return . (+ 1) >>= setNZ >>= putReg
+    getReg & fmap (+ 1) >>= setNZ >>= putReg
 
 -- 2 clock cycles
 -- {-# INLINABLE der #-}
@@ -779,10 +782,12 @@ der :: MonadAtari Word8 -> (Word8 -> MonadAtari ()) -> MonadAtari ()
 der getReg putReg = do
     tick 1
     discard $ getPC >>= readMemory
-    v0 <- getReg
-    let v1 = v0-1
-    discard $ setNZ v1
-    putReg v1
+--     v0 <- getReg
+--     let v1 = v0-1
+--     discard $ setNZ v1
+--     putReg v1
+--     getReg >>= return . (subtract 1) >>= setNZ >>= putReg
+    getReg & fmap (subtract 1) >>= setNZ >>= putReg
 
 discard :: MonadAtari Word8 -> MonadAtari ()
 discard = void
