@@ -7,6 +7,7 @@ import Prelude hiding (and)
 import Data.Int
 import Control.Monad.IO.Class
 import Control.Monad
+import ALU
 
 -- -- Trying not having this inlined {-# IGNOREINLINABLE step #-}
 step :: MonadAtari ()
