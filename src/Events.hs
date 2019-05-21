@@ -18,6 +18,10 @@ import Metrics
 import Data.Array.Storable
 import Debugger
 import qualified Data.Map.Strict as M
+#if TRACE
+import System.IO
+import Data.IORef
+#endif
 
 {- INLINE isPressed -}
 isPressed :: InputMotion -> Bool

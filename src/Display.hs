@@ -4,7 +4,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Display where
 
-import System.Clock
 import Control.Monad
 import Data.Array.Unboxed
 import Data.Bits
@@ -172,8 +171,8 @@ initResources alpha = do
     return (program, GL.AttribLocation 0, current_frame_tex, last_frame_tex, textureData, lastTextureData)
 
 -- | Render VCS screen as pair of triangles.
-draw :: SDL.Window -> Int -> Int -> GL.Program -> GL.AttribLocation -> IO ()
-draw window windowWidth windowHeight program attrib = do
+draw :: Int -> Int -> GL.Program -> GL.AttribLocation -> IO ()
+draw windowWidth windowHeight program attrib = do
     GL.clearColor $= GL.Color4 0 0 0 0
     GL.clear [GL.ColorBuffer]
     GL.viewport $= (GL.Position 0 0, GL.Size (fromIntegral windowWidth) (fromIntegral windowHeight))

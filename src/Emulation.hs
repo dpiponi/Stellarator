@@ -1368,7 +1368,7 @@ renderDisplay = do
       else do
         updateTexture lastTex' ptr
         updateTexture tex' lastPtr
-    liftIO $ draw window windowWidth' windowHeight' prog attrib
+    liftIO $ draw windowWidth' windowHeight' prog attrib
 
     waitUntilNextFrameDue
     liftIO $ SDL.glSwapWindow window

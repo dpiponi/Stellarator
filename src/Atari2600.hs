@@ -70,7 +70,6 @@ module Atari2600(
                  readKeypadColumn,
                  readInput,
 #if TRACE
-                                  ,
                  record,
                  recordPtr
 #endif
