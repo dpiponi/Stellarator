@@ -30,11 +30,13 @@ import Data.Bits hiding (bit)
 import Data.Bits.Lens
 import Data.IORef
 import Data.Int
+import CPU
 import Data.Word
 import DebugState
 import Disasm hiding (make16)
 import Display
 import Foreign.Ptr
+import Stella
 import Memory
 import Metrics
 import Numeric
@@ -92,10 +94,6 @@ illegal i = do
 debugStr :: Int -> String -> MonadAtari ()
 debugStrLn :: Int -> String -> MonadAtari ()
 
--- {-# INLINE make16 #-}
-make16 :: Word8 -> Word8 -> Word16
-make16 lo0 hi0 = (i16 hi0 `shift` 8)+i16 lo0
-
 -- {-# INLINE incPC #-}
 incPC :: MonadAtari ()
 incPC = addPC 1
@@ -126,18 +124,6 @@ read16zpTick addr = do
     return $ make16 lo0 hi0
 
 -- http://www.emulator101.com/6502-addressing-modes.html
-
--- {-# INLINE i8 #-}
-i8 :: Integral a => a -> Word8
-i8 = fromIntegral
-
--- {-# INLINE i16 #-}
-i16 :: Integral a => a -> Word16
-i16 = fromIntegral
-
--- {-# INLINE iz #-}
-iz :: Integral a => a -> Int
-iz = fromIntegral
 
 -- Note, a 6502 performs a read or write *every* clock cycle
 -- regardless of what instruction is being executed.
@@ -358,18 +344,6 @@ readZeroPageY = do
     incPC
     readMemory (i16 $ addr+index)
 
-{-# inline halfSum #-}
-halfSum :: Word16 -> Word8 -> (Word16, Word16)
-halfSum addr index = 
-    let fullSum = addr+i16 index
-    in (make16 (lo addr+index) (hi addr), fullSum)
-
--- {-# INLINABLE halfSignedSum #-}
-halfSignedSum :: Word16 -> Word8 -> (Word16, Word16)
-halfSignedSum addr index = 
-    let fullSum = if index < 0x80 then addr+i16 index else addr+i16 index-0x100
-    in (make16 (lo addr+index) (hi addr), fullSum)
-
 -- 4-5 clock cycles
 -- {-# INLINABLE readAbsX #-}
 readAbsX :: MonadAtari Word8
@@ -553,23 +527,23 @@ withAbsX op = do
     dst <- op src
     writeMemory addrX dst
 
--- {-# INLINABLE setN #-}
-setN :: Word8 -> MonadAtari ()
-setN r = putN $ r >= 0x80
-
+-- -- {-# INLINABLE setN #-}
+-- setN :: Word8 -> MonadAtari ()
+-- setN r = putN $ r >= 0x80
+-- 
 -- {-# INLINABLE setZ #-}
-setZ :: Word8 -> MonadAtari ()
-setZ r = putZ $ r == 0
-
--- {-# INLINABLE setNZ #-}
-setNZ :: Word8 -> MonadAtari Word8
-setNZ r = setN r >> setZ r >> return r
-
--- {-# INLINABLE setNZ_ #-}
-setNZ_ :: Word8 -> MonadAtari ()
-setNZ_ r = setN r >> setZ r
-discard :: MonadAtari Word8 -> MonadAtari ()
-discard = void
+-- setZ :: Word8 -> MonadAtari ()
+-- setZ r = putZ $ r == 0
+-- 
+-- -- {-# INLINABLE setNZ #-}
+-- setNZ :: Word8 -> MonadAtari Word8
+-- setNZ r = setN r >> setZ r >> return r
+-- 
+-- -- {-# INLINABLE setNZ_ #-}
+-- setNZ_ :: Word8 -> MonadAtari ()
+-- setNZ_ r = setN r >> setZ r
+-- discard :: MonadAtari Word8 -> MonadAtari ()
+-- discard = void
 
 -- 7 clock cycles
 -- {-# INLINABLE brk #-}
@@ -671,14 +645,6 @@ pla = do
 
     tick 1
     pull >>= setNZ >>= putA
-
--- {-# INLINABLE lo #-}
-lo :: Word16 -> Word8
-lo = i8
-
--- {-# INLINABLE hi #-}
-hi :: Word16 -> Word8
-hi a = i8 (a `shift` (-8))
 
 -- {-# INLINABLE nmi #-}
 nmi :: Bool -> MonadAtari ()
@@ -852,11 +818,11 @@ initState xscale' yscale' width height ram'
               _glAttrib = attrib,
               _delays = delayArray
           }
-
--- {- INLINE stellaHmclr -}
-stellaHmclr :: MonadAtari ()
-stellaHmclr =
-    mapM_ (@= 0) [hmp0, hmp1, hmm0, hmm1, hmbl]
+-- 
+-- -- {- INLINE stellaHmclr -}
+-- stellaHmclr :: MonadAtari ()
+-- stellaHmclr =
+--     mapM_ (@= 0) [hmp0, hmp1, hmm0, hmm1, hmbl]
 
 -- {- INLINE stellaCxclr -}
 stellaCxclr :: MonadAtari ()

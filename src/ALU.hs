@@ -7,6 +7,7 @@ import Prelude hiding (last, and)
 import Emulation
 import Control.Lens
 import Control.Monad
+import CPU
 
 -- {-# INLINABLE adc #-}
 adc :: MonadAtari Word8 -> MonadAtari ()
