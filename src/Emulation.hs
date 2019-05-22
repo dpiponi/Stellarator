@@ -1307,12 +1307,6 @@ writeStella addr v = do
        0x297 -> startIntervalTimerN 1024 v
        _ -> return () -- liftIO $ putStrLn $ "writing TIA 0x" ++ showHex addr ""
 
--- add nanoseconds
-addTime :: TimeSpec -> Int64 -> TimeSpec
-addTime (TimeSpec a b) c =
-    let d = b + c
-    in if d >= 1000000000 then TimeSpec (a+1) (d-1000000000) else TimeSpec a d
-
 renderDisplay :: MonadAtari ()
 renderDisplay = do
     window <- view sdlWindow
