@@ -825,35 +825,35 @@ initState xscale' yscale' width height ram'
 --     mapM_ (@= 0) [hmp0, hmp1, hmm0, hmm1, hmbl]
 
 -- {- INLINE stellaCxclr -}
-stellaCxclr :: MonadAtari ()
-stellaCxclr =
-    mapM_ (@= 0) [cxm0p, cxm1p, cxm0fb, cxm1fb, cxp0fb, cxp1fb, cxblpf, cxppmm]
-
--- {- INLINE stellaHmove -}
-stellaHmove :: MonadAtari ()
-stellaHmove = do
-    pendingHmove @= True
-
-    poffset0 <- load hmp0
-    modify ppos0 $ \ppos0' ->  wrap160 (ppos0'-clockMove poffset0)
-
-    poffset1 <- load hmp1
-    modify ppos1 $ \ppos1' ->  wrap160 (ppos1'-clockMove poffset1)
-
-    moffset0 <- load hmm0
-    modify mpos0 $ \mpos0' ->  wrap160 (mpos0'-clockMove moffset0)
-
-    moffset1 <- load hmm1
-    modify mpos1 $ \mpos1' ->  wrap160 (mpos1'-clockMove moffset1)
-
-    boffset <- load hmbl
-    modify bpos $ \bpos' -> wrap160 (bpos'-clockMove boffset)
-
--- {-# INLINE wrap160 #-}
-wrap160 :: Int -> Int
-wrap160 i | i < picx = wrap160 (i+160)
-          | i >= picx+160 = wrap160 (i-160)
-wrap160 i = i
+-- stellaCxclr :: MonadAtari ()
+-- stellaCxclr =
+--     mapM_ (@= 0) [cxm0p, cxm1p, cxm0fb, cxm1fb, cxp0fb, cxp1fb, cxblpf, cxppmm]
+-- 
+-- -- {- INLINE stellaHmove -}
+-- stellaHmove :: MonadAtari ()
+-- stellaHmove = do
+--     pendingHmove @= True
+-- 
+--     poffset0 <- load hmp0
+--     modify ppos0 $ \ppos0' ->  wrap160 (ppos0'-clockMove poffset0)
+-- 
+--     poffset1 <- load hmp1
+--     modify ppos1 $ \ppos1' ->  wrap160 (ppos1'-clockMove poffset1)
+-- 
+--     moffset0 <- load hmm0
+--     modify mpos0 $ \mpos0' ->  wrap160 (mpos0'-clockMove moffset0)
+-- 
+--     moffset1 <- load hmm1
+--     modify mpos1 $ \mpos1' ->  wrap160 (mpos1'-clockMove moffset1)
+-- 
+--     boffset <- load hmbl
+--     modify bpos $ \bpos' -> wrap160 (bpos'-clockMove boffset)
+-- 
+-- -- {-# INLINE wrap160 #-}
+-- wrap160 :: Int -> Int
+-- wrap160 i | i < picx = wrap160 (i+160)
+--           | i >= picx+160 = wrap160 (i-160)
+-- wrap160 i = i
 
 -- -- {-# INLINE iz #-}
 -- iz :: Word16 -> Int -- or NUM
