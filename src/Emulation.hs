@@ -27,7 +27,7 @@ import Control.Lens hiding (set, op, index)
 import Control.Monad.Reader
 import Data.Array.IO hiding (index)
 import Data.Bits hiding (bit)
-import Data.Bits.Lens
+-- import Data.Bits.Lens
 import Data.IORef
 import Data.Int
 import CPU
@@ -717,19 +717,19 @@ rts = do
     tick 1
     discard $ readMemory p0
     putPC (p0+1)
-
-timerTick' :: Word8 -> Int -> Int -> Word8 -> (Word8, Int, Int, Word8)
-timerTick' 0      0         _         _       = (-1,       3*1-1,         1,         0x80)
-timerTick' intim' 0         interval' timint' = (intim'-1, 3*interval'-1, interval', timint')
-timerTick' intim' subtimer' interval' timint' = (intim',   subtimer'-1,   interval', timint')
-
-timerTick :: MonadAtari ()
-timerTick = do
-    (intim'', subtimer'', interval'', timint'') <- timerTick' <$> load intim <*> load subtimer <*> load interval <*> load timint
-    intim @= intim''
-    subtimer @= subtimer''
-    interval @= interval''
-    timint @= timint''
+-- 
+-- timerTick' :: Word8 -> Int -> Int -> Word8 -> (Word8, Int, Int, Word8)
+-- timerTick' 0      0         _         _       = (-1,       3*1-1,         1,         0x80)
+-- timerTick' intim' 0         interval' timint' = (intim'-1, 3*interval'-1, interval', timint')
+-- timerTick' intim' subtimer' interval' timint' = (intim',   subtimer'-1,   interval', timint')
+-- 
+-- timerTick :: MonadAtari ()
+-- timerTick = do
+--     (intim'', subtimer'', interval'', timint'') <- timerTick' <$> load intim <*> load subtimer <*> load interval <*> load timint
+--     intim @= intim''
+--     subtimer @= subtimer''
+--     interval @= interval''
+--     timint @= timint''
 
 startIntervalTimerN :: Int -> Word8 -> MonadAtari ()
 startIntervalTimerN n v = do
@@ -909,14 +909,14 @@ Overscan        sta WSYNC
                 jmp StartOfFrame
 -}
 
--- {- INLINE stellaVblank -}
-stellaVblank :: Word8 -> MonadAtari ()
-stellaVblank v = do
-    trigger1' <- load trigger1
-    modify inpt4 $ bitAt 7 .~ not trigger1'
-    trigger2' <- load trigger2
-    modify inpt5 $ bitAt 7 .~ not trigger2'
-    vblank @= v
+-- -- {- INLINE stellaVblank -}
+-- stellaVblank :: Word8 -> MonadAtari ()
+-- stellaVblank v = do
+--     trigger1' <- load trigger1
+--     modify inpt4 $ bitAt 7 .~ not trigger1'
+--     trigger2' <- load trigger2
+--     modify inpt5 $ bitAt 7 .~ not trigger2'
+--     vblank @= v
 
 makePlayfield :: MonadAtari ()
 makePlayfield = do
@@ -1005,43 +1005,43 @@ stellaVsync v = do
         renderDisplay
     vsync @= v
 
--- {- INLINE stellaWsync -}
-stellaWsync :: MonadAtari ()
-stellaWsync = do
-    hpos' <- load hpos
-    -- Run instructions until we're at start of new scan line
-    when (hpos' > 0) $ do
-        stellaTickFor 1 -- there's a smarter way to do this XXX
-        stellaWsync
+-- -- {- INLINE stellaWsync -}
+-- stellaWsync :: MonadAtari ()
+-- stellaWsync = do
+--     hpos' <- load hpos
+--     -- Run instructions until we're at start of new scan line
+--     when (hpos' > 0) $ do
+--         stellaTickFor 1 -- there's a smarter way to do this XXX
+--         stellaWsync
 
 -- http://atariage.com/forums/topic/107527-atari-2600-vsyncvblank/
 
-stellaTickFor :: Int -> MonadAtari ()
-stellaTickFor d = do
-    n <- load ahead
-    if d > n
-        then do
-            stellaTickFor' (d-n)
-            ahead @= 0
-        else ahead @= (n-d)
-
-stellaTickFor' :: Int -> MonadAtari ()
-stellaTickFor' diff = do
-    when (diff >= 0) $ do
-        -- Batch together items that don't need to be
-        -- carried out on individual ticks
-        modifyStellaClock id (+ fromIntegral diff)
-        replicateM_ (fromIntegral diff) $ timerTick
-        resmp0' <- load resmp0
-        resmp1' <- load resmp1
-        -- XXX surely this must be done every time - collisions
-        clampMissiles resmp0' resmp1'
-
-        parityRef <- view frameParity
-        parity <- liftIO $ readIORef parityRef
-        ptr' <- view (if parity then textureData else lastTextureData)
-        -- XXX Not sure stellaDebug actually changes here so may be some redundancy
-        stellaTick (fromIntegral diff) ptr'
+-- stellaTickFor :: Int -> MonadAtari ()
+-- stellaTickFor d = do
+--     n <- load ahead
+--     if d > n
+--         then do
+--             stellaTickFor' (d-n)
+--             ahead @= 0
+--         else ahead @= (n-d)
+-- 
+-- stellaTickFor' :: Int -> MonadAtari ()
+-- stellaTickFor' diff = do
+--     when (diff >= 0) $ do
+--         -- Batch together items that don't need to be
+--         -- carried out on individual ticks
+--         modifyStellaClock id (+ fromIntegral diff)
+--         replicateM_ (fromIntegral diff) $ timerTick
+--         resmp0' <- load resmp0
+--         resmp1' <- load resmp1
+--         -- XXX surely this must be done every time - collisions
+--         clampMissiles resmp0' resmp1'
+-- 
+--         parityRef <- view frameParity
+--         parity <- liftIO $ readIORef parityRef
+--         ptr' <- view (if parity then textureData else lastTextureData)
+--         -- XXX Not sure stellaDebug actually changes here so may be some redundancy
+--         stellaTick (fromIntegral diff) ptr'
 
 -- {-# INLINE pureReadRom #-}
 -- | pureReadRom sees address in full 6507 range 0x0000-0x1fff
