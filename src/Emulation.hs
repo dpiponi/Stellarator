@@ -22,7 +22,7 @@ module Emulation where
 
 import Asm hiding (a, s)
 import Atari2600
-import BitManips
+-- import BitManips
 import Control.Lens hiding (set, op, index)
 import Control.Monad.Reader
 import Data.Array.IO hiding (index)
@@ -42,7 +42,7 @@ import Metrics
 import Numeric
 import Prelude hiding (last, and)
 import System.Clock
-import VideoOps hiding (bit)
+-- import VideoOps hiding (bit)
 import qualified Graphics.Rendering.OpenGL as GL
 import qualified SDL
 #if TRACE
@@ -909,24 +909,6 @@ Overscan        sta WSYNC
                 jmp StartOfFrame
 -}
 
--- -- {- INLINE stellaVblank -}
--- stellaVblank :: Word8 -> MonadAtari ()
--- stellaVblank v = do
---     trigger1' <- load trigger1
---     modify inpt4 $ bitAt 7 .~ not trigger1'
---     trigger2' <- load trigger2
---     modify inpt5 $ bitAt 7 .~ not trigger2'
---     vblank @= v
-
-makePlayfield :: MonadAtari ()
-makePlayfield = do
-    pf0' <- load pf0
-    pf1' <- load pf1
-    pf2' <- load pf2
-    ctrlpf' <- load ctrlpf
-    let pf' = assemblePlayfield (testBit ctrlpf' 0) pf0' pf1' pf2'
-    pf @= pf'
-
 -- Keyboard wiring
 --
 -- |key00 - D4 IN4|key01 - D4 IN1|key02 - D4 IN0|key03 - D4 IN5|key04 - D4 IN3|key05 - D4 IN2|
@@ -1004,44 +986,6 @@ stellaVsync v = do
         vpos @= 0
         renderDisplay
     vsync @= v
-
--- -- {- INLINE stellaWsync -}
--- stellaWsync :: MonadAtari ()
--- stellaWsync = do
---     hpos' <- load hpos
---     -- Run instructions until we're at start of new scan line
---     when (hpos' > 0) $ do
---         stellaTickFor 1 -- there's a smarter way to do this XXX
---         stellaWsync
-
--- http://atariage.com/forums/topic/107527-atari-2600-vsyncvblank/
-
--- stellaTickFor :: Int -> MonadAtari ()
--- stellaTickFor d = do
---     n <- load ahead
---     if d > n
---         then do
---             stellaTickFor' (d-n)
---             ahead @= 0
---         else ahead @= (n-d)
--- 
--- stellaTickFor' :: Int -> MonadAtari ()
--- stellaTickFor' diff = do
---     when (diff >= 0) $ do
---         -- Batch together items that don't need to be
---         -- carried out on individual ticks
---         modifyStellaClock id (+ fromIntegral diff)
---         replicateM_ (fromIntegral diff) $ timerTick
---         resmp0' <- load resmp0
---         resmp1' <- load resmp1
---         -- XXX surely this must be done every time - collisions
---         clampMissiles resmp0' resmp1'
--- 
---         parityRef <- view frameParity
---         parity <- liftIO $ readIORef parityRef
---         ptr' <- view (if parity then textureData else lastTextureData)
---         -- XXX Not sure stellaDebug actually changes here so may be some redundancy
---         stellaTick (fromIntegral diff) ptr'
 
 -- {-# INLINE pureReadRom #-}
 -- | pureReadRom sees address in full 6507 range 0x0000-0x1fff
@@ -1333,21 +1277,6 @@ renderDisplay = do
     waitUntilNextFrameDue
     liftIO $ SDL.glSwapWindow window
     return ()
-
--- If the emulator is just starting, or restarting after a pause,
--- then the time for the next frame needs to be pushed forward
--- until after the current time.
-resetNextFrame :: MonadAtari ()
-resetNextFrame = do
-    liftIO $ print "Resetting clock"
-    t <- liftIO $ getTime Realtime
-    let nt = addTime t (1000000000 `div` fps)
-    nextFrameTimeRef <- view nextFrameTime
-    liftIO $ writeIORef nextFrameTimeRef nt
-
-gtTime :: TimeSpec -> TimeSpec -> Bool
-gtTime (TimeSpec sec0 nsec0) (TimeSpec sec1 nsec1) =
-    sec0 > sec1 || sec0 == sec1 && nsec0 > nsec1
 
 waitUntilNextFrameDue :: MonadAtari ()
 waitUntilNextFrameDue = do

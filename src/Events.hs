@@ -17,6 +17,7 @@ import Control.Concurrent
 import Metrics
 import Data.Array.Storable
 import Debugger
+import Stella
 import qualified Data.Map.Strict as M
 #if TRACE
 import System.IO

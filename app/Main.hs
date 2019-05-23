@@ -22,6 +22,7 @@ import Events
 import Keys
 import Memory
 import Metrics
+import Stella
 import Prelude hiding (last)
 import SDL.Event
 import Step
