@@ -17,7 +17,7 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  ghc-options:         -O -Wall -fwarn-missing-signatures -ddump-simpl -ddump-asm
+  ghc-options:         -O -Wall -fwarn-missing-signatures 
   extensions: CPP
   cpp-options: -DTRACE=0
   extensions:          
@@ -43,7 +43,7 @@ library
 executable stellarator-exe
   hs-source-dirs:      app
   main-is:             Main.hs
-  ghc-options:         -O -Wall -fwarn-missing-signatures -ddump-simpl -ddump-asm 
+  ghc-options:         -O -Wall -fwarn-missing-signatures
   extensions: CPP
   cpp-options: -DTRACE=0
   build-depends:       base
@@ -64,33 +64,6 @@ executable stellarator-exe
                      , haskeline
                      , containers
                      , OpenGL
-                     , Stellarator
-  default-language:    Haskell2010
-
-executable experiment-exe
-  hs-source-dirs:      experiment
-  main-is:             Main.hs
-  extensions:         
-  ghc-options:         -O -Wall -fwarn-missing-signatures -ddump-simpl -ddump-asm 
-  build-depends:       base
-                     , sdl2
-                     , clock
-                     , bytestring
-                     , vector
-                     , array
-                     , mtl
-                     , lens
-                     , binary
-                     , cmdargs
-                     , monad-loops
-                     , parsec
-                     , hashable
-                     , unordered-containers
-                     , binary
-                     , random
-                     , haskeline
-                     , containers
-                     , distributive
                      , Stellarator
   default-language:    Haskell2010
  

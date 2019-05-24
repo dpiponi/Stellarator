@@ -9,7 +9,7 @@ import Data.Bits
 import DebugCmd
 import DebugState
 import Disasm
-import Emulation hiding (hi, lo)
+import Emulation
 import VideoOps
 import Numeric
 import System.Console.Haskeline

@@ -1,6 +1,6 @@
 module Stella where
 
-import Asm
+import Asm hiding (a)
 import Atari2600
 -- import Data.Bits hiding (bit)
 import Data.Word

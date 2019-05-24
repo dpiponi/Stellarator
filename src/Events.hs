@@ -2,7 +2,7 @@ module Events where
 
 import SDL.Event
 import SDL.Input.Keyboard
-import Keys
+import Keys hiding (debugMode)
 import Atari2600
 import SDL.Vect
 import Emulation
