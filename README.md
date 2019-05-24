@@ -281,10 +281,11 @@ Lots of games work:
 | Planet Patrol          | Seems to play fine apart from a bad pixel at top of screen               |
 | Pole Position          | Seems to play fine modulo some misrendered pixels.                       |
 | Q*Bert                 | Seems to play fine                                                       |
-| Quest for Quintana Roo | Seems to play fine but hard to tell.                                     |
+| Quest for Quintana Roo | Seems to play fine.                                                      |
 | Raiders of Lost Ark    | Starts fine. Might need controllers I don't emulate yet.                 |
 | River Patrol           | Use -b 3f. Seems to play fine.                                           |
 | River Raid             | Seems to play fine.                                                      |
+| Robin Hood             | Seems to play fine.                                                      |
 | Sea Hawk               | Seems to play fine.                                                      |
 | Secret Quest           | Use -b f6sc. Seems to play fine.                                         |
 | Space Canyon           | Has an illegal opcode. It's clearly there in disassembly :-(             |
