@@ -274,7 +274,8 @@ Lots of games work:
 | Millipede              | Seems to work.                                                           |
 | Miner 2049er           | Use -b 3f. Seems to work fine.                                           |
 | Montezuma's Revenge    | Use -b e0. Seems to play fine.                                           |
-| Moonsweeper            | Seems to play fine.                                                      |
+| Motocross              | Seems to play fine.                                                      |
+| Ms. Pacman             | Seems to play fine.                                                      |
 | Pacman                 | Seems to work fine. Flickering is normal.                                |
 | Phoenix                | Seems to work fine.                                                      |
 | Pinball                | Seems to work fine.                                                      |

@@ -4,7 +4,6 @@ import Atari2600
 import Data.Bits hiding (bit)
 import Data.Word
 import Prelude hiding (last, and)
--- import Control.Lens
 import Control.Monad
 
 -- {-# INLINE i8 #-}
