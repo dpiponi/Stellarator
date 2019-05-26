@@ -140,3 +140,10 @@ makePlayfield = do
     ctrlpf' <- load ctrlpf
     let pf' = assemblePlayfield (testBit ctrlpf' 0) pf0' pf1' pf2'
     pf @= pf'
+
+startIntervalTimerN :: Int -> Word8 -> MonadAtari ()
+startIntervalTimerN n v = do
+    interval @= n
+    subtimer @= 0 -- Was 3*n-1
+    intim @= v
+    timint @= 0

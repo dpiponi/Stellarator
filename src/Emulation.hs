@@ -731,12 +731,12 @@ rts = do
 --     interval @= interval''
 --     timint @= timint''
 
-startIntervalTimerN :: Int -> Word8 -> MonadAtari ()
-startIntervalTimerN n v = do
-    interval @= n
-    subtimer @= 0 -- Was 3*n-1
-    intim @= v
-    timint @= 0
+-- startIntervalTimerN :: Int -> Word8 -> MonadAtari ()
+-- startIntervalTimerN n v = do
+--     interval @= n
+--     subtimer @= 0 -- Was 3*n-1
+--     intim @= v
+--     timint @= 0
 
 makeDelayArray:: [(Word16, Int)] -> IO (IOUArray Word16 Int)
 makeDelayArray delayList = do
