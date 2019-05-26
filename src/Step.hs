@@ -5,7 +5,6 @@ import Emulation
 import Atari2600
 import Prelude hiding (and)
 import Data.Int
-import Control.Monad.IO.Class
 import Control.Monad
 import ALU
 

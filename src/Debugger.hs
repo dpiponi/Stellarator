@@ -254,14 +254,20 @@ execUntil cond repeatedCmd = loop >> return KeepDebugging where
 
 runDebugger :: MonadAtari ()
 runDebugger = do
-    Just line <- liftIO $ runInputT (defaultSettings { historyFile=Just ".stellarator" }) $ getInputLine "> "
-    let cmd = parse parseCommands "" line
-    case cmd of
-        Right cmd' -> do
-            q <- execCommand cmd'
-            case q of
-                KeepDebugging -> runDebugger
-                Continue      -> return ()
-        Left e -> do
-            liftIO $ print e
-            runDebugger
+    let settings = defaultSettings { historyFile=Just ".stellarator" }
+    mline <- liftIO $ runInputT settings $ getInputLine "> "
+    case mline of
+          Nothing -> do
+              liftIO $ print "IO Error"
+              runDebugger
+          Just line -> do
+              let cmd = parse parseCommands "" line
+              case cmd of
+                  Right cmd' -> do
+                      q <- execCommand cmd'
+                      case q of
+                          KeepDebugging -> runDebugger
+                          Continue      -> return ()
+                  Left e -> do
+                      liftIO $ print e
+                      runDebugger

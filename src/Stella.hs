@@ -99,7 +99,7 @@ stellaTickFor' diff = do
         stellaTick (fromIntegral diff) ptr'
 
 timerTick' :: Word8 -> Int -> Int -> Word8 -> (Word8, Int, Int, Word8)
-timerTick' 0      0         _         _       = (-1,       3*1-1,         1,         0x80)
+timerTick' 0      0         _         _       = (0xff,       3*1-1,         1,         0x80)
 timerTick' intim' 0         interval' timint' = (intim'-1, 3*interval'-1, interval', timint')
 timerTick' intim' subtimer' interval' timint' = (intim',   subtimer'-1,   interval', timint')
 
