@@ -1,12 +1,12 @@
 module Events where
 
-import SDL.Event
-import SDL.Input.Keyboard
+-- import SDL.Event
+-- import SDL.Input.Keyboard
 import Keys hiding (debugMode)
 import Atari2600
-import SDL.Vect
+-- import SDL.Vect
 import Emulation
-import qualified SDL
+-- import qualified SDL
 import Control.Monad.Reader
 import Control.Lens
 import Asm
@@ -18,6 +18,7 @@ import Metrics
 import Data.Array.Storable
 import Debugger
 import Stella
+import Graphics.UI.GLFW
 import qualified Data.Map.Strict as M
 #if TRACE
 import System.IO

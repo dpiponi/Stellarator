@@ -18,6 +18,7 @@ import Data.Int
 import CPU
 import Data.Word
 import DebugState
+import Control.Concurrent
 import Disasm hiding (make16)
 import Display
 import Foreign.Ptr
@@ -29,7 +30,8 @@ import Prelude hiding (last, and)
 import System.Clock
 -- import VideoOps hiding (bit)
 import qualified Graphics.Rendering.OpenGL as GL
-import qualified SDL
+-- import qualified SDL
+import Graphics.UI.GLFW hiding (getTime)
 #if TRACE
 import Data.Array.Storable
 #endif
@@ -699,7 +701,7 @@ initState :: Int -> Int -> Int -> Int ->
              BankState ->
              IOUArray Int Word8 ->
              Word16 ->
-             SDL.Window -> 
+             Window -> 
              GL.Program ->
              GL.AttribLocation ->
              GL.TextureObject ->
@@ -1113,7 +1115,7 @@ renderDisplay = do
     liftIO $ draw windowWidth' windowHeight' prog attrib
 
     waitUntilNextFrameDue
-    liftIO $ SDL.glSwapWindow window
+    liftIO $ swapBuffers window
     return ()
 
 waitUntilNextFrameDue :: MonadAtari ()
@@ -1127,7 +1129,8 @@ waitUntilNextFrameDue = do
     let timeToGo = fromIntegral secondsToGo+fromIntegral nanosecondsToGo/1e9 :: Double
     when (nextFrameTime' `gtTime` t) $ do
         let milliSecondsToGo = 1000.0 * timeToGo
-        liftIO $ SDL.delay $ floor milliSecondsToGo
+--         liftIO $ SDL.delay $ floor milliSecondsToGo
+        liftIO $ threadDelay $ floor milliSecondsToGo
 
 initHardware :: MonadAtari ()
 initHardware = do

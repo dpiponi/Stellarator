@@ -22,9 +22,10 @@ library
   cpp-options: -DTRACE=0
   extensions:          
   exposed-modules:     TIAColors, Binary, Disasm,
-                       DebugCmd, Memory, Asm, DebugState, Atari2600, Debugger, Metrics, BitManips, Step, Stella, CPU, ALU, Emulation, VideoOps, Display, Keys, Events
+                       DebugCmd, Memory, Asm, DebugState, Atari2600, Debugger, Metrics, BitManips, Step, Stella, CPU, ALU, Emulation, VideoOps, Display, Keys
+                       -- Events
   build-depends:       base
-                     , sdl2
+                     , GLFW-b
                      , clock
                      , bytestring
                      , vector
@@ -47,7 +48,7 @@ executable stellarator-exe
   extensions: CPP
   cpp-options: -DTRACE=0
   build-depends:       base
-                     , sdl2
+                     , GLFW-b
                      , clock
                      , bytestring
                      , vector

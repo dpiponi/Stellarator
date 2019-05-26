@@ -9,6 +9,7 @@
 
 module Main where
 
+import Prelude hiding (last, init)
 import Atari2600
 import Binary
 import Control.Monad
@@ -16,18 +17,19 @@ import Control.Monad.Reader
 import Data.Array.IO
 import Data.Binary hiding (get)
 import Debugger
+import System.Exit
 import Display
 import Emulation
-import Events
+-- import Events
 import Keys
 import Memory
 import Metrics
 import Stella
-import Prelude hiding (last)
-import SDL.Event
+-- import SDL.Event
 import Step
 import System.Console.CmdArgs hiding ((+=))
-import qualified SDL
+-- import qualified SDL
+import Graphics.UI.GLFW
 #if TRACE
 import Data.Array.Storable
 #endif
@@ -134,7 +136,8 @@ main = do
     let controllerType = read controllerTypeString
     let alpha = motionBlurAlpha options'
 
-    SDL.initialize [SDL.InitVideo] --, SDL.InitAudio]
+    rc <- init
+    when (not rc) $ die "Couldn't init"
     window <- makeMainWindow screenScaleX' screenScaleY'
 
     (prog, attrib, tex', lastTex', textureData', lastTextureData') <- initResources alpha
@@ -162,9 +165,12 @@ main = do
                        controllerType
 
     let loop = do
-            events <- liftIO $ SDL.pollEvents
+    -- XXX Events
+--             events <- liftIO $ SDL.pollEvents
 
-            forM_ events $ \event -> handleEvent atariKeys (eventPayload event)
+--             forM_ events $ \event -> handleEvent atariKeys (eventPayload event)
+--             liftIO $ print "loop"
+            liftIO pollEvents
             stellaClock' <- useStellaClock id
             loopUntil (stellaClock' + 1000)
 
@@ -176,6 +182,6 @@ main = do
             resetNextFrame
             loop
 
-    SDL.destroyWindow window
+    destroyWindow window
     -- XXX Free malloced data?
-    SDL.quit
+    terminate

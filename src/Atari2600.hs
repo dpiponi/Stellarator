@@ -88,7 +88,7 @@ import Data.Bits.Lens
 import Data.IORef
 import Data.Int
 import Data.Word
-import qualified SDL
+import qualified Graphics.UI.GLFW as GLFW
 import Foreign.Ptr
 import DebugState
 import Memory
@@ -121,7 +121,7 @@ data Atari2600 = Atari2600 {
 
     _controllers :: Controllers,
 
-    _sdlWindow :: !SDL.Window,
+    _sdlWindow :: !GLFW.Window,
     _textureData :: Ptr Word8,
     _lastTextureData :: Ptr Word8,
     _tex :: !GL.TextureObject,

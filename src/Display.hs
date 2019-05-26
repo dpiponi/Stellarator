@@ -12,16 +12,17 @@ import Metrics
 import Foreign.Marshal.Alloc
 import Foreign.Ptr
 import Foreign.Storable
-import SDL (($=))
+import System.Exit
 
 import System.Exit (exitFailure)
 import System.IO
 import TIAColors
 import qualified Data.ByteString as BS
 import qualified Data.Vector.Storable as V
+import Graphics.Rendering.OpenGL (($=))
 import qualified Graphics.Rendering.OpenGL as GL
-import qualified SDL
-import SDL.Vect
+import Graphics.UI.GLFW
+-- import SDL.Vect
 
 -- | Inform OpenGL about new pixel data.
 updateTexture :: GL.TextureObject -> Ptr Word8 -> IO ()
@@ -231,24 +232,42 @@ vertices = V.fromList [ -1.0, -1.0
                       , -1.0,  1.0
                       ]
 
-makeMainWindow :: Int -> Int -> IO SDL.Window
+makeMainWindow :: Int -> Int -> IO Window
 makeMainWindow screenScaleX' screenScaleY' = do
-    window <- SDL.createWindow "Stellarator"
-                SDL.defaultWindow {
---                     SDL.windowMode = SDL.FullscreenDesktop,
-                    SDL.windowInitialSize = V2 (fromIntegral $ screenScaleX'*screenWidth)
-                    (fromIntegral $ screenScaleY'*screenHeight),
-                    SDL.windowOpenGL = Just $ SDL.OpenGLConfig {
-                        SDL.glColorPrecision = V4 8 8 8 0,
-                        SDL.glDepthPrecision = 24,
-                        SDL.glStencilPrecision = 8,
-                        SDL.glMultisampleSamples = 1,
-                        SDL.glProfile = SDL.Compatibility SDL.Normal 2 1
-                        }}
+    
+    windowHint (WindowHint'OpenGLProfile OpenGLProfile'Any)
+    windowHint (WindowHint'DoubleBuffer True)
+    windowHint (WindowHint'ContextVersionMajor 2)
+    windowHint (WindowHint'ContextVersionMinor 1)
 
-    SDL.showWindow window
-    _ <- SDL.glCreateContext window
-    SDL.swapInterval $= SDL.SynchronizedUpdates
---     SDL.swapInterval $= SDL.ImmediateUpdates
+    mWindow <- createWindow (fromIntegral $ screenScaleX'*screenWidth)
+                            (fromIntegral $ screenScaleY'*screenHeight)
+                            "Stellarator"
+                            Nothing
+                            Nothing
+    case mWindow of
+        Nothing -> die "Couldn't create window"
+        Just window -> do
+            makeContextCurrent (Just window)
+            print "Created window"
+--             setKeyCallback window (Just keyCallback)
 
-    return window
+--             window <- SDL.createWindow "Stellarator"
+--                         SDL.defaultWindow {
+--         --                     SDL.windowMode = SDL.FullscreenDesktop,
+--                             SDL.windowInitialSize = V2 (fromIntegral $ screenScaleX'*screenWidth)
+--                             (fromIntegral $ screenScaleY'*screenHeight),
+--                             SDL.windowOpenGL = Just $ SDL.OpenGLConfig {
+--                                 SDL.glColorPrecision = V4 8 8 8 0,
+--                                 SDL.glDepthPrecision = 24,
+--                                 SDL.glStencilPrecision = 8,
+--                                 SDL.glMultisampleSamples = 1,
+--                                 SDL.glProfile = SDL.Compatibility SDL.Normal 2 1
+--                                 }}
+-- 
+--             SDL.showWindow window
+--             _ <- SDL.glCreateContext window
+--             SDL.swapInterval $= SDL.SynchronizedUpdates
+        --     SDL.swapInterval $= SDL.ImmediateUpdates
+
+            return window
