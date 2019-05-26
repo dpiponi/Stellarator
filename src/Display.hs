@@ -242,7 +242,7 @@ makeMainWindow screenScaleX' screenScaleY' = do
                         SDL.glColorPrecision = V4 8 8 8 0,
                         SDL.glDepthPrecision = 24,
                         SDL.glStencilPrecision = 8,
-                        --SDL.glMultisampleSamples = 1,
+                        SDL.glMultisampleSamples = 1,
                         SDL.glProfile = SDL.Compatibility SDL.Normal 2 1
                         }}
 

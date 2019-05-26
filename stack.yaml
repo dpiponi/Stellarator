@@ -5,4 +5,4 @@ extra-lib-dirs:
 packages:
 - .
 extra-deps: []
-resolver: lts-7.10
+resolver: lts-13.23
