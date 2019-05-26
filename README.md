@@ -12,7 +12,8 @@ It'll run Adventure if you have the rom.
 
 News
 ----
-* Runs at correct frame rate now. (Code a bit messy though.)
+* I'm going to port from SDL to GLFW and then maybe I can make audio work.
+* Runs at correct frame rate now.
 * Added second joystick emulation.
 * I'm sure millipede didn't used to work but now it does!
 * Added motion blur. Makes Asteroids and Basic look nice.
@@ -115,8 +116,6 @@ Command line options
 Notes
 -----
 * The emulation isn't perfect but it's getting there.
-* The frame rate is locked to whatever your display refresh rate is.
-* I've made no attempt to lock to NTSC's 60 Hz.
 * There is no audio yet..
 
 Note that although 99% of the video functionality is in place, many games
@@ -332,17 +331,3 @@ Vertically is time measured in the number of writes.
 By default each row corresponds to the average value of each bit over 512 writes.
 The colour indicates intensity of activity.
 Blue indicates fewer writes to those bits, yellow indicates more.
-
-Some notes on writing an emulator in Haskell
----------------------------------------------
-
-The obvious choice of language for an emulator is C. It's easy to write fast code for manipulating bits and bytes.
-So writing in Haskell was an unusual choice and an interesting challenge. Here are some of the observations I made.
-
-* It took me a while to figure out how to write fast code. There's lots of mutable state and I think the garbage collector gets notified about these changes. So to hide everything from the garbage collector I put much of the state into arrays of bytes and words. You can see the code in `Asm.hs`. I called it that because it meant that a lot of my Haskell code looks like assembly language. Type safe assembly language at least.
-* I've never written so much code *without* getting random inexplicable bugs. Most bugs that came up were because I hadn't written code to cover all cases. Failures were largely because of me not understanding the weird Atari hardware, not because I'd failed to translate my understanding into Haskell. When bugs did arise it was often possible to fix them through simply thinking rather than my usual bug hunting methods. Very few segmentation faults. The moment I tried writing audio code I started getting crashes so I'm postponing that.
-* It was frustrating not having the option to simply throw in global variables like I would in C. Any changes in state need to be threaded through all of the code. The `AtariMonad` hides much of this but it's still a bit painful. The pain does pay off in terms of having better behaved code though.
-* I loved that I was able to refactor code and have it run successfully first time (or almost first time). Strict types really do keep you safe. I already know Haskell is good for this, but it was surprising to see reality match theory.
-* Haskell can be prettty verbose. C code that looks like `(a<<8)&0xf0)|(a>>8)&0xf0` needs a lot of typing in Haskell. And some of the state updates were a bit verbose, even with some helper functions.
-* There is interest in linear types in Haskell. I think it would be a perfect fit for writing emulators.I think this might allow me to get rid of `Asm.hs` without sacrficing performance. But the back end of the compiler really has to know how to exploit it and the proposal isn't currently focussed on performance. https://ghc.haskell.org/trac/ghc/wiki/LinearTypes
-* Haskell compile times are painful. I bet a C version of this code would compile from scratch in 3-4 seconds. It's taking minutes to compile the Haskell. This means the idea->compile->test loop is much longer than I'd like. Thankfully type checking means mistakes are often caught early in compilation.
