@@ -125,16 +125,14 @@ handleKey atariKeys motion key = do
                 GameReset        -> modify swchb $ bitAt 0 .~ not pressed
                 DumpState        -> Emulation.dumpState
                 GameQuit         -> liftIO $ exitSuccess
-                {- XXX Need to come back here!
                 EnterDebugger    -> when pressed $ do
                                         -- Throw away SDL events
                                         -- Rewrite as a withXXX XXX
-                                        t <- liftIO $ forkIO $ let spin = SDL.pollEvents >> spin in spin
+--                                         t <- liftIO $ forkIO $ let spin = SDL.pollEvents >> spin in spin
                                         Emulation.dumpState
                                         runDebugger
-                                        liftIO $ killThread t
+--                                         liftIO $ killThread t
                                         resetNextFrame
-                -}
                 DebugMode        -> when pressed $ do
                                         modify debugColours not
                                         debugMode <- load debugColours
