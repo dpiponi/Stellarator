@@ -209,3 +209,10 @@ readStella addr = do
         0x284 -> load intim
         0x285 -> load timint
         _ -> return 0 
+
+graphicsDelay :: Int -> MonadAtari ()
+graphicsDelay d = do
+    n <- load ahead
+    when (d > n) $ do
+            stellaTickFor' (d-n)
+            ahead @= d

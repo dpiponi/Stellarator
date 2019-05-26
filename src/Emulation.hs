@@ -1060,13 +1060,6 @@ dumpState = do
     dumpMemory
     dumpRegisters
 
-graphicsDelay :: Int -> MonadAtari ()
-graphicsDelay d = do
-    n <- load ahead
-    when (d > n) $ do
-            stellaTickFor' (d-n)
-            ahead @= d
-
 {-
  - TIA Summary
 
