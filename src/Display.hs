@@ -13,6 +13,9 @@ import Foreign.Marshal.Alloc
 import Foreign.Ptr
 import Foreign.Storable
 import System.Exit
+import Data.Dequeue
+import Data.IORef
+import Keys
 
 import System.Exit (exitFailure)
 import System.IO
@@ -232,8 +235,8 @@ vertices = V.fromList [ -1.0, -1.0
                       , -1.0,  1.0
                       ]
 
-makeMainWindow :: Int -> Int -> IO Window
-makeMainWindow screenScaleX' screenScaleY' = do
+makeMainWindow :: Int -> Int -> IORef (BankersDequeue UIKey) -> IO Window
+makeMainWindow screenScaleX' screenScaleY' queue = do
     
     windowHint (WindowHint'OpenGLProfile OpenGLProfile'Any)
     windowHint (WindowHint'DoubleBuffer True)
@@ -248,6 +251,12 @@ makeMainWindow screenScaleX' screenScaleY' = do
     case mWindow of
         Nothing -> die "Couldn't create window"
         Just window -> do
+
+            let keyCallback window key someInt state mods = do
+                        print (window, key, someInt, state, mods)
+                        modifyIORef queue (flip pushBack (UIKey key someInt state mods))
+            setKeyCallback window (Just keyCallback)
+
             makeContextCurrent (Just window)
             print "Created window"
 --             setKeyCallback window (Just keyCallback)

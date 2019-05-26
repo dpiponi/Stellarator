@@ -9,7 +9,7 @@
 
 module Main where
 
-import Prelude hiding (last, init)
+import Prelude hiding (last, init, null)
 import Atari2600
 import Binary
 import Control.Monad
@@ -20,7 +20,7 @@ import Debugger
 import System.Exit
 import Display
 import Emulation
--- import Events
+import Events
 import Keys
 import Memory
 import Metrics
@@ -30,6 +30,8 @@ import Step
 import System.Console.CmdArgs hiding ((+=))
 -- import qualified SDL
 import Graphics.UI.GLFW
+import Data.IORef
+import Data.Dequeue
 #if TRACE
 import Data.Array.Storable
 #endif
@@ -138,7 +140,8 @@ main = do
 
     rc <- init
     when (not rc) $ die "Couldn't init"
-    window <- makeMainWindow screenScaleX' screenScaleY'
+    queueRef <- newIORef empty
+    window <- makeMainWindow screenScaleX' screenScaleY' queueRef
 
     (prog, attrib, tex', lastTex', textureData', lastTextureData') <- initResources alpha
 
@@ -171,6 +174,13 @@ main = do
 --             forM_ events $ \event -> handleEvent atariKeys (eventPayload event)
 --             liftIO $ print "loop"
             liftIO pollEvents
+            queue <- liftIO $ readIORef queueRef
+            when (not (null queue)) $ do
+                let Just (queuedKey, queue') = popFront queue
+                liftIO $ print queue
+                liftIO $ writeIORef queueRef queue'
+                let UIKey {uiKey = key, uiState = motion} = queuedKey
+                handleKey atariKeys motion key
             stellaClock' <- useStellaClock id
             loopUntil (stellaClock' + 1000)
 

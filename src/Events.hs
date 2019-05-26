@@ -26,18 +26,21 @@ import Data.IORef
 #endif
 
 {- INLINE isPressed -}
-isPressed :: InputMotion -> Bool
-isPressed Pressed = True
-isPressed Released = False
+isPressed :: KeyState -> Bool
+isPressed KeyState'Pressed = True
+isPressed KeyState'Repeating = True -- I don't know!
+isPressed KeyState'Released = False
 
-handleEvent :: AtariKeys -> EventPayload -> MonadAtari ()
-
+-- XXX Move to Stella?
 {- INLINE setBreak -}
 setBreak :: Int -> Int -> MonadAtari ()
 setBreak breakX breakY = do
     xbreak @= (breakX+picx)
     ybreak @= (breakY+picy)
 
+{-
+-- Handle events later XXX
+handleEvent :: AtariKeys -> EventPayload -> MonadAtari ()
 handleEvent _ (MouseButtonEvent (MouseButtonEventData _ Pressed _ ButtonLeft _ pos)) = do
     xscale' <- view xscale
     yscale' <- view yscale
@@ -55,6 +58,7 @@ handleEvent _ (MouseMotionEvent (MouseMotionEventData _ _ [ButtonLeft] pos _)) =
 handleEvent atariKeys (KeyboardEvent (KeyboardEventData _ motion _ sym)) = handleKey atariKeys motion sym
 
 handleEvent _ _ = return ()
+-}
 
 doDelayUp :: MonadAtari ()
 doDelayUp = do
@@ -95,10 +99,10 @@ trigger2Pressed pressed = do
         (True, True ) -> modify inpt5 $ bitAt 7 .~ False
 
 -- XXX probably get ride of case
-handleKey :: AtariKeys -> InputMotion -> Keysym -> MonadAtari ()
-handleKey atariKeys motion sym = do
-    let scancode = keysymScancode sym
-    let mAtariKey = M.lookup scancode atariKeys
+handleKey :: AtariKeys -> KeyState -> Key -> MonadAtari ()
+handleKey atariKeys motion key = do
+--     let scancode = keysymScancode sym
+    let mAtariKey = M.lookup key atariKeys
     case mAtariKey of
         Nothing -> return ()
         Just atariKey -> do
@@ -121,6 +125,7 @@ handleKey atariKeys motion sym = do
                 GameReset        -> modify swchb $ bitAt 0 .~ not pressed
                 DumpState        -> Emulation.dumpState
                 GameQuit         -> liftIO $ exitSuccess
+                {- XXX Need to come back here!
                 EnterDebugger    -> when pressed $ do
                                         -- Throw away SDL events
                                         -- Rewrite as a withXXX XXX
@@ -129,6 +134,7 @@ handleKey atariKeys motion sym = do
                                         runDebugger
                                         liftIO $ killThread t
                                         resetNextFrame
+                -}
                 DebugMode        -> when pressed $ do
                                         modify debugColours not
                                         debugMode <- load debugColours

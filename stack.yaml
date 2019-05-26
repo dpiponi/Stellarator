@@ -4,5 +4,6 @@ extra-lib-dirs:
 - /usr/lib
 packages:
 - .
-extra-deps: []
+extra-deps:
+- dequeue-0.1.12@sha256:547c2a71819dca0ae1bf7c15fb290b39f80d5d9a6f9985a06a1cb8645b578df2
 resolver: lts-13.23

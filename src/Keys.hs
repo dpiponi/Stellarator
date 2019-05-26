@@ -407,3 +407,6 @@ keysFromOptions options = do
                 ]
     return $ M.fromList $ concat $ [zip scancodeLists (repeat deviceKeys) |
                                     (scancodeLists, deviceKeys) <- zip scancodes atariKeys]
+
+data UIKey = UIKey { uiKey :: Key, uiScancode :: Int, uiState :: KeyState, uiMods :: ModifierKeys }
+                   deriving Show
