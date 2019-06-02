@@ -282,7 +282,7 @@ Lots of games work:
 | Pinball                | Seems to work fine.                                                      |
 | Planet Patrol          | Seems to play fine apart from a bad pixel at top of screen               |
 | Pole Position          | Seems to play fine modulo some misrendered pixels.                       |
-| Q*Bert                 | Seems to play fine                                                       |
+| Q*Bert                 | Seems to play fine. Use qbert-options and keys I,O,K,L.                  |
 | Quest for Quintana Roo | Seems to play fine.                                                      |
 | Raiders of Lost Ark    | Starts fine. Might need controllers I don't emulate yet.                 |
 | River Patrol           | Use -b 3f. Seems to play fine.                                           |

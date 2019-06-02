@@ -32,6 +32,7 @@ import System.Console.CmdArgs hiding ((+=))
 import Graphics.UI.GLFW
 import Data.IORef
 import Data.Dequeue
+import Sound.ProteaAudio
 #if TRACE
 import Data.Array.Storable
 #endif
@@ -138,10 +139,14 @@ main = do
     let controllerType = read controllerTypeString
     let alpha = motionBlurAlpha options'
 
-    rc <- init
-    when (not rc) $ die "Couldn't init"
+    rc <- init -- init video
+    when (not rc) $ die "Couldn't init graphics"
     queueRef <- newIORef empty
     window <- makeMainWindow screenScaleX' screenScaleY' queueRef
+
+    -- init audio
+    result <- initAudio 64 44100 1024
+    unless result $ die "Couldn't init sound"
 
     (prog, attrib, tex', lastTex', textureData', lastTextureData') <- initResources alpha
 

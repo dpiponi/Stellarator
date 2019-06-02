@@ -9,13 +9,17 @@ module Emulation where
 
 import Asm hiding (a, s)
 import Atari2600
+import System.IO.Unsafe
 import Control.Lens hiding (set, op, index)
 import Control.Monad.Reader
+import Data.Maybe
 import Data.Array.IO hiding (index)
 import Data.Bits hiding (bit)
+import Data.ByteString hiding (putStrLn, putStr)
 import Data.IORef
 import Data.Int
 import CPU
+import Sound.ProteaAudio
 import Data.Word
 import DebugState
 import Control.Concurrent
@@ -1025,6 +1029,17 @@ dumpState = do
 
 -}
 
+samplesRef = unsafePerformIO (newIORef Nothing)
+audioSamples = pack [truncate (127*sin(10*2*pi*t/1024)) | t <- [0..4095]]
+
+doAudio v = do
+    x <- readIORef samplesRef
+--     when (isJust x) $ void $ soundStop (fromJust x)
+    when (isNothing x) $ do
+        samples <- sampleFromMemoryPcm audioSamples 1 44100 8 (fromIntegral (0xf .&. 0xf::Word8) / 15.0)
+        writeIORef samplesRef (Just samples)
+        soundLoop samples 1 1 0 1 -- left volume, right volume, time difference between left and right, pitch factor for playback
+
 -- {- INLINABLE writeStella -}
 writeStella :: Word16 -> Word8 -> MonadAtari ()
 writeStella addr v = do
@@ -1057,6 +1072,14 @@ writeStella addr v = do
        0x12 -> (pcStep @-> pcResm0) >> hpos @-> mpos0 -- RESM0
        0x13 -> (pcStep @-> pcResm1) >> hpos @-> mpos1 -- RESM1
        0x14 -> (pcStep @-> pcResbl) >> load hpos >>= (return . max (picx+2)) >>= (bpos @=)  -- RESBL
+       0x15 -> return () -- liftIO $ putStrLn $ "AUDC0 = " ++ showHex v ""
+       0x16 -> return () -- liftIO $ putStrLn $ "AUDC1 = " ++ showHex v ""
+       0x17 -> return () -- liftIO $ putStrLn $ "AUDF0 = " ++ showHex v ""
+       0x18 -> return () -- liftIO $ putStrLn $ "AUDF1 = " ++ showHex v ""
+       0x19 -> return () -- liftIO $ do
+                        -- putStrLn $ "AUDV0 = " ++ showHex v ""
+                        -- doAudio v
+       0x1a -> return () -- liftIO $ putStrLn $ "AUDV1 = " ++ showHex v ""
        -- graphicsDelay of 1 chosen to stop spurious pixel in
        -- "CCE" in Freeway.
        0x1b -> do -- GRP0
