@@ -45,7 +45,6 @@ module Atari2600(
                  modifyClock,
                  useStellaClock,
                  controllers,
-                 bankState,
                  ram,
                  rom,
                  nextFrameTime,
@@ -91,7 +90,6 @@ import Data.Word
 import qualified Graphics.UI.GLFW as GLFW
 import Foreign.Ptr
 import DebugState
-import Memory
 import qualified Graphics.Rendering.OpenGL as GL
 import Asm
 
@@ -100,7 +98,6 @@ data Controllers = Joysticks | Keypads deriving (Eq, Show, Read)
 
 data Atari2600 = Atari2600 {
     _frameParity :: IORef Bool,
-    _bankState :: IORef BankState,
     _clock :: IORef Int64,
     _stellaClock :: IORef Int64,
     _stellaDebug :: IORef DebugState,

@@ -15,7 +15,6 @@ import Data.Bits
 import Text.Printf
 import Data.Int
 import Numeric
-import Memory
 
 inHex8 :: Word8 -> String
 inHex8 x = "0x" ++ showHex x ""
@@ -24,50 +23,7 @@ inHex16 :: Word16 -> String
 inHex16 x = "0x" ++ showHex x ""
 
 address8 :: Word8 -> String
-address8 x =
-    if isTIA (fromIntegral x)
-        then inHex8 x ++ case (x .&. 0x3f) of
-           0x00 -> "; VSYNC or CXM0P"
-           0x01 -> "; VBLANK or CXM1P"
-           0x02 -> "; WSYNC or CXP0FB"
-           0x03 -> "; RSYNC or CXP1FB"
-           0x04 -> "; NUSIZ0 or CXM0FB"
-           0x05 -> "; NUSIZ1 or CXM1FB"
-           0x06 -> "; COLUP0 or CXBLPF"
-           0x07 -> "; COLUP1 or CXPPMM"
-           0x08 -> "; COLUPF or INPT0"
-           0x09 -> "; COLUBK or INPT1"
-           0x0a -> "; CTRLPF or INPT2"
-           0x0b -> "; REFP0 or INPT3"
-           0x0c -> "; REFP1 or INPT4"
-           0x0d -> "; PF0 or INPT5"
-           0x0e -> "; PF1"
-           0x0f -> "; PF2"
-           0x10 -> "; RESP0"
-           0x11 -> "; RESP1"
-           0x12 -> "; RESM0"
-           0x13 -> "; RESM1"
-           0x14 -> "; RESBL"
-           0x1b -> "; GRP0"
-           0x1c -> "; GRP1"
-           0x1d -> "; ENAM0"
-           0x1e -> "; ENAM1"
-           0x1f -> "; ENABL"
-           0x20 -> "; HMP0"
-           0x21 -> "; HMP1"
-           0x22 -> "; HMM0"
-           0x23 -> "; HMM1"
-           0x24 -> "; HMBL"
-           0x25 -> "; VDELP0"
-           0x26 -> "; VDELP1"
-           0x27 -> "; VDELBL"
-           0x28 -> "; RESMP0"
-           0x29 -> "; RESMP1"
-           0x2A -> "; HMOVE"
-           0x2B -> "; HMCLR"
-           0x2C -> "; CXCLR"
-           _ -> ""
-        else inHex8 x
+address8 x = inHex8 x
 
 make16 :: Word8 -> Word8 -> Word16
 make16 lo hi = fromIntegral lo+(fromIntegral hi `shift` 8)

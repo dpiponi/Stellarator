@@ -7,19 +7,17 @@
 
 module Emulation where
 
-import Asm hiding (a, s)
+import Asm hiding (a, s, x)
 import Atari2600
-import System.IO.Unsafe
 import Control.Lens hiding (set, op, index)
 import Control.Monad.Reader
 import Data.Maybe
 import Data.Array.IO hiding (index)
 import Data.Bits hiding (bit)
-import Data.ByteString hiding (putStrLn, putStr)
+import Data.ByteString hiding (putStrLn, putStr, index)
 import Data.IORef
 import Data.Int
 import CPU
-import Sound.ProteaAudio
 import Data.Word
 import DebugState
 import Control.Concurrent
@@ -47,23 +45,15 @@ illegal :: Word8 -> MonadAtari ()
 --
 -- {-# INLINE readMemory #-}
 readMemory addr' = do
-    let addr = addr' .&. 0x1fff -- 6507
+    let addr = addr'
     byte <- pureReadMemory (memoryType addr) addr
-
-    atari <- ask
-    let bankStateRef = atari ^. bankState
-    liftIO $ modifyIORef bankStateRef $ bankSwitch addr 0
 
     return byte
 
 -- {-# INLINE writeMemory #-}
 writeMemory addr' v = do
-    let addr = addr' .&. 0x1fff -- 6507
+    let addr = addr'
     pureWriteMemory (memoryType addr) addr v
-
-    atari <- ask
-    let bankStateRef = atari ^. bankState
-    liftIO $ modifyIORef bankStateRef $ bankSwitch addr v
 
 -- {-# INLINE tick #-}
 tick :: Int -> MonadAtari ()
@@ -702,7 +692,6 @@ initState :: Int -> Int -> Int -> Int ->
 #if TRACE
              StorableArray Int Word8 ->
 #endif
-             BankState ->
              IOUArray Int Word8 ->
              Word16 ->
              Window -> 
@@ -719,9 +708,8 @@ initState xscale' yscale' width height ram'
 #if TRACE
             record'
 #endif
-            initBankState rom' initialPC window prog attrib initTex initLastTex initTextureData initLastTextureData delayList controllerType = do
+            rom' initialPC window prog attrib initTex initLastTex initTextureData initLastTextureData delayList controllerType = do
           stellaDebug' <- newIORef DebugState.start
-          bankState' <- newIORef initBankState
           t <- liftIO $ getTime Realtime
           let nt = addTime t (1000000000 `div` 60)
           nextFrameTime' <- newIORef nt
@@ -753,7 +741,6 @@ initState xscale' yscale' width height ram'
 #endif
               _ram = ram',
               _stellaDebug = stellaDebug',
-              _bankState = bankState',
               _clock = clock',
               _stellaClock = stellaClock',
               _boolArray = boolArray',
@@ -839,15 +826,11 @@ stellaVsync v = do
     vsync @= v
 
 -- {-# INLINE pureReadRom #-}
--- | pureReadRom sees address in full 6507 range 0x0000-0x1fff
 pureReadRom :: Word16 -> MonadAtari Word8
 pureReadRom addr = do
     atari <- ask
     let m = atari ^. rom
-    let bankStateRef = atari ^. bankState
-    bankState' <- liftIO $ readIORef bankStateRef
-    let bankedAddress = bankAddress bankState' addr
-    liftIO $ readArray m bankedAddress
+    liftIO $ readArray m (iz addr - 0xc000) -- Rom starts ac 0xc000
 
 -- {-# INLINE pureWriteRom #-}
 -- | pureWriteRom sees address in full 6507 range 0x0000-0x1fff
@@ -856,77 +839,34 @@ pureWriteRom :: Word16 -> Word8 -> MonadAtari ()
 pureWriteRom addr v = do
     atari <- ask
     let m = atari ^. rom
-    let bankStateRef = atari ^. bankState
-    bankState' <- liftIO $ readIORef bankStateRef
-    when (bankWritable bankState' addr) $ do
-        let bankedAddress = bankAddress bankState' addr
-        liftIO $ writeArray m bankedAddress v
+    liftIO $ writeArray m (iz addr - 0xc000) v
 
 -- {-# INLINE pureReadMemory #-}
--- | pureReadMemory expects an address in range 0x0000-0x1fff
--- The 'pure' refers to the fact that there are no side effects,
--- i.e. it won't trigger bank switching.
---
--- From http://atariage.com/forums/topic/27190-session-5-memory-architecture/
---
--- Atari 2600 Memory Map:
-----------------------
--- $0000-002F TIA Primary Image
--- $0030-005F [shadow] TIA
--- $0060-007F [shadow-partial] TIA
--- $0080-00FF 128 bytes of RAM Primary Image (zero page image)
--- $0100-002F [shadow] TIA
--- $0130-005F [shadow] TIA
--- $0160-017F [shadow-partial] TIA
--- $0180-01FF [shadow] 128 bytes of RAM (CPU stack image)
--- $0200-022F [shadow] TIA
--- $0230-025F [shadow] TIA
--- $0260-027F [shadow-partial] TIA
--- $0280-029F 6532-PIA I/O ports and timer Primary image
--- $02A0-02BF [shadow] 6532-PIA
--- $02C0-02DF [shadow] 6532-PIA
--- $02D0-02FF [shadow] 6532-PIA
--- $0300-032F [shadow] TIA
--- $0330-035F [shadow] TIA
--- $0360-037F [shadow-partial] TIA
--- $0380-039F [shadow] 6532-PIA
--- $03A0-03BF [shadow] 6532-PIA
--- $03C0-03DF [shadow] 6532-PIA
--- $03E0-03FF [shadow] 6532-PIA
--- $0400-07FF [shadow] Repeat the pattern from $0000-03FF
--- $0800-0BFF [shadow] Repeat the pattern from $0000-03FF
--- $0C00-0FFF [shadow] Repeat the pattern from $0000-03FF
---
--- $1000-17FF Lower 2K Cartridge ROM (4K carts start here)
--- $1800-1FFF Upper 2K Cartridge ROM (2K carts go here) 
 pureReadMemory :: MemoryType -> Word16 -> MonadAtari Word8
+pureReadMemory PPIA addr = do
+    liftIO $ putStrLn $ "Reading from PPIA: 0x" ++ showHex addr ""
+    return 0
+pureReadMemory VIA addr = do
+    liftIO $ putStrLn $ "Reading from VIA: 0x" ++ showHex addr ""
+    return 0
 pureReadMemory ROM  addr = pureReadRom addr
-pureReadMemory TIA  addr = readStella (addr `mod` 0x30) -- surprising!
-pureReadMemory RIOT addr = readStella (0x280+(addr .&. 0x1f))
 pureReadMemory RAM  addr = do
     atari <- ask
     let m = atari ^. ram
-    liftIO $ readArray m (iz addr .&. 0x7f)
+    liftIO $ readArray m (iz addr)
 
 -- {-# INLINE pureWriteMemory #-}
 pureWriteMemory :: MemoryType -> Word16 -> Word8 -> MonadAtari ()
-pureWriteMemory TIA  addr v = writeStella (addr .&. 0x3f) v
-pureWriteMemory RIOT addr v = writeStella (0x280+(addr .&. 0x1f)) v
+pureWriteMemory PPIA addr v = do
+    liftIO $ putStrLn $ "Writing 0x" ++ showHex v "" ++ " to PPIA: 0x" ++ showHex addr ""
+pureWriteMemory VIA addr v = do
+    liftIO $ putStrLn $ "Writing 0x" ++ showHex v "" ++ " to VIA: 0x" ++ showHex addr ""
 pureWriteMemory ROM  addr v = pureWriteRom addr v
 pureWriteMemory RAM  addr v = do
     atari <- ask
     let m = atari ^. ram
-#if TRACE
-    let r = atari ^. record
-    i <- liftIO $ readIORef (atari ^. recordPtr)
-#endif
-    let realAddress = iz addr .&. 0x7f
+    let realAddress = iz addr
     liftIO $ writeArray m realAddress v
-#if TRACE
-    liftIO $ writeArray r i (i8 realAddress)
-    liftIO $ writeArray r (i+1) v
-    liftIO $ writeIORef (atari ^. recordPtr) (i+2)
-#endif
 
 
 -- {-# INLINABLE dumpMemory #-}
@@ -1028,17 +968,6 @@ dumpState = do
 ---+---------+-----------+------------------------------------------
 
 -}
-
-samplesRef = unsafePerformIO (newIORef Nothing)
-audioSamples = pack [truncate (127*sin(10*2*pi*t/1024)) | t <- [0..4095]]
-
-doAudio v = do
-    x <- readIORef samplesRef
---     when (isJust x) $ void $ soundStop (fromJust x)
-    when (isNothing x) $ do
-        samples <- sampleFromMemoryPcm audioSamples 1 44100 8 (fromIntegral (0xf .&. 0xf::Word8) / 15.0)
-        writeIORef samplesRef (Just samples)
-        soundLoop samples 1 1 0 1 -- left volume, right volume, time difference between left and right, pitch factor for playback
 
 -- {- INLINABLE writeStella -}
 writeStella :: Word16 -> Word8 -> MonadAtari ()
@@ -1169,8 +1098,8 @@ initHardware = do
     store xbreak (-1)
     store ybreak (-1)
     forM_ [0..3] $ \i-> forM_ [0..5] $ \j -> store (kbd i j) False
-    pclo <- readMemory 0x1ffc
-    pchi <- readMemory 0x1ffd
+    pclo <- readMemory 0xfffc
+    pchi <- readMemory 0xfffd
     let initialPC = fromIntegral pclo+(fromIntegral pchi `shift` 8)
     liftIO $ putStrLn $ "Starting at address: 0x" ++ showHex initialPC ""
     store pc initialPC

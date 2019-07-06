@@ -22,7 +22,6 @@ import Display
 import Emulation
 import Events
 import Keys
-import Memory
 import Metrics
 import Stella
 -- import SDL.Event
@@ -37,11 +36,10 @@ import Sound.ProteaAudio
 import Data.Array.Storable
 #endif
 
-data Args = Args { file :: String, bank :: String, options :: String, debugStart :: Bool } deriving (Show, Data, Typeable)
+data Args = Args { file :: String, options :: String, debugStart :: Bool } deriving (Show, Data, Typeable)
 
 clargs :: Args
 clargs = Args { file = "adventure.bin",
-                bank = "",
                 options = ".stellarator-options",
                 debugStart = False }
 
@@ -150,34 +148,25 @@ main = do
 
     (prog, attrib, tex', lastTex', textureData', lastTextureData') <- initResources alpha
 
-    romArray <- newArray (0, 0x7fff) 0 :: IO (IOUArray Int Word8)
-    ramArray <- newArray (0, 0x7f) 0 :: IO (IOUArray Int Word8)
+    romArray <- newArray (0, 0x3fff) 0 :: IO (IOUArray Int Word8)
+    ramArray <- newArray (0, 0xbfff) 0 :: IO (IOUArray Int Word8)
 #if TRACE
     recordArray <- newArray (0, 2^(24 :: Int)-1) 0 :: IO (StorableArray Int Word8)
 #endif
-    bankStyle <- readBinary romArray (file args') 0x0000
-    let bankStyle' = bankStyleByName bankStyle (bank args')
+    readBinary romArray "acorn_roms/Atom_Kernel.rom" (0xf000 - 0xc000)
+    readBinary romArray "acorn_roms/Atom_Basic.rom" (0xc000 - 0xc000)
 
-    let initBankState = initialBankState bankStyle'
-    print $ "Initial bank state = " ++ show initBankState
-
-    --let style = bank args
     state <- initState screenScaleX' screenScaleY'
                        (screenWidth*screenScaleX') (screenHeight*screenScaleY')
                        ramArray
 #if TRACE
                        recordArray
 #endif
-                       initBankState romArray
+                       romArray
                        0x0000 window prog attrib tex' lastTex' textureData' lastTextureData' delayList
                        controllerType
 
     let loop = do
-    -- XXX Events
---             events <- liftIO $ SDL.pollEvents
-
---             forM_ events $ \event -> handleEvent atariKeys (eventPayload event)
---             liftIO $ print "loop"
             liftIO pollEvents
             queue <- liftIO $ readIORef queueRef
             when (not (null queue)) $ do
