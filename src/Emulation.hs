@@ -12,6 +12,7 @@ import Atari2600
 import Control.Lens hiding (set, op, index)
 import Control.Monad.Reader
 import Data.Maybe
+import Data.Char
 import Data.Array.IO hiding (index)
 import Data.Bits hiding (bit)
 import Data.ByteString hiding (putStrLn, putStr, index)
@@ -830,6 +831,7 @@ pureReadRom :: Word16 -> MonadAtari Word8
 pureReadRom addr = do
     atari <- ask
     let m = atari ^. rom
+--     liftIO $ putStrLn $ "rom read addr =" ++ showHex (iz addr) ""
     liftIO $ readArray m (iz addr - 0xc000) -- Rom starts ac 0xc000
 
 -- {-# INLINE pureWriteRom #-}
@@ -844,28 +846,77 @@ pureWriteRom addr v = do
 -- {-# INLINE pureReadMemory #-}
 pureReadMemory :: MemoryType -> Word16 -> MonadAtari Word8
 pureReadMemory PPIA addr = do
-    liftIO $ putStrLn $ "Reading from PPIA: 0x" ++ showHex addr ""
-    return 0
+    bits <- case addr of
+        0xb000 -> load ppia0
+        0xb001 -> do
+            row <- load keyboard_row
+            bits <- load (keyboard_matrix + fromIntegral row)
+--             liftIO $ putStrLn $ "Reading 0x" ++ showHex bits "" ++ " from PPIA: 0x" ++ showHex addr ""
+            return bits
+
+--        Port C - #B002
+--        Output bits:      Function:
+--             0          Tape output
+--             1          Enable 2.4 kHz to cassette output
+--             2          Loudspeaker
+--             3          Not used
+-- 
+--        Input bits:       Function:
+--             4          2.4 kHz input
+--             5          Cassette input
+--             6          REPT key (low when pressed)
+--             7          60 Hz sync signal (low during flyback)
+
+        0xb002 -> do
+            c <- useClock id
+            let s = c `mod` 16667 -- clock cycles per 50 Hz
+--             liftIO $ putStrLn $ "c = " ++ show s ++ ", s = " ++ show s
+--          -- The 0x40 is the REPT key
+            let bits = if s < 100 then 0x40 else 0xc0
+--             liftIO $ putStrLn $ "Reading 0x" ++ showHex bits "" ++ " from PPIA: 0x" ++ showHex addr ""
+            return bits
+        _ -> return 0
+    return bits
 pureReadMemory VIA addr = do
-    liftIO $ putStrLn $ "Reading from VIA: 0x" ++ showHex addr ""
+--     liftIO $ putStrLn $ "Reading from VIA: 0x" ++ showHex addr ""
     return 0
 pureReadMemory ROM  addr = pureReadRom addr
 pureReadMemory RAM  addr = do
     atari <- ask
     let m = atari ^. ram
+--     liftIO $ putStrLn $ "ram read addr =" ++ showHex (iz addr) ""
     liftIO $ readArray m (iz addr)
+
+displayChars :: String
+displayChars = "@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]↑← !\"*$%&'()*+,-./0123456789:;<=>?"
+
+translateChar :: Int -> Char
+translateChar c | c < 64 = displayChars !! c
+translateChar c | c < 128 = '.'
+translateChar c | c < 192 = displayChars !! (c - 128)
+translateChar c = '.'
+
 
 -- {-# INLINE pureWriteMemory #-}
 pureWriteMemory :: MemoryType -> Word16 -> Word8 -> MonadAtari ()
 pureWriteMemory PPIA addr v = do
-    liftIO $ putStrLn $ "Writing 0x" ++ showHex v "" ++ " to PPIA: 0x" ++ showHex addr ""
+    case addr of
+        0xb000 -> do
+            store ppia0 v
+            store keyboard_row v
+        _ -> return ()
+--     liftIO $ putStrLn $ "Writing 0x" ++ showHex v "" ++ " to PPIA: 0x" ++ showHex addr ""
 pureWriteMemory VIA addr v = do
-    liftIO $ putStrLn $ "Writing 0x" ++ showHex v "" ++ " to VIA: 0x" ++ showHex addr ""
+--     liftIO $ putStrLn $ "Writing 0x" ++ showHex v "" ++ " to VIA: 0x" ++ showHex addr ""
+    return ()
 pureWriteMemory ROM  addr v = pureWriteRom addr v
 pureWriteMemory RAM  addr v = do
     atari <- ask
     let m = atari ^. ram
     let realAddress = iz addr
+    when (addr >= 0x8000 && addr < 0x9800) $ do
+        let character = translateChar (fromIntegral v)
+        liftIO $ putStrLn $ "Writing 0x" ++ showHex v "" ++ "(" ++ [character] ++ ") to screen: 0x" ++ showHex addr ""
     liftIO $ writeArray m realAddress v
 
 
@@ -1097,6 +1148,9 @@ initHardware = do
     store swchb 0b00001011
     store xbreak (-1)
     store ybreak (-1)
+    -- Clear keyboard
+    forM_ [0..9] $ \i -> do
+        store (keyboard_matrix + fromIntegral i) 0xff
     forM_ [0..3] $ \i-> forM_ [0..5] $ \j -> store (kbd i j) False
     pclo <- readMemory 0xfffc
     pchi <- readMemory 0xfffd

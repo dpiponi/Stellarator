@@ -10,7 +10,7 @@ import Data.Array.Base
 
 newtype TypedIndex t = TO { unTyped :: Int } deriving (Ord, Ix, Eq, Num)
 
-intim, p, a, x, y, s, oldGrp0, newGrp0, oldGrp1, newGrp1, timint :: TypedIndex Word8
+intim, p, a, x, y, s, oldGrp0, newGrp0, oldGrp1, newGrp1, timint, ppia0, keyboard_matrix, keyboard_row, keyboard_matrix_end :: TypedIndex Word8
 intim = 0
 p = 1
 a = 2
@@ -22,6 +22,10 @@ oldGrp1 = 7
 newGrp0 = 8
 newGrp1 = 9
 timint = 10
+ppia0 = 14
+keyboard_row = 15
+keyboard_matrix = 16
+keyboard_matrix_end = 26
 
 nusiz0, nusiz1, colup0, colup1, pf0, pf1, pf2, enam0, enam1, hmp0, hmp1, hmm0, hmm1, hmbl :: TypedIndex Word8
 vblank, vsync, refp0, refp1, colupf, colubk, ctrlpf, resmp0, resmp1 :: TypedIndex Word8

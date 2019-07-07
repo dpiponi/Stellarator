@@ -38,46 +38,6 @@ setBreak breakX breakY = do
     xbreak @= (breakX+picx)
     ybreak @= (breakY+picy)
 
-{-
--- Handle events later XXX
-handleEvent :: AtariKeys -> EventPayload -> MonadAtari ()
-handleEvent _ (MouseButtonEvent (MouseButtonEventData _ Pressed _ ButtonLeft _ pos)) = do
-    xscale' <- view xscale
-    yscale' <- view yscale
-    liftIO $ print pos
-    let P (V2 x' y') = pos
-    setBreak (fromIntegral x' `div` xscale') (fromIntegral y' `div` yscale')
-
-handleEvent _ (MouseMotionEvent (MouseMotionEventData _ _ [ButtonLeft] pos _)) = do
-    xscale' <- view xscale
-    yscale' <- view yscale
-    liftIO $ print pos
-    let P (V2 x' y') = pos
-    setBreak (fromIntegral x' `div` xscale') (fromIntegral y' `div` yscale')
-
-handleEvent atariKeys (KeyboardEvent (KeyboardEventData _ motion _ sym)) = handleKey atariKeys motion sym
-
-handleEvent _ _ = return ()
--}
-
-doDelayUp :: MonadAtari ()
-doDelayUp = do
-    delays' <- view delays
-    liftIO $ do
-        d <- readArray delays' 0x1b
-        writeArray delays' 0x1b (d+1)
-        writeArray delays' 0x1c (d+1)
-        putStrLn $ "delay = " ++ show (d+1)
-
-doDelayDown :: MonadAtari ()
-doDelayDown = do
-    delays' <- view delays
-    liftIO $ do
-        d <- readArray delays' 0x1b
-        writeArray delays' 0x1b (d-1)
-        writeArray delays' 0x1c (d-1)
-        putStrLn $ "delay = " ++ show (d-1)
-
 trigger1Pressed :: Bool -> MonadAtari ()
 trigger1Pressed pressed = do
     store trigger1 pressed
@@ -98,34 +58,99 @@ trigger2Pressed pressed = do
         (True, False) -> return ()
         (True, True ) -> modify inpt5 $ bitAt 7 .~ False
 
--- XXX probably get ride of case
+atom_keyboard :: [(Key, ([Int], Int))]
+atom_keyboard = [
+    (Key'LeftShift, ([0..9], 7)),
+    (Key'RightShift, ([0..9], 7)),
+    (Key'LeftControl, ([0..9], 6)),
+
+    (Key'Escape, ([0], 5)),
+    (Key'Q, ([0], 4)),
+    (Key'G, ([0], 3)),
+    (Key'Minus, ([0], 2)),
+    (Key'3, ([0], 1)),
+
+    (Key'Z, ([1], 5)),
+    (Key'P, ([1], 4)),
+    (Key'F, ([1], 3)),
+    (Key'Comma, ([1], 2)),
+    (Key'2, ([1], 1)),
+
+    (Key'Y, ([2], 5)),
+    (Key'O, ([2], 4)),
+    (Key'E, ([2], 3)),
+    (Key'Semicolon, ([2], 2)),
+    (Key'1, ([2], 1)),
+    (Key'Up, ([2], 0)),
+    (Key'Down, ([2], 0)),
+
+    (Key'X, ([3], 5)),
+    (Key'N, ([3], 4)),
+    (Key'D, ([3], 3)),
+    (Key'Equal, ([3], 2)),
+    (Key'0, ([3], 1)),
+    (Key'Left, ([3], 0)),
+    (Key'Right, ([3], 0)),
+
+    (Key'W, ([4], 5)),
+    (Key'M, ([4], 4)),
+    (Key'C, ([4], 3)),
+    (Key'9, ([4], 2)),
+    (Key'Delete, ([4], 1)),
+    (Key'CapsLock, ([4], 0)),
+
+    (Key'V, ([5], 5)),
+    (Key'L, ([5], 4)),
+    (Key'B, ([5], 3)),
+    (Key'8, ([5], 2)),
+    (Key'PageDown, ([5], 1)),
+    (Key'PageUp, ([5], 0)),
+
+    (Key'U, ([6], 5)),
+    (Key'K, ([6], 4)),
+    (Key'A, ([6], 3)),
+    (Key'9, ([6], 2)),
+    (Key'Enter, ([6], 1)),
+    (Key'RightBracket, ([6], 0)),
+
+    (Key'T, ([7], 5)),
+    (Key'J, ([7], 4)),
+    (Key'Apostrophe, ([7], 3)),
+    (Key'6, ([7], 2)),
+    (Key'Backslash, ([7], 0)),
+
+    (Key'S, ([8], 5)),
+    (Key'I, ([8], 4)),
+    (Key'Slash, ([8], 3)),
+    (Key'5, ([8], 2)),
+    (Key'LeftBracket, ([8], 0)),
+
+    (Key'R, ([9], 5)),
+    (Key'H, ([9], 4)),
+    (Key'Period, ([9], 3)),
+    (Key'4, ([9], 2)),
+    (Key'Space, ([9], 0))]
+
+updatePPIA :: Key -> Bool -> MonadAtari ()
+updatePPIA key pressed = do
+    let op = lookup key atom_keyboard
+    case op of
+        Nothing -> return ()
+        Just (rows, column) -> do
+            forM_ rows $ \row -> do
+                modify (keyboard_matrix + TO row) $ bitAt column .~ not pressed
+                liftIO $ print (row, column, pressed)
+                
+
 handleKey :: AtariKeys -> KeyState -> Key -> MonadAtari ()
 handleKey atariKeys motion key = do
 --     let scancode = keysymScancode sym
     let mAtariKey = M.lookup key atariKeys
-    case mAtariKey of
-        Nothing -> return ()
-        Just atariKey -> do
-            let pressed = isPressed motion
-            case atariKey of
-                -- http://atariage.com/forums/topic/247615-trying-to-figure-out-keyboard-controllers-inpt/
-                KeyboardController i j -> store (kbd i j) $ isPressed motion
-                Joystick1Up      -> modify swcha $ bitAt 4 .~ not pressed
-                Joystick1Down    -> modify swcha $ bitAt 5 .~ not pressed
-                Joystick1Left    -> modify swcha $ bitAt 6 .~ not pressed
-                Joystick1Right   -> modify swcha $ bitAt 7 .~ not pressed
-                Joystick2Up      -> modify swcha $ bitAt 0 .~ not pressed
-                Joystick2Down    -> modify swcha $ bitAt 1 .~ not pressed
-                Joystick2Left    -> modify swcha $ bitAt 2 .~ not pressed
-                Joystick2Right   -> modify swcha $ bitAt 3 .~ not pressed
-                Joystick1Trigger -> trigger1Pressed pressed
-                Joystick2Trigger -> trigger2Pressed pressed
-                TVType           -> modify swchb $ bitAt 3 .~ not pressed
-                GameSelect       -> modify swchb $ bitAt 1 .~ not pressed
-                GameReset        -> modify swchb $ bitAt 0 .~ not pressed
-                DumpState        -> Emulation.dumpState
-                GameQuit         -> liftIO $ exitSuccess
-                EnterDebugger    -> when pressed $ do
+    let pressed = isPressed motion
+    case key of
+--                 DumpState        -> Emulation.dumpState
+                Key'GraveAccent         -> liftIO $ exitSuccess
+                Key'LeftAlt    -> when pressed $ do
                                         -- Throw away SDL events
                                         -- Rewrite as a withXXX XXX
 --                                         t <- liftIO $ forkIO $ let spin = SDL.pollEvents >> spin in spin
@@ -133,32 +158,4 @@ handleKey atariKeys motion key = do
                                         runDebugger
 --                                         liftIO $ killThread t
                                         resetNextFrame
-                DebugMode        -> when pressed $ do
-                                        modify debugColours not
-                                        debugMode <- load debugColours
-                                        when debugMode $ liftIO $ do
-                                            print "COLUBK -- black"
-                                            print "COLUPF -- white"
-                                            print "COLUB  -- gray"
-                                            print "COLUP0 -- dark red"
-                                            print "COLUP1 -- dark blue"
-                                            print "COLUM0 -- light red"
-                                            print "COLUM1 -- light blue"
-#if TRACE
-                WriteRecord      -> when pressed $ do
-                                        liftIO $ print "Write record!"
-                                        atari <- ask
-                                        let m = atari ^. record
-                                        endPtr <- liftIO $ readIORef (atari ^. recordPtr)
-                                        liftIO $ withStorableArray m $ \ptr -> do
-                                            handle <- openBinaryFile "trace.record" WriteMode
-                                            hPutBuf handle ptr endPtr
-                                            hClose handle
-#else
-                WriteRecord     -> when pressed $ liftIO $ print "Trace not enabled at compilation"
-#endif
-                DelayUp         -> when pressed $ doDelayUp
-                DelayDown       -> when pressed $ doDelayDown
-                DelayLeft       -> when pressed $ liftIO $ print "Left"
-                DelayRight      -> when pressed $ liftIO $ print "Right"
-
+                key -> updatePPIA key pressed

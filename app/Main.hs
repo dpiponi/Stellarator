@@ -171,7 +171,7 @@ main = do
             queue <- liftIO $ readIORef queueRef
             when (not (null queue)) $ do
                 let Just (queuedKey, queue') = popFront queue
-                liftIO $ print queue
+--                 liftIO $ print queue
                 liftIO $ writeIORef queueRef queue'
                 let UIKey {uiKey = key, uiState = motion} = queuedKey
                 handleKey atariKeys motion key
