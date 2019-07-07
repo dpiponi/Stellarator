@@ -37,17 +37,20 @@ updateTexture texName textureData = do
         (GL.TexturePosition2D 0 0)
         (GL.TextureSize2D (fromIntegral screenWidth) (fromIntegral screenHeight))
         (GL.PixelData GL.Red GL.UnsignedByte textureData)
+    return ()
 
 -- | Create OpenGL texture map to represent TV screen.
 createImageTexture :: GL.TextureObject -> IO (Ptr Word8)
 createImageTexture texName = do
     GL.textureBinding GL.Texture2D $= Just texName
+    print "createImageTexture"
 
-    textureData <- mallocBytes (fromIntegral $ screenWidth*screenHeight) :: IO (Ptr Word8)
+    textureData <- mallocBytes (fromIntegral $ screenWidth*screenHeight*16) :: IO (Ptr Word8)
 
     forM_ [0..screenHeight-1] $ \i ->
         forM_ [0..screenWidth-1] $ \j -> do
             pokeElemOff textureData (fromIntegral $ screenWidth*i+j) 0
+            return ()
 
     GL.textureBinding GL.Texture2D $= Just texName
     GL.texImage2D
@@ -65,13 +68,14 @@ createImageTexture texName = do
 
     return textureData
 
--- | Create 1D texture map to represent colour lookup table as described at
---   https://en.wikipedia.org/wiki/Television_Interface_Adaptor#TIA_Color_Capabilities
-createLUTTexture :: GL.TextureObject -> IO ()
-createLUTTexture texName = do
-    textureData2 <- mallocBytes (4*256) :: IO (Ptr Word32)
-    forM_ [0..255] $ \i ->
-        pokeElemOff textureData2 (fromIntegral $ i) (fromIntegral $ lut!(i `shift` (-1)))
+createFontTexture :: GL.TextureObject -> IO ()
+createFontTexture texName = do
+    textureData2 <- mallocBytes (256*8*8) :: IO (Ptr Word8)
+    forM_ [0..255] $ \c ->
+        forM_ [0..8-1] $ \i ->
+            forM_ [0..8-1] $ \j -> do
+                pokeElemOff textureData2 (fromIntegral $ c*8*8+i*8+j) (fromIntegral $ if c == 32 then 0 else 1)
+                return ()
 
     GL.textureBinding GL.Texture1D $= Just texName
 
@@ -79,10 +83,10 @@ createLUTTexture texName = do
         GL.Texture1D
         GL.NoProxy
         0
-        GL.RGB8
-        (GL.TextureSize1D 256)
+        GL.R8
+        (GL.TextureSize1D (256*8*8))
         0
-        (GL.PixelData GL.BGRA GL.UnsignedByte textureData2)
+        (GL.PixelData GL.Red GL.UnsignedByte textureData2)
 
     GL.textureFilter   GL.Texture1D   $= ((GL.Nearest, Nothing), GL.Nearest)
     GL.textureWrapMode GL.Texture1D GL.S $= (GL.Repeated, GL.ClampToEdge)
@@ -107,6 +111,8 @@ createShaderProgram = do
     fsOK <- GL.get $ GL.compileStatus fs
     unless fsOK $ do
         hPutStrLn stderr "Error in fragment shader\n"
+        msg <- GL.get $ GL.shaderInfoLog fs
+        hPutStrLn stderr msg
         exitFailure
 
     program <- GL.createProgram
@@ -167,7 +173,7 @@ initResources alpha = do
 
     textureData <- createImageTexture current_frame_tex
     lastTextureData <- createImageTexture last_frame_tex
-    createLUTTexture lut_tex
+    createFontTexture lut_tex
 
     program <- createShaderProgram
     connectProgramToTextures program alpha current_frame_tex last_frame_tex lut_tex
@@ -177,17 +183,22 @@ initResources alpha = do
 -- | Render VCS screen as pair of triangles.
 draw :: Int -> Int -> GL.Program -> GL.AttribLocation -> IO ()
 draw windowWidth windowHeight program attrib = do
+    print "Draw 1"
     GL.clearColor $= GL.Color4 0 0 0 0
     GL.clear [GL.ColorBuffer]
     GL.viewport $= (GL.Position 0 0, GL.Size (fromIntegral windowWidth) (fromIntegral windowHeight))
 
     GL.currentProgram $= Just program
     GL.vertexAttribArray attrib $= GL.Enabled
+    print "Draw 2"
     V.unsafeWith vertices $ \ptr ->
         GL.vertexAttribPointer attrib $=
           (GL.ToFloat, GL.VertexArrayDescriptor 2 GL.Float 0 ptr)
+    print "Draw 3"
     GL.drawArrays GL.Triangles 0 6
+    print "Draw 3"
     GL.vertexAttribArray attrib $= GL.Disabled
+    print "Draw done"
 --     SDL.glSwapWindow window
 
 vsSource, fsSource :: BS.ByteString
@@ -219,8 +230,17 @@ fsSource = BS.intercalate "\n"
                 "{",
                 "",
                 "    vec4 current_index = texture2D(current_frame, texcoord);",
-                "    vec4 last_index = texture2D(last_frame, texcoord);",
-                "    gl_FragColor = alpha*texture1D(table, current_index.x)+(1.0-alpha)*texture1D(table, last_index.x);",
+                "    int x = int(32.*8.*texcoord.x);",
+                "    int y = int(16.*8.*texcoord.y);",
+                "    int ix = x/8;",
+                "    int iy = y/8;",
+                "    int fx = x-8*ix;",
+                "    int fy = y-8*iy;",
+                "    vec4 last_index = texture2D(last_frame, vec2(float(ix), float(iy)));",
+                "    float z = last_index.x>0.15 ? 0.0 : 1.0;//texture1D(table, last_index.x*8.*8.+float(ix)*8.+float(iy));",
+--                "    z = float(texcoord.x);",
+                "    vec4 col = vec4(z, z, z, 1.0);",
+                "    gl_FragColor = col;//vec4(col, col, col, 1.0);",
                 "}"
            ]
 

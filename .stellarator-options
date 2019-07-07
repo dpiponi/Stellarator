@@ -1,6 +1,6 @@
 Options {
-    screenScaleX = 5,
-    screenScaleY = 3,
+    screenScaleX = 40,
+    screenScaleY = 40,
     topOverscan = 10,
     bottomOverscan = 10,
     motionBlurAlpha = 1.0,

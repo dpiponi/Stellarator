@@ -350,12 +350,6 @@ compositeAndCollide pixelx hpos' = do
     if vpos' == 174 && hpos' == 175
     then do
         return z
-    {-
-        liftIO $ print $ "lball = " ++ show lball
-        liftIO $ print $ "scoreMode = " ++ show scoreMode
-        liftIO $ print $ "z=" ++ show z
-        return 0xff
-        -}
     else return z
 
 {-# INLINE stellaTick #-}
