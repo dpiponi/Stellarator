@@ -35,7 +35,7 @@ updateTexture texName textureData = do
         GL.Texture2D
         0
         (GL.TexturePosition2D 0 0)
-        (GL.TextureSize2D (fromIntegral screenWidth) (fromIntegral screenHeight))
+        (GL.TextureSize2D 64 96)
         (GL.PixelData GL.Red GL.UnsignedByte textureData)
     return ()
 
@@ -43,14 +43,14 @@ updateTexture texName textureData = do
 createImageTexture :: GL.TextureObject -> IO (Ptr Word8)
 createImageTexture texName = do
     GL.textureBinding GL.Texture2D $= Just texName
-    print "createImageTexture"
+--     print "createImageTexture"
 
-    textureData <- mallocBytes (fromIntegral $ screenWidth*screenHeight*16) :: IO (Ptr Word8)
+    textureData <- mallocBytes 6144 :: IO (Ptr Word8)
 
-    forM_ [0..screenHeight-1] $ \i ->
-        forM_ [0..screenWidth-1] $ \j -> do
-            pokeElemOff textureData (fromIntegral $ screenWidth*i+j) 0
-            return ()
+    -- Allocate 6K of video RAM
+    -- as width 64, height 96
+    forM_ [0..6143] $ \i ->
+        pokeElemOff textureData (fromIntegral $ i) 0
 
     GL.textureBinding GL.Texture2D $= Just texName
     GL.texImage2D
@@ -58,7 +58,7 @@ createImageTexture texName = do
         GL.NoProxy
         0
         GL.R8
-        (GL.TextureSize2D (fromIntegral screenWidth) (fromIntegral screenHeight))
+        (GL.TextureSize2D 64 96)
         0
         (GL.PixelData GL.Red GL.UnsignedByte textureData)
 
@@ -183,22 +183,22 @@ initResources alpha = do
 -- | Render VCS screen as pair of triangles.
 draw :: Int -> Int -> GL.Program -> GL.AttribLocation -> IO ()
 draw windowWidth windowHeight program attrib = do
-    print "Draw 1"
+--     print "Draw 1"
     GL.clearColor $= GL.Color4 0 0 0 0
     GL.clear [GL.ColorBuffer]
     GL.viewport $= (GL.Position 0 0, GL.Size (fromIntegral windowWidth) (fromIntegral windowHeight))
 
     GL.currentProgram $= Just program
     GL.vertexAttribArray attrib $= GL.Enabled
-    print "Draw 2"
+--     print "Draw 2"
     V.unsafeWith vertices $ \ptr ->
         GL.vertexAttribPointer attrib $=
           (GL.ToFloat, GL.VertexArrayDescriptor 2 GL.Float 0 ptr)
-    print "Draw 3"
+--     print "Draw 3"
     GL.drawArrays GL.Triangles 0 6
-    print "Draw 3"
+--     print "Draw 3"
     GL.vertexAttribArray attrib $= GL.Disabled
-    print "Draw done"
+--     print "Draw done"
 --     SDL.glSwapWindow window
 
 vsSource, fsSource :: BS.ByteString
@@ -230,17 +230,25 @@ fsSource = BS.intercalate "\n"
                 "{",
                 "",
                 "    vec4 current_index = texture2D(current_frame, texcoord);",
+
                 "    int x = int(32.*8.*texcoord.x);",
                 "    int y = int(16.*8.*texcoord.y);",
+
                 "    int ix = x/8;",
                 "    int iy = y/8;",
-                "    int fx = x-8*ix;",
-                "    int fy = y-8*iy;",
-                "    vec4 last_index = texture2D(last_frame, vec2(float(ix), float(iy)));",
-                "    float z = last_index.x>0.15 ? 0.0 : 1.0;//texture1D(table, last_index.x*8.*8.+float(ix)*8.+float(iy));",
---                "    z = float(texcoord.x);",
-                "    vec4 col = vec4(z, z, z, 1.0);",
-                "    gl_FragColor = col;//vec4(col, col, col, 1.0);",
+--                 "    int fx = x-8*ix;",
+--                 "    int fy = y-8*iy;",
+
+                "    int addr = 32*iy+ix;",
+                "    int ty = addr/64;",
+                "    int tx = addr-64*ty;",
+
+                "    vec4 last_index = texture2D(current_frame, vec2(float(tx)/64., float(ty)/96.));",
+--                 "    //float z = last_index.x>0.15 ? 0.0 : 1.0;//texture1D(table, last_index.x*8.*8.+float(ix)*8.+float(iy));",
+--                 "    float z = float(tx);//last_index.x;",
+--                 "    float z = float(iy)/16.0;//last_index.x;",
+                "    float z = last_index.x;",
+                "    gl_FragColor = vec4(z, z, z, 1.0);",
                 "}"
            ]
 
@@ -279,24 +287,5 @@ makeMainWindow screenScaleX' screenScaleY' queue = do
 
             makeContextCurrent (Just window)
             print "Created window"
---             setKeyCallback window (Just keyCallback)
-
---             window <- SDL.createWindow "Stellarator"
---                         SDL.defaultWindow {
---         --                     SDL.windowMode = SDL.FullscreenDesktop,
---                             SDL.windowInitialSize = V2 (fromIntegral $ screenScaleX'*screenWidth)
---                             (fromIntegral $ screenScaleY'*screenHeight),
---                             SDL.windowOpenGL = Just $ SDL.OpenGLConfig {
---                                 SDL.glColorPrecision = V4 8 8 8 0,
---                                 SDL.glDepthPrecision = 24,
---                                 SDL.glStencilPrecision = 8,
---                                 SDL.glMultisampleSamples = 1,
---                                 SDL.glProfile = SDL.Compatibility SDL.Normal 2 1
---                                 }}
--- 
---             SDL.showWindow window
---             _ <- SDL.glCreateContext window
---             SDL.swapInterval $= SDL.SynchronizedUpdates
-        --     SDL.swapInterval $= SDL.ImmediateUpdates
 
             return window

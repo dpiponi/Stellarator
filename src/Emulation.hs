@@ -1115,28 +1115,30 @@ renderDisplay = do
     windowHeight' <- view windowHeight
 --     atari <- ask
 --     let m = atari ^. ram
-    liftIO $ print "renderDisplay"
-    forM_ [0..16-1] $ \i ->
-        forM_ [0..32-1] $ \j -> do
-            char <- readMemory (0x8000 + 32 * i16 i + i16 j)
-            liftIO $ pokeElemOff ptr (fromIntegral $ 32*i+j) char
-    liftIO $ print "renderDisplay 1"
-    liftIO $ if parity
-      then do
-        updateTexture tex' ptr
-        updateTexture lastTex' lastPtr
-        return ()
-      else do
-        updateTexture lastTex' ptr
-        updateTexture tex' lastPtr
-        return ()
-    liftIO $ print "renderDisplay 2"
---     liftIO $ draw windowWidth' windowHeight' prog attrib
-    liftIO $ print "renderDisplay 3"
+--     liftIO $ print "renderDisplay"
+    -- Copy 6K of video RAM
+    forM_ [0..6143] $ \i -> do
+        char <- readMemory (0x8000 + i16 i)
+        liftIO $ pokeElemOff ptr (fromIntegral $ i) char
+--     liftIO $ print "renderDisplay 1"
+    liftIO $ updateTexture tex' ptr
+    liftIO $ updateTexture lastTex' ptr
+--     liftIO $ if parity
+--       then do
+--         updateTexture tex' ptr
+--         updateTexture lastTex' lastPtr
+--         return ()
+--       else do
+--         updateTexture lastTex' ptr
+--         updateTexture tex' lastPtr
+--         return ()
+--     liftIO $ print "renderDisplay 2"
+    liftIO $ draw windowWidth' windowHeight' prog attrib
+--     liftIO $ print "renderDisplay 3"
 
     waitUntilNextFrameDue
     liftIO $ swapBuffers window
-    liftIO $ print "renderDisplay done"
+--     liftIO $ print "renderDisplay done"
     return ()
 
 waitUntilNextFrameDue :: MonadAtari ()

@@ -17,6 +17,8 @@ import Control.Monad.Reader
 import Data.Array.IO
 import Data.Binary hiding (get)
 import Debugger
+import System.IO
+import Data.Char
 import System.Exit
 import Display
 import Emulation
@@ -121,6 +123,7 @@ delayList =  [
 
 main :: IO ()
 main = do
+    fontData <- readFont "font.txt"
     args' <- cmdArgs clargs
 
     let optionsFile = options args'
