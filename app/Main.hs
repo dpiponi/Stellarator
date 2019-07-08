@@ -149,7 +149,7 @@ main = do
     result <- initAudio 64 44100 1024
     unless result $ die "Couldn't init sound"
 
-    (prog, attrib, tex', lastTex', textureData', lastTextureData') <- initResources alpha
+    (prog, attrib, tex', lastTex', textureData', lastTextureData') <- initResources alpha fontData
 
     romArray <- newArray (0, 0x3fff) 0 :: IO (IOUArray Int Word8)
     ramArray <- newArray (0, 0xbfff) 0 :: IO (IOUArray Int Word8)

@@ -68,29 +68,29 @@ createImageTexture texName = do
 
     return textureData
 
-createFontTexture :: GL.TextureObject -> IO ()
-createFontTexture texName = do
-    textureData2 <- mallocBytes (256*8*8) :: IO (Ptr Word8)
-    forM_ [0..255] $ \c ->
-        forM_ [0..8-1] $ \i ->
-            forM_ [0..8-1] $ \j -> do
-                pokeElemOff textureData2 (fromIntegral $ c*8*8+i*8+j) (fromIntegral $ if c == 32 then 0 else 1)
-                return ()
+createFontTexture :: GL.TextureObject -> Ptr Word8 -> IO ()
+createFontTexture texName font_data = do
+--     textureData2 <- mallocBytes (256*8*8) :: IO (Ptr Word8)
+--     forM_ [0..255] $ \c ->
+--         forM_ [0..8-1] $ \i ->
+--             forM_ [0..8-1] $ \j -> do
+--                 pokeElemOff textureData2 (fromIntegral $ c*8*8+i*8+j) (fromIntegral $ if c == 32 then 0 else 1)
+--                 return ()
 
-    GL.textureBinding GL.Texture1D $= Just texName
+    GL.textureBinding GL.Texture2D $= Just texName
 
-    GL.texImage1D
-        GL.Texture1D
+    GL.texImage2D
+        GL.Texture2D
         GL.NoProxy
         0
         GL.R8
-        (GL.TextureSize1D (256*8*8))
+        (GL.TextureSize2D 256 96)
         0
-        (GL.PixelData GL.Red GL.UnsignedByte textureData2)
+        (GL.PixelData GL.Red GL.UnsignedByte font_data)
 
-    GL.textureFilter   GL.Texture1D   $= ((GL.Nearest, Nothing), GL.Nearest)
-    GL.textureWrapMode GL.Texture1D GL.S $= (GL.Repeated, GL.ClampToEdge)
-    --GL.textureWrapMode GL.Texture1D GL.T $= (GL.Repeated, GL.ClampToEdge)
+    GL.textureFilter   GL.Texture2D   $= ((GL.Nearest, Nothing), GL.Nearest)
+    GL.textureWrapMode GL.Texture2D GL.S $= (GL.Repeated, GL.ClampToEdge)
+    GL.textureWrapMode GL.Texture2D GL.T $= (GL.Repeated, GL.ClampToEdge)
 
 -- | Compile and link vertex and fragment shaders.
 createShaderProgram :: IO GL.Program
@@ -132,7 +132,7 @@ createShaderProgram = do
 
 -- | Bind textures to appropriate locations in shader program.
 connectProgramToTextures :: GL.Program -> Float -> GL.TextureObject -> GL.TextureObject -> GL.TextureObject -> IO ()
-connectProgramToTextures program alpha current_frame_tex last_frame_tex lut_tex = do
+connectProgramToTextures program alpha current_frame_tex last_frame_tex font_tex = do
     GL.currentProgram $= Just program
     current_screen_tex_loc <- GL.uniformLocation program "current_frame"
     last_screen_tex_loc <- GL.uniformLocation program "last_frame"
@@ -151,7 +151,7 @@ connectProgramToTextures program alpha current_frame_tex last_frame_tex lut_tex 
 
     GL.activeTexture $= GL.TextureUnit 2
     GL.texture GL.Texture1D $= GL.Enabled
-    GL.textureBinding GL.Texture1D $= Just lut_tex
+    GL.textureBinding GL.Texture1D $= Just font_tex
 
     GL.uniform current_screen_tex_loc $= GL.Index1 (0::GL.GLint)
     GL.uniform last_screen_tex_loc $= GL.Index1 (1::GL.GLint)
@@ -167,16 +167,16 @@ connectProgramToTextures program alpha current_frame_tex last_frame_tex lut_tex 
     GL.currentProgram $= Just program
 
 -- | Create all OpenGL objects required including shaders and textures.
-initResources :: Float -> IO (GL.Program, GL.AttribLocation, GL.TextureObject, GL.TextureObject, Ptr Word8, Ptr Word8)
-initResources alpha = do
-    [current_frame_tex, last_frame_tex, lut_tex] <- GL.genObjectNames 3 :: IO [GL.TextureObject]
+initResources :: Float -> Ptr Word8 -> IO (GL.Program, GL.AttribLocation, GL.TextureObject, GL.TextureObject, Ptr Word8, Ptr Word8)
+initResources alpha font_data = do
+    [current_frame_tex, last_frame_tex, font_tex] <- GL.genObjectNames 3 :: IO [GL.TextureObject]
 
     textureData <- createImageTexture current_frame_tex
     lastTextureData <- createImageTexture last_frame_tex
-    createFontTexture lut_tex
+    createFontTexture font_tex font_data
 
     program <- createShaderProgram
-    connectProgramToTextures program alpha current_frame_tex last_frame_tex lut_tex
+    connectProgramToTextures program alpha current_frame_tex last_frame_tex font_tex
 
     return (program, GL.AttribLocation 0, current_frame_tex, last_frame_tex, textureData, lastTextureData)
 
@@ -222,7 +222,7 @@ fsSource = BS.intercalate "\n"
                 "",
                 "uniform sampler2D current_frame;",
                 "uniform sampler2D last_frame;",
-                "uniform sampler1D table;",
+                "uniform sampler2D table;",
                 "uniform float alpha;",
                 "varying vec2 texcoord;",
                 "",
