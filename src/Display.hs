@@ -236,8 +236,8 @@ fsSource = BS.intercalate "\n"
 
                 "    int ix = x/8;",
                 "    int iy = y/8;",
---                 "    int fx = x-8*ix;",
---                 "    int fy = y-8*iy;",
+                "    int fx = x-8*ix;",
+                "    int fy = y-8*iy;",
 
                 "    int addr = 32*iy+ix;",
                 "    int ty = addr/64;",
@@ -247,7 +247,13 @@ fsSource = BS.intercalate "\n"
 --                 "    //float z = last_index.x>0.15 ? 0.0 : 1.0;//texture1D(table, last_index.x*8.*8.+float(ix)*8.+float(iy));",
 --                 "    float z = float(tx);//last_index.x;",
 --                 "    float z = float(iy)/16.0;//last_index.x;",
-                "    float z = last_index.x;",
+                "    int character = int(255.0*last_index.x);",
+                "    int cy = character/32;",
+                "    int cx = character-32*cy;",
+                "    int px = 8*cx+fx;",
+                "    int py = 12*cy+fy;",
+                "    float z = texture2D(table, vec2(float(px)/256.0, float(py)/96.0)).x;",
+                "    z = float(character)/255.0;",
                 "    gl_FragColor = vec4(z, z, z, 1.0);",
                 "}"
            ]
