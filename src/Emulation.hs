@@ -919,9 +919,9 @@ pureWriteMemory RAM  addr v = do
     atari <- ask
     let m = atari ^. ram
     let realAddress = iz addr
-    when (addr >= 0x8000 && addr < 0x9800) $ do
-        let character = translateChar (fromIntegral v)
-        liftIO $ putStrLn $ "Writing 0x" ++ showHex v "" ++ "(" ++ [character] ++ ") to screen: 0x" ++ showHex addr ""
+--     when (addr >= 0x8000 && addr < 0x9800) $ do
+--         let character = translateChar (fromIntegral v)
+--         liftIO $ putStrLn $ "Writing 0x" ++ showHex v "" ++ "(" ++ [character] ++ ") to screen: 0x" ++ showHex addr ""
     liftIO $ writeArray m realAddress v
 
 

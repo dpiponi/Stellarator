@@ -31,10 +31,10 @@ readFont filename = do
     contents <- hGetContents handle
     let d = map (fromIntegral . ord) contents
     let e = filter (\x -> x == 88 || x == 32) d
-    let f = map (\x -> if x == 88 then 255 else 0) e
+    let f = map (\x -> if x == 88 then 0xff else 0x00) e
 --     return f
-    fontData <- mallocBytes (256*96) :: IO (Ptr Word8)
-    forM_ [0..256*96-1] $ \i ->
+    fontData <- mallocBytes (256*96+10000) :: IO (Ptr Word8)
+    forM_ [0..256*96-1] $ \i -> do
         pokeElemOff fontData i (f !! i)
     return fontData
 --     print f

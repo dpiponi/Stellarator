@@ -92,6 +92,10 @@ createFontTexture texName font_data = do
     GL.textureWrapMode GL.Texture2D GL.S $= (GL.Repeated, GL.ClampToEdge)
     GL.textureWrapMode GL.Texture2D GL.T $= (GL.Repeated, GL.ClampToEdge)
 
+--     forM_ [0..256*96-1] $ \i -> do
+--         x <- peekElemOff font_data i
+--         print (i, x)
+
 -- | Compile and link vertex and fragment shaders.
 createShaderProgram :: IO GL.Program
 createShaderProgram = do
@@ -136,8 +140,9 @@ connectProgramToTextures program alpha current_frame_tex last_frame_tex font_tex
     GL.currentProgram $= Just program
     current_screen_tex_loc <- GL.uniformLocation program "current_frame"
     last_screen_tex_loc <- GL.uniformLocation program "last_frame"
-    lutTexLoc <- GL.uniformLocation program "table"
+    font_tex_loc <- GL.uniformLocation program "table"
     alpha_loc <- GL.uniformLocation program "alpha"
+    print (current_screen_tex_loc, last_screen_tex_loc, font_tex_loc)
 
     GL.uniform alpha_loc $= alpha
 
@@ -147,15 +152,15 @@ connectProgramToTextures program alpha current_frame_tex last_frame_tex font_tex
 
     GL.activeTexture $= GL.TextureUnit 1
     GL.texture GL.Texture2D $= GL.Enabled
-    GL.textureBinding GL.Texture2D $= Just last_frame_tex
+    GL.textureBinding GL.Texture2D $= Just font_tex
 
     GL.activeTexture $= GL.TextureUnit 2
-    GL.texture GL.Texture1D $= GL.Enabled
-    GL.textureBinding GL.Texture1D $= Just font_tex
+    GL.texture GL.Texture2D $= GL.Enabled
+    GL.textureBinding GL.Texture2D $= Just last_frame_tex
 
     GL.uniform current_screen_tex_loc $= GL.Index1 (0::GL.GLint)
-    GL.uniform last_screen_tex_loc $= GL.Index1 (1::GL.GLint)
-    GL.uniform lutTexLoc $= GL.Index1 (2::GL.GLint)
+    GL.uniform font_tex_loc $= GL.Index1 (1::GL.GLint)
+    GL.uniform last_screen_tex_loc $= GL.Index1 (2::GL.GLint)
 
     GL.validateProgram program
     status <- GL.get $ GL.validateStatus program
@@ -232,12 +237,12 @@ fsSource = BS.intercalate "\n"
                 "    vec4 current_index = texture2D(current_frame, texcoord);",
 
                 "    int x = int(32.*8.*texcoord.x);",
-                "    int y = int(16.*8.*texcoord.y);",
+                "    int y = int(16.*12.*texcoord.y);",
 
                 "    int ix = x/8;",
-                "    int iy = y/8;",
+                "    int iy = y/12;",
                 "    int fx = x-8*ix;",
-                "    int fy = y-8*iy;",
+                "    int fy = y-12*iy;",
 
                 "    int addr = 32*iy+ix;",
                 "    int ty = addr/64;",
@@ -253,7 +258,9 @@ fsSource = BS.intercalate "\n"
                 "    int px = 8*cx+fx;",
                 "    int py = 12*cy+fy;",
                 "    float z = texture2D(table, vec2(float(px)/256.0, float(py)/96.0)).x;",
-                "    z = float(character)/255.0;",
+--                 "    z = float(py)/96.0;",
+--                 "    z = float(character)/255.0;",
+--                 "    z = texture2D(table, texcoord).x;",
                 "    gl_FragColor = vec4(z, z, z, 1.0);",
                 "}"
            ]
