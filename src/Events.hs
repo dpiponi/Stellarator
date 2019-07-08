@@ -3,7 +3,7 @@ module Events where
 -- import SDL.Event
 -- import SDL.Input.Keyboard
 import Keys hiding (debugMode)
-import Atari2600
+import AcornAtom
 -- import SDL.Vect
 import Emulation
 -- import qualified SDL
@@ -33,12 +33,12 @@ isPressed KeyState'Released = False
 
 -- XXX Move to Stella?
 {- INLINE setBreak -}
-setBreak :: Int -> Int -> MonadAtari ()
+setBreak :: Int -> Int -> MonadAcorn ()
 setBreak breakX breakY = do
     xbreak @= (breakX+picx)
     ybreak @= (breakY+picy)
 
-trigger1Pressed :: Bool -> MonadAtari ()
+trigger1Pressed :: Bool -> MonadAcorn ()
 trigger1Pressed pressed = do
     store trigger1 pressed
     vblank' <- load vblank
@@ -48,7 +48,7 @@ trigger1Pressed pressed = do
         (True, False) -> return ()
         (True, True ) -> modify inpt4 $ bitAt 7 .~ False
 
-trigger2Pressed :: Bool -> MonadAtari ()
+trigger2Pressed :: Bool -> MonadAcorn ()
 trigger2Pressed pressed = do
     store trigger2 pressed
     vblank' <- load vblank
@@ -131,7 +131,7 @@ atom_keyboard = [
     (Key'4, ([9], 2)),
     (Key'Space, ([9], 0))]
 
-updatePPIA :: Key -> Bool -> MonadAtari ()
+updatePPIA :: Key -> Bool -> MonadAcorn ()
 updatePPIA key pressed = do
     let op = lookup key atom_keyboard
     case op of
@@ -142,7 +142,7 @@ updatePPIA key pressed = do
                 liftIO $ print (row, column, pressed)
                 
 
-handleKey :: AtariKeys -> KeyState -> Key -> MonadAtari ()
+handleKey :: AtariKeys -> KeyState -> Key -> MonadAcorn ()
 handleKey atariKeys motion key = do
 --     let scancode = keysymScancode sym
     let mAtariKey = M.lookup key atariKeys

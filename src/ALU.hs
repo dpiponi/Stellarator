@@ -1,6 +1,6 @@
 module ALU where
 
-import Atari2600
+import AcornAtom
 import Data.Bits hiding (bit)
 import Data.Word
 import Prelude hiding (last, and)
@@ -10,7 +10,7 @@ import Control.Monad
 import CPU
 
 -- {-# INLINABLE adc #-}
-adc :: MonadAtari Word8 -> MonadAtari ()
+adc :: MonadAcorn Word8 -> MonadAcorn ()
 adc mode = do
     src <- mode
     oldA <- getA
@@ -35,7 +35,7 @@ adc mode = do
             putA $ fromIntegral (newA .&. 0xff)
 
 -- {-# INLINABLE sbc #-}
-sbc :: MonadAtari Word8 -> MonadAtari ()
+sbc :: MonadAcorn Word8 -> MonadAcorn ()
 sbc mode = do
     src <- mode
     oldA <- getA
@@ -59,7 +59,7 @@ sbc mode = do
             putC $ newA < 0x100
 
 -- {-# INLINABLE cmp #-}
-cmp :: MonadAtari Word8 -> MonadAtari ()
+cmp :: MonadAcorn Word8 -> MonadAcorn ()
 cmp mode = do
     src <- mode
     oldA <- getA
@@ -68,14 +68,14 @@ cmp mode = do
     setNZ_ $ i8 new
 
 -- {-# INLINABLE asl #-}
-asl :: ((Word8 -> MonadAtari Word8) -> MonadAtari ()) -> MonadAtari ()
+asl :: ((Word8 -> MonadAcorn Word8) -> MonadAcorn ()) -> MonadAcorn ()
 asl mode = mode $ \src -> do
     putC $ src .&. 0x80 > 0
     let new = src `shift` 1
     setNZ new
 
 -- {-# INLINABLE rol #-}
-rol :: ((Word8 -> MonadAtari Word8) -> MonadAtari ()) -> MonadAtari ()
+rol :: ((Word8 -> MonadAcorn Word8) -> MonadAcorn ()) -> MonadAcorn ()
 rol mode = mode $ \src -> do
     fc <- getC
     putC $ src .&. 0x80 > 0
@@ -83,7 +83,7 @@ rol mode = mode $ \src -> do
     setNZ new
 
 -- {-# INLINABLE lsr #-}
-lsr :: ((Word8 -> MonadAtari Word8) -> MonadAtari ()) -> MonadAtari ()
+lsr :: ((Word8 -> MonadAcorn Word8) -> MonadAcorn ()) -> MonadAcorn ()
 lsr mode = mode $ \src -> do
     putC $ src .&. 0x01 > 0
     let new = src `shift` (-1)
@@ -92,7 +92,7 @@ lsr mode = mode $ \src -> do
     return new
 
 -- {-# INLINABLE ror #-}
-ror :: ((Word8 -> MonadAtari Word8) -> MonadAtari ()) -> MonadAtari ()
+ror :: ((Word8 -> MonadAcorn Word8) -> MonadAcorn ()) -> MonadAcorn ()
 ror mode = mode $ \src -> do
     fc <- getC
     putC $ src .&. 0x01 > 0
@@ -100,15 +100,15 @@ ror mode = mode $ \src -> do
     setNZ new
 
 -- {-# INLINABLE dec #-}
-dec :: ((Word8 -> MonadAtari Word8) -> MonadAtari ()) -> MonadAtari ()
+dec :: ((Word8 -> MonadAcorn Word8) -> MonadAcorn ()) -> MonadAcorn ()
 dec mode = mode $ \src -> setNZ (src-1)
 
 -- {-# INLINABLE inc #-}
-inc :: ((Word8 -> MonadAtari Word8) -> MonadAtari ()) -> MonadAtari ()
+inc :: ((Word8 -> MonadAcorn Word8) -> MonadAcorn ()) -> MonadAcorn ()
 inc mode = mode $ \src -> setNZ (src+1)
 
 -- {-# INLINABLE bit #-}
-bit :: MonadAtari Word8 -> MonadAtari ()
+bit :: MonadAcorn Word8 -> MonadAcorn ()
 bit mode = do
     src <- mode
     ra <- getA
@@ -117,7 +117,7 @@ bit mode = do
     setZ $ ra .&. src
 
 -- {-# INLINABLE cpx #-}
-cpx :: MonadAtari Word8 -> MonadAtari ()
+cpx :: MonadAcorn Word8 -> MonadAcorn ()
 cpx mode = do
     src <- mode
     rx <- getX
@@ -126,7 +126,7 @@ cpx mode = do
     putC $ new < 0x100
 
 -- {-# INLINABLE cpy #-}
-cpy :: MonadAtari Word8 -> MonadAtari ()
+cpy :: MonadAcorn Word8 -> MonadAcorn ()
 cpy mode = do
     src <- mode
     ry <- getY
@@ -136,7 +136,7 @@ cpy mode = do
 
 -- 2 clock cycles
 -- {-# INLINABLE txs #-}
-txs :: MonadAtari ()
+txs :: MonadAcorn ()
 txs = do
     tick 1
     discard $ getPC >>= readMemory
@@ -144,8 +144,8 @@ txs = do
 
 -- 2 clock cycles
 -- {-# INLINABLE tra #-}
-tra :: MonadAtari Word8 -> (Word8 -> MonadAtari ()) ->
-       MonadAtari ()
+tra :: MonadAcorn Word8 -> (Word8 -> MonadAcorn ()) ->
+       MonadAcorn ()
 tra getReg putReg = do
     tick 1
     discard $ getPC >>= readMemory
@@ -153,7 +153,7 @@ tra getReg putReg = do
 
 -- 2 clock cycles
 -- {-# INLINABLE inr #-}
-inr :: MonadAtari Word8 -> (Word8 -> MonadAtari ()) -> MonadAtari ()
+inr :: MonadAcorn Word8 -> (Word8 -> MonadAcorn ()) -> MonadAcorn ()
 inr getReg putReg = do
     tick 1
     discard $ getPC >>= readMemory
@@ -166,7 +166,7 @@ inr getReg putReg = do
 
 -- 2 clock cycles
 -- {-# INLINABLE der #-}
-der :: MonadAtari Word8 -> (Word8 -> MonadAtari ()) -> MonadAtari ()
+der :: MonadAcorn Word8 -> (Word8 -> MonadAcorn ()) -> MonadAcorn ()
 der getReg putReg = do
     tick 1
     discard $ getPC >>= readMemory
@@ -178,7 +178,7 @@ der getReg putReg = do
     getReg & fmap (subtract 1) >>= setNZ >>= putReg
 
 -- {-# INLINABLE ora #-}
-ora :: MonadAtari Word8 -> MonadAtari ()
+ora :: MonadAcorn Word8 -> MonadAcorn ()
 ora mode = do
     src <- mode
     oldA <- getA
@@ -188,13 +188,13 @@ ora mode = do
 --     getA & fmap (.|. src) 
 
 -- {-# INLINABLE and #-}
-and :: MonadAtari Word8 -> MonadAtari ()
+and :: MonadAcorn Word8 -> MonadAcorn ()
 and mode = do
     src <- mode
     getA >>= setNZ . (src .&.) >>= putA
 
 -- {-# INLINABLE eor #-}
-eor :: MonadAtari Word8 -> MonadAtari ()
+eor :: MonadAcorn Word8 -> MonadAcorn ()
 eor mode = do
     src <- mode
     oldA <- getA
@@ -203,29 +203,29 @@ eor mode = do
     void $ setNZ newA
 
 -- {-# INLINABLE lda #-}
-lda :: MonadAtari Word8 -> MonadAtari ()
+lda :: MonadAcorn Word8 -> MonadAcorn ()
 lda mode = mode >>= setNZ >>= putA
 
 -- {-# INLINABLE sta #-}
-sta :: (Word8 -> MonadAtari()) -> MonadAtari ()
+sta :: (Word8 -> MonadAcorn()) -> MonadAcorn ()
 sta mode = getA >>= mode
 
 -- {-# INLINABLE stx #-}
-stx :: (Word8 -> MonadAtari()) -> MonadAtari ()
+stx :: (Word8 -> MonadAcorn()) -> MonadAcorn ()
 stx mode = getX >>= mode
 
 -- {-# INLINABLE ldx #-}
-ldx :: MonadAtari Word8 -> MonadAtari ()
+ldx :: MonadAcorn Word8 -> MonadAcorn ()
 ldx mode = do
     src <- mode
     putX src
     setNZ_ src
 
 -- {-# INLINABLE sty #-}
-sty :: (Word8 -> MonadAtari ()) -> MonadAtari ()
+sty :: (Word8 -> MonadAcorn ()) -> MonadAcorn ()
 sty mode = getY >>= mode
 
 -- {-# INLINABLE ldy #-}
-ldy :: MonadAtari Word8 -> MonadAtari ()
+ldy :: MonadAcorn Word8 -> MonadAcorn ()
 ldy mode = mode >>= setNZ >>= putY
 

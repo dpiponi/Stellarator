@@ -5,9 +5,9 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ApplicativeDo #-}
 
-module Atari2600(
-                 MonadAtari(..),
-                 Atari2600(..),
+module AcornAtom(
+                 MonadAcorn(..),
+                 AcornAtom(..),
                  Controllers(..),
                  getX,
                  putX,
@@ -96,7 +96,7 @@ import Asm
 -- Need to make left and right separately configurable
 data Controllers = Joysticks | Keypads deriving (Eq, Show, Read)
 
-data Atari2600 = Atari2600 {
+data AcornAtom = AcornAtom {
     _frameParity :: IORef Bool,
     _clock :: IORef Int64,
     _stellaClock :: IORef Int64,
@@ -133,13 +133,13 @@ data Atari2600 = Atari2600 {
     _delays :: IOUArray Word16 Int
 }
 
-$(makeLenses ''Atari2600)
+$(makeLenses ''AcornAtom)
 
-newtype MonadAtari a = M { unM :: ReaderT Atari2600 IO a }
-      deriving (Functor, Applicative, Monad, MonadReader Atari2600, MonadIO)
+newtype MonadAcorn a = M { unM :: ReaderT AcornAtom IO a }
+      deriving (Functor, Applicative, Monad, MonadReader AcornAtom, MonadIO)
 
 -- Do I still want Reg type class?
-instance Reg Word8 MonadAtari where
+instance Reg Word8 MonadAcorn where
     {-# INLINE load #-}
     load r = do
         value <- view word8Array
@@ -149,7 +149,7 @@ instance Reg Word8 MonadAtari where
         value <- view word8Array
         liftIO $ unsafeWrite value (unTyped r) v
 
-instance Reg Int MonadAtari where
+instance Reg Int MonadAcorn where
     {-# INLINE load #-}
     load r = do
         value <- view intArray
@@ -159,7 +159,7 @@ instance Reg Int MonadAtari where
         value <- view intArray
         liftIO $ unsafeWrite value (unTyped r) v
 
-instance Reg Word16 MonadAtari where
+instance Reg Word16 MonadAcorn where
     {-# INLINE load #-}
     load r = do
         value <- view word16Array
@@ -169,7 +169,7 @@ instance Reg Word16 MonadAtari where
         value <- view word16Array
         liftIO $ unsafeWrite value (unTyped r) v
 
-instance Reg Word64 MonadAtari where
+instance Reg Word64 MonadAcorn where
     {-# INLINE load #-}
     load r = do
         value <- view word64Array
@@ -179,7 +179,7 @@ instance Reg Word64 MonadAtari where
         value <- view word64Array
         liftIO $ unsafeWrite value (unTyped r) v
 
-instance Reg Bool MonadAtari where
+instance Reg Bool MonadAcorn where
     {-# INLINE load #-}
     load r = do
         value <- view boolArray
@@ -190,46 +190,46 @@ instance Reg Bool MonadAtari where
         liftIO $ unsafeWrite value (unTyped r) v
 
 {-# INLINE useStellaDebug #-}
-useStellaDebug :: Getting b DebugState b -> MonadAtari b
+useStellaDebug :: Getting b DebugState b -> MonadAcorn b
 useStellaDebug lens' = do
     atari <- ask
     stellaDebug' <- liftIO $ readIORef (atari ^. stellaDebug)
     return $! stellaDebug' ^. lens'
 
 {-# INLINE putStellaDebug #-}
-putStellaDebug :: ASetter DebugState DebugState a a -> a -> MonadAtari ()
+putStellaDebug :: ASetter DebugState DebugState a a -> a -> MonadAcorn ()
 putStellaDebug lens' value = do
     atari <- ask
     liftIO $ modifyIORef' (atari ^. stellaDebug) (set lens' value)
 
 {-# INLINE modifyStellaDebug #-}
-modifyStellaDebug :: ASetter DebugState DebugState a b -> (a -> b) -> MonadAtari ()
+modifyStellaDebug :: ASetter DebugState DebugState a b -> (a -> b) -> MonadAcorn ()
 modifyStellaDebug lens' modifier = do
     atari <- ask
     liftIO $ modifyIORef' (atari ^. stellaDebug) (over lens' modifier)
 
 {-# INLINE useClock #-}
-useClock :: Getting b Int64 b -> MonadAtari b
+useClock :: Getting b Int64 b -> MonadAcorn b
 useClock lens' = do
     atari <- ask
     clock' <- liftIO $ readIORef (atari ^. clock)
     return $! clock' ^. lens'
 
 {-# INLINE modifyClock #-}
-modifyClock :: ASetter Int64 Int64 a b -> (a -> b) -> MonadAtari ()
+modifyClock :: ASetter Int64 Int64 a b -> (a -> b) -> MonadAcorn ()
 modifyClock lens' modifier = do
     atari <- ask
     liftIO $ modifyIORef' (atari ^. clock) (over lens' modifier)
 
 {-# INLINE useStellaClock #-}
-useStellaClock :: Getting b Int64 b -> MonadAtari b
+useStellaClock :: Getting b Int64 b -> MonadAcorn b
 useStellaClock lens' = do
     atari <- ask
     stellaClock' <- liftIO $ readIORef (atari ^. stellaClock)
     return $! stellaClock' ^. lens'
 
 {-# INLINE modifyStellaClock #-}
-modifyStellaClock :: ASetter Int64 Int64 a b -> (a -> b) -> MonadAtari ()
+modifyStellaClock :: ASetter Int64 Int64 a b -> (a -> b) -> MonadAcorn ()
 modifyStellaClock lens' modifier = do
     atari <- ask
     liftIO $ modifyIORef' (atari ^. stellaClock) (over lens' modifier)
@@ -237,38 +237,38 @@ modifyStellaClock lens' modifier = do
 -- 6502 registers
 
 -- {-# INLINE getX #-}
-getX :: MonadAtari Word8
+getX :: MonadAcorn Word8
 getX = load x
 
 -- {-# INLINE putX #-}
-putX :: Word8 -> MonadAtari ()
+putX :: Word8 -> MonadAcorn ()
 putX r = x @= r 
 
-getPC :: MonadAtari Word16
-putC :: Bool -> MonadAtari ()
-getC :: MonadAtari Bool
-putZ :: Bool -> MonadAtari ()
-getZ :: MonadAtari Bool
-putI :: Bool -> MonadAtari ()
-getI :: MonadAtari Bool
-putD :: Bool -> MonadAtari ()
-getD :: MonadAtari Bool
-putB :: Bool -> MonadAtari ()
-getB :: MonadAtari Bool
-putV :: Bool -> MonadAtari ()
-getV :: MonadAtari Bool
-putN :: Bool -> MonadAtari ()
-getN :: MonadAtari Bool
-getA :: MonadAtari Word8
-putA :: Word8 -> MonadAtari ()
-getS :: MonadAtari Word8
-putS :: Word8 -> MonadAtari ()
-getP :: MonadAtari Word8
-putP :: Word8 -> MonadAtari ()
-getY :: MonadAtari Word8
-putY :: Word8 -> MonadAtari ()
-putPC :: Word16 -> MonadAtari ()
-addPC :: Int -> MonadAtari ()
+getPC :: MonadAcorn Word16
+putC :: Bool -> MonadAcorn ()
+getC :: MonadAcorn Bool
+putZ :: Bool -> MonadAcorn ()
+getZ :: MonadAcorn Bool
+putI :: Bool -> MonadAcorn ()
+getI :: MonadAcorn Bool
+putD :: Bool -> MonadAcorn ()
+getD :: MonadAcorn Bool
+putB :: Bool -> MonadAcorn ()
+getB :: MonadAcorn Bool
+putV :: Bool -> MonadAcorn ()
+getV :: MonadAcorn Bool
+putN :: Bool -> MonadAcorn ()
+getN :: MonadAcorn Bool
+getA :: MonadAcorn Word8
+putA :: Word8 -> MonadAcorn ()
+getS :: MonadAcorn Word8
+putS :: Word8 -> MonadAcorn ()
+getP :: MonadAcorn Word8
+putP :: Word8 -> MonadAcorn ()
+getY :: MonadAcorn Word8
+putY :: Word8 -> MonadAcorn ()
+putPC :: Word16 -> MonadAcorn ()
+addPC :: Int -> MonadAcorn ()
 --
 -- {-# INLINE getPC #-}
 getPC = load pc
@@ -321,7 +321,7 @@ putPC r = pc @= r
 -- {-# INLINE addPC #-}
 addPC n = modify pc (+ fromIntegral n)
 
-readKeypadColumn :: Int -> MonadAtari Word8
+readKeypadColumn :: Int -> MonadAcorn Word8
 readKeypadColumn col =  do
     k0 <- load (kbd 0 col)
     k1 <- load (kbd 1 col)
@@ -333,6 +333,6 @@ readKeypadColumn col =  do
              || k2 && not (testBit swchaValue 6)
              || k3 && not (testBit swchaValue 7) then 0x00 else 0x80
 
-readInput :: Controllers -> TypedIndex Word8 -> Int -> MonadAtari Word8
+readInput :: Controllers -> TypedIndex Word8 -> Int -> MonadAcorn Word8
 readInput Keypads   _              column  = readKeypadColumn column
 readInput Joysticks input_register _       = load input_register

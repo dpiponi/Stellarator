@@ -1,7 +1,7 @@
 module Stella where
 
 import Asm hiding (a)
-import Atari2600
+import AcornAtom
 -- import Data.Bits hiding (bit)
 import Data.Word
 import Prelude hiding (last, and)
@@ -18,17 +18,17 @@ import Control.Monad.IO.Class
 import Data.IORef
 
 -- {- INLINE stellaHmclr -}
-stellaHmclr :: MonadAtari ()
+stellaHmclr :: MonadAcorn ()
 stellaHmclr =
     mapM_ (@= 0) [hmp0, hmp1, hmm0, hmm1, hmbl]
 
 -- {- INLINE stellaCxclr -}
-stellaCxclr :: MonadAtari ()
+stellaCxclr :: MonadAcorn ()
 stellaCxclr =
     mapM_ (@= 0) [cxm0p, cxm1p, cxm0fb, cxm1fb, cxp0fb, cxp1fb, cxblpf, cxppmm]
 
 -- {- INLINE stellaHmove -}
-stellaHmove :: MonadAtari ()
+stellaHmove :: MonadAcorn ()
 stellaHmove = do
     pendingHmove @= True
 
@@ -54,7 +54,7 @@ wrap160 i | i < picx = wrap160 (i+160)
 wrap160 i = i
 
 -- {- INLINE stellaVblank -}
-stellaVblank :: Word8 -> MonadAtari ()
+stellaVblank :: Word8 -> MonadAcorn ()
 stellaVblank v = do
     trigger1' <- load trigger1
     modify inpt4 $ bitAt 7 .~ not trigger1'
@@ -63,7 +63,7 @@ stellaVblank v = do
     vblank @= v
 
 -- {- INLINE stellaWsync -}
-stellaWsync :: MonadAtari ()
+stellaWsync :: MonadAcorn ()
 stellaWsync = do
     hpos' <- load hpos
     -- Run instructions until we're at start of new scan line
@@ -71,7 +71,7 @@ stellaWsync = do
         stellaTickFor 1 -- there's a smarter way to do this XXX
         stellaWsync
 
-stellaTickFor :: Int -> MonadAtari ()
+stellaTickFor :: Int -> MonadAcorn ()
 stellaTickFor d = do
     n <- load ahead
     if d > n
@@ -80,7 +80,7 @@ stellaTickFor d = do
             ahead @= 0
         else ahead @= (n-d)
 
-stellaTickFor' :: Int -> MonadAtari ()
+stellaTickFor' :: Int -> MonadAcorn ()
 stellaTickFor' diff = do
     when (diff >= 0) $ do
         -- Batch together items that don't need to be
@@ -103,7 +103,7 @@ timerTick' 0      0         _         _       = (0xff,       3*1-1,         1,  
 timerTick' intim' 0         interval' timint' = (intim'-1, 3*interval'-1, interval', timint')
 timerTick' intim' subtimer' interval' timint' = (intim',   subtimer'-1,   interval', timint')
 
-timerTick :: MonadAtari ()
+timerTick :: MonadAcorn ()
 timerTick = do
     (intim'', subtimer'', interval'', timint'') <- timerTick' <$> load intim <*> load subtimer <*> load interval <*> load timint
     intim @= intim''
@@ -124,7 +124,7 @@ gtTime (TimeSpec sec0 nsec0) (TimeSpec sec1 nsec1) =
 -- If the emulator is just starting, or restarting after a pause,
 -- then the time for the next frame needs to be pushed forward
 -- until after the current time.
-resetNextFrame :: MonadAtari ()
+resetNextFrame :: MonadAcorn ()
 resetNextFrame = do
     liftIO $ print "Resetting clock"
     t <- liftIO $ getTime Realtime
@@ -132,7 +132,7 @@ resetNextFrame = do
     nextFrameTimeRef <- view nextFrameTime
     liftIO $ writeIORef nextFrameTimeRef nt
 
-makePlayfield :: MonadAtari ()
+makePlayfield :: MonadAcorn ()
 makePlayfield = do
     pf0' <- load pf0
     pf1' <- load pf1
@@ -141,7 +141,7 @@ makePlayfield = do
     let pf' = assemblePlayfield (testBit ctrlpf' 0) pf0' pf1' pf2'
     pf @= pf'
 
-startIntervalTimerN :: Int -> Word8 -> MonadAtari ()
+startIntervalTimerN :: Int -> Word8 -> MonadAcorn ()
 startIntervalTimerN n v = do
     interval @= n
     subtimer @= 0 -- Was 3*n-1
@@ -149,7 +149,7 @@ startIntervalTimerN n v = do
     timint @= 0
 
 -- {- INLINABLE readStella -}
-readStella :: Word16 -> MonadAtari Word8
+readStella :: Word16 -> MonadAcorn Word8
 readStella addr = do
 --     liftIO $ putStrLn $ "reading 0x" ++ showHex addr ""
     controls <- view controllers
@@ -210,7 +210,7 @@ readStella addr = do
         0x285 -> load timint
         _ -> return 0 
 
-graphicsDelay :: Int -> MonadAtari ()
+graphicsDelay :: Int -> MonadAcorn ()
 graphicsDelay d = do
     n <- load ahead
     when (d > n) $ do

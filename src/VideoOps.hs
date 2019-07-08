@@ -10,7 +10,7 @@ module VideoOps(clampMissiles,
 
 import Data.Word
 import Data.Bits hiding (bit) -- XXX check this
-import Atari2600
+import AcornAtom
 import Control.Lens
 import Control.Monad
 import Control.Monad.Trans
@@ -46,7 +46,7 @@ inBinary n m = inBinary (n-1) (m `shift` (-1)) ++ if testBit m 0 then "1" else "
 clockMove :: Word8 -> Int
 clockMove i = fromIntegral ((fromIntegral i :: Int8) `shift` (-4))
 
-dumpStella :: MonadAtari ()
+dumpStella :: MonadAcorn ()
 dumpStella = do
     liftIO $ putStrLn "--------"
     hpos' <- load hpos
@@ -175,12 +175,12 @@ stretchPlayer :: Bool -> Int -> Word8 -> Word8 -> Bool
 stretchPlayer _       o _          _      | o < 0 || o >= 72 = False
 stretchPlayer reflect o sizeCopies bitmap = stretchPlayer' reflect sizeCopies o bitmap
 
-clampMissiles :: Word8 -> Word8 -> MonadAtari ()
+clampMissiles :: Word8 -> Word8 -> MonadAcorn ()
 clampMissiles resmp0' resmp1' = do
     when (testBit resmp0' 1) $ ppos0 @-> mpos0
     when (testBit resmp1' 1) $ ppos1 @-> mpos1
 
--- Atari2600 programmer's guide p.22
+-- AcornAtom programmer's guide p.22
 {- INLINE missile0 -}
 missile :: Word8 -> Word8 -> Int -> Word8 -> Bool
 missile _       _      o _       | o < 0                  = False
@@ -188,11 +188,11 @@ missile _       _      _ resmp0' | testBit resmp0' 1      = False
 missile _       enam0' _ _       | not (testBit enam0' 1) = False
 missile nusiz0' _      o _                                = o < missileSize nusiz0'
 
--- Atari2600 programmer's guide p.40
+-- AcornAtom programmer's guide p.40
 -- Also
 -- http://atariage.com/forums/topic/260569-timing-weirdness-in-battlezone-radar/
 {- INLINE player0 -}
-player0 :: Int -> Bool -> Word8 -> MonadAtari Bool
+player0 :: Int -> Bool -> Word8 -> MonadAcorn Bool
 player0 _ _ o | o < 0 = return False
 player0 o delayP0' nusiz0' = do
     let sizeCopies = 0b111 .&. nusiz0'
@@ -201,7 +201,7 @@ player0 o delayP0' nusiz0' = do
     return $ stretchPlayer (testBit refp0' 3) (o-if nusiz0' .&. 0x5 == 0x5 then 1 else 0) sizeCopies grp0'
 
 {- INLINE player1 -}
-player1 :: Int -> Bool -> Word8 -> MonadAtari Bool
+player1 :: Int -> Bool -> Word8 -> MonadAcorn Bool
 player1 _ _ o | o < 0 = return False
 player1 o delayP1' nusiz1' = do
     let sizeCopies = 0b111 .&. nusiz1'
@@ -279,7 +279,7 @@ bit n True  = 1 `shift` n
 -- 5             CXM1FB        1   1   .   .   .   .   .   .  read collision    M1 PF    M1 BL
 -- 6             CXBLPF        1   .   .   .   .   .   .   .  read collision    BL PF    unused
 -- 7             CXPPMM        1   1   .   .   .   .   .   .  read collision    P0 P1    M0 M1
-doCollisions :: Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> MonadAtari ()
+doCollisions :: Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> MonadAcorn ()
 doCollisions lplayfield lball lmissile0 lmissile1 lplayer0 lplayer1 = do
     -- Combine playfield and ball into single byte
     -- Remember `&` is reverse function application, not logical AND
@@ -302,7 +302,7 @@ wrap160' x' | x' < 0 = x'+160
 wrap160' x' = x'
 
 {- INLINE compositeAndCollide -}
-compositeAndCollide :: Int -> Int -> MonadAtari Word8
+compositeAndCollide :: Int -> Int -> MonadAcorn Word8
 compositeAndCollide pixelx hpos' = do
     ppos0' <- load ppos0
     ppos1' <- load ppos1
@@ -353,7 +353,7 @@ compositeAndCollide pixelx hpos' = do
     else return z
 
 {-# INLINE stellaTick #-}
-stellaTick :: Int -> Ptr Word8 -> MonadAtari ()
+stellaTick :: Int -> Ptr Word8 -> MonadAcorn ()
 stellaTick n _ | n <= 0 = return ()
 stellaTick n ptr' = do
     hpos' <- load hpos

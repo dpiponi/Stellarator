@@ -2,14 +2,14 @@ module Step where
 
 import Asm
 import Emulation
-import Atari2600
+import AcornAtom
 import Prelude hiding (and)
 import Data.Int
 import Control.Monad
 import ALU
 
 -- -- Trying not having this inlined {-# IGNOREINLINABLE step #-}
-step :: MonadAtari ()
+step :: MonadAcorn ()
 step = do
     --dumpState
     p0 <- getPC
@@ -178,7 +178,7 @@ step = do
 --     dumpState
     return ()
 
-loopUntil :: Int64 -> MonadAtari ()
+loopUntil :: Int64 -> MonadAcorn ()
 loopUntil n = do
     stellaClock' <- useStellaClock id
     when (stellaClock' < n) $ (pc @-> pcStep) >> step >> loopUntil n

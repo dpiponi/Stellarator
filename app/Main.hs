@@ -10,7 +10,7 @@
 module Main where
 
 import Prelude hiding (last, init, null)
-import Atari2600
+import AcornAtom
 import Binary
 import Control.Monad
 import Control.Monad.Reader

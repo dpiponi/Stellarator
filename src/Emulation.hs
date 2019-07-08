@@ -8,7 +8,7 @@
 module Emulation where
 
 import Asm hiding (a, s, x)
-import Atari2600
+import AcornAtom
 import Control.Lens hiding (set, op, index)
 import Control.Monad.Reader
 import Data.Maybe
@@ -41,9 +41,9 @@ import Graphics.UI.GLFW hiding (getTime)
 import Data.Array.Storable
 #endif
 
-readMemory :: Word16 -> MonadAtari Word8
-writeMemory :: Word16 -> Word8 -> MonadAtari ()
-illegal :: Word8 -> MonadAtari ()
+readMemory :: Word16 -> MonadAcorn Word8
+writeMemory :: Word16 -> Word8 -> MonadAcorn ()
+illegal :: Word8 -> MonadAcorn ()
 
 --
 -- {-# INLINE readMemory #-}
@@ -59,7 +59,7 @@ writeMemory addr' v = do
     pureWriteMemory (memoryType addr) addr v
 
 -- {-# INLINE tick #-}
-tick :: Int -> MonadAtari ()
+tick :: Int -> MonadAcorn ()
 tick n = do
     modifyClock id (+ fromIntegral n)
     c <- useClock id
@@ -78,22 +78,22 @@ illegal i = do
     dumpState
     error $ "Illegal opcode 0x" ++ showHex i ""
 
-debugStr :: Int -> String -> MonadAtari ()
-debugStrLn :: Int -> String -> MonadAtari ()
+debugStr :: Int -> String -> MonadAcorn ()
+debugStrLn :: Int -> String -> MonadAcorn ()
 
 -- {-# INLINE incPC #-}
-incPC :: MonadAtari ()
+incPC :: MonadAcorn ()
 incPC = addPC 1
 
 -- {-# INLINABLE read16 #-}
-read16 :: Word16 -> MonadAtari Word16
+read16 :: Word16 -> MonadAcorn Word16
 read16 addr = do
     lo0 <- readMemory addr
     hi0 <- readMemory (addr+1)
     return $ make16 lo0 hi0
 
 -- {-# INLINABLE read16tick #-}
-read16tick :: Word16 -> MonadAtari Word16
+read16tick :: Word16 -> MonadAcorn Word16
 read16tick addr = do
     tick 1
     lo0 <- readMemory addr
@@ -102,7 +102,7 @@ read16tick addr = do
     return $ make16 lo0 hi0
 
 -- {-# INLINABLE read16zpTick #-}
-read16zpTick :: Word8 -> MonadAtari Word16
+read16zpTick :: Word8 -> MonadAcorn Word16
 read16zpTick addr = do
     tick 1
     lo0 <- readMemory (i16 addr)
@@ -117,7 +117,7 @@ read16zpTick addr = do
 
 -- 6 clock cycles...
 -- {-# INLINABLE writeIndX #-}
-writeIndX :: Word8 -> MonadAtari ()
+writeIndX :: Word8 -> MonadAcorn ()
 writeIndX src = do
     tick 1
     index <- getX
@@ -134,7 +134,7 @@ writeIndX src = do
 
 -- 3 clock cycles
 -- {-# INLINABLE writeZeroPage #-}
-writeZeroPage :: Word8 -> MonadAtari ()
+writeZeroPage :: Word8 -> MonadAcorn ()
 writeZeroPage src = do
     tick 1
     addr <- getPC >>= readMemory
@@ -145,7 +145,7 @@ writeZeroPage src = do
 
 -- 4 clock cycles
 -- {-# INLINABLE writeAbs #-}
-writeAbs :: Word8 -> MonadAtari()
+writeAbs :: Word8 -> MonadAcorn()
 writeAbs src = do
     addr <- getPC >>= read16tick
 
@@ -155,7 +155,7 @@ writeAbs src = do
 
 -- 6 clock cycles
 -- {-# INLINABLE writeIndY #-}
-writeIndY :: Word8 -> MonadAtari ()
+writeIndY :: Word8 -> MonadAcorn ()
 writeIndY src = do
     tick 1
     index <- getY
@@ -174,7 +174,7 @@ writeIndY src = do
 
 -- 4 clock cycles
 -- {-# INLINABLE writeZeroPageX #-}
-writeZeroPageX :: Word8 -> MonadAtari ()
+writeZeroPageX :: Word8 -> MonadAcorn ()
 writeZeroPageX src = do
     tick 1
     index <- getX
@@ -189,7 +189,7 @@ writeZeroPageX src = do
 
 -- 4 clock cycles
 -- {-# INLINABLE writeZeroPageY #-}
-writeZeroPageY :: Word8 -> MonadAtari ()
+writeZeroPageY :: Word8 -> MonadAcorn ()
 writeZeroPageY src = do
     tick 1
     index <- getY
@@ -204,7 +204,7 @@ writeZeroPageY src = do
 
 -- 5 clock cycles
 -- {-# INLINABLE writeAbsY #-}
-writeAbsY :: Word8 -> MonadAtari ()
+writeAbsY :: Word8 -> MonadAcorn ()
 writeAbsY src = do
     index <- getY
     addr <- getPC >>= read16tick
@@ -219,7 +219,7 @@ writeAbsY src = do
 
 -- 5 clock cycles
 -- {-# INLINABLE writeAbsX #-}
-writeAbsX :: Word8 -> MonadAtari ()
+writeAbsX :: Word8 -> MonadAcorn ()
 writeAbsX src = do
     index <- getX
     addr <- getPC >>= read16tick
@@ -234,7 +234,7 @@ writeAbsX src = do
 
 -- 6 clock cycles
 -- {-# INLINABLE readIndX #-}
-readIndX :: MonadAtari Word8
+readIndX :: MonadAcorn Word8
 readIndX = do
     tick 1
     index <- getX
@@ -251,7 +251,7 @@ readIndX = do
 
 -- 3 clock cycles
 -- {-# INLINABLE readZeroPage #-}
-readZeroPage :: MonadAtari Word8
+readZeroPage :: MonadAcorn Word8
 readZeroPage = do
     tick 1
     addr <- getPC >>= readMemory
@@ -263,7 +263,7 @@ readZeroPage = do
 
 -- 2 clock cycles
 -- {-# INLINABLE readImm #-}
-readImm :: MonadAtari Word8
+readImm :: MonadAcorn Word8
 readImm = do
     tick 1
     src <- getPC >>= readMemory
@@ -273,7 +273,7 @@ readImm = do
 -- XXX consider applicable ops like *>
 -- 4 clock cycles
 -- {-# INLINABLE readAbs #-}
-readAbs :: MonadAtari Word8
+readAbs :: MonadAcorn Word8
 readAbs = do
     p0 <- getPC
     src <- (read16tick p0 <* tick 1) >>= readMemory
@@ -282,7 +282,7 @@ readAbs = do
 
 -- 5-6 clock cycles
 -- {-# INLINABLE readIndY #-}
-readIndY :: MonadAtari Word8
+readIndY :: MonadAcorn Word8
 readIndY = do
     tick 1
     addr' <- getPC >>= readMemory
@@ -303,7 +303,7 @@ readIndY = do
 
 -- 4 clock cycles
 -- {-# INLINABLE readZeroPageX #-}
-readZeroPageX :: MonadAtari Word8
+readZeroPageX :: MonadAcorn Word8
 readZeroPageX = do
     tick 1
     index <- getX
@@ -318,7 +318,7 @@ readZeroPageX = do
 
 -- 4 clock cycles
 -- {-# INLINABLE readZeroPageY #-}
-readZeroPageY :: MonadAtari Word8
+readZeroPageY :: MonadAcorn Word8
 readZeroPageY = do
     tick 1
     index <- getY
@@ -333,7 +333,7 @@ readZeroPageY = do
 
 -- 4-5 clock cycles
 -- {-# INLINABLE readAbsX #-}
-readAbsX :: MonadAtari Word8
+readAbsX :: MonadAcorn Word8
 readAbsX = do
     index <- getX
     addr <- getPC >>= read16tick
@@ -349,7 +349,7 @@ readAbsX = do
 
 -- 4-5 clock cycles
 -- {-# INLINABLE readAbsY #-}
-readAbsY :: MonadAtari Word8
+readAbsY :: MonadAcorn Word8
 readAbsY = do
     index <- getY
     addr <- getPC >>= read16tick
@@ -365,7 +365,7 @@ readAbsY = do
 
 -- 2-4 clock cycles
 -- {-# INLINABLE bra #-}
-bra :: MonadAtari Bool -> Bool -> MonadAtari ()
+bra :: MonadAcorn Bool -> Bool -> MonadAcorn ()
 bra getFlag value = do
     tick 1
     offset <- getPC >>= readMemory
@@ -385,7 +385,7 @@ bra getFlag value = do
 
 -- 2 clock cycles
 -- {-# INLINABLE set #-}
-set :: (Bool -> MonadAtari ()) -> Bool -> MonadAtari ()
+set :: (Bool -> MonadAcorn ()) -> Bool -> MonadAcorn ()
 set putFlag value = do
     tick 1
     discard $ getPC >>= readMemory
@@ -393,7 +393,7 @@ set putFlag value = do
 
 -- 2 clock cycles
 -- {-# INLINABLE nop #-}
-nop :: MonadAtari ()
+nop :: MonadAcorn ()
 nop = do
     tick 1
     discard $ getPC >>= readMemory
@@ -401,7 +401,7 @@ nop = do
 {-
 -- 3 clock cycles. Undocumented.
 -- {-# INLINABLE nop #-}
-dop :: MonadAtari ()
+dop :: MonadAcorn ()
 nop = do
     tick 1
     discard $ getPC >>= readMemory
@@ -409,7 +409,7 @@ nop = do
 
 -- 3 clock cycles
 -- {-# INLINABLE jmp #-}
-jmp :: MonadAtari ()
+jmp :: MonadAcorn ()
 jmp = getPC >>= read16tick >>= putPC
 
 -- 5 clock cycles
@@ -418,7 +418,7 @@ jmp = getPC >>= read16tick >>= putPC
 -- Looks like the torture test might not catch this.
 -- Aha! That's why ALIGN is used before addresses!
 -- {-# INLINABLE jmp_indirect #-}
-jmp_indirect :: MonadAtari ()
+jmp_indirect :: MonadAcorn ()
 jmp_indirect = do
     getPC >>= read16tick >>= read16tick >>= putPC
 
@@ -428,7 +428,7 @@ uselessly = id
 
 -- 5 clock cycles
 -- {-# INLINABLE withZeroPage #-}
-withZeroPage :: (Word8 -> MonadAtari Word8) -> MonadAtari ()
+withZeroPage :: (Word8 -> MonadAcorn Word8) -> MonadAcorn ()
 withZeroPage op = do
     tick 1
     addr <- getPC >>= readMemory
@@ -445,7 +445,7 @@ withZeroPage op = do
 
 -- 2 clock cycles
 -- {-# INLINABLE withAcc #-}
-withAcc :: (Word8 -> MonadAtari Word8) -> MonadAtari ()
+withAcc :: (Word8 -> MonadAcorn Word8) -> MonadAcorn ()
 withAcc op = do
     tick 1
     discard $ getPC >>= readMemory
@@ -453,7 +453,7 @@ withAcc op = do
 
 -- 6 clock cycles
 -- {-# INLINE withAbs #-}
-withAbs :: (Word8 -> MonadAtari Word8) -> MonadAtari ()
+withAbs :: (Word8 -> MonadAcorn Word8) -> MonadAcorn ()
 withAbs op = do
     addr <- getPC >>= read16tick
     
@@ -469,7 +469,7 @@ withAbs op = do
     writeMemory addr dst
 
 -- 6 clock cycles
-withZeroPageX :: (Word8 -> MonadAtari Word8) -> MonadAtari ()
+withZeroPageX :: (Word8 -> MonadAcorn Word8) -> MonadAcorn ()
 withZeroPageX op = do
     tick 1
     index <- getX
@@ -492,7 +492,7 @@ withZeroPageX op = do
  
 -- 7 clock cycles
 -- {-# INLINE withAbsX #-}
-withAbsX :: (Word8 -> MonadAtari Word8) -> MonadAtari ()
+withAbsX :: (Word8 -> MonadAcorn Word8) -> MonadAcorn ()
 withAbsX op = do
     p0 <- getPC
     index <- getX
@@ -516,7 +516,7 @@ withAbsX op = do
 
 -- 7 clock cycles
 -- {-# INLINABLE brk #-}
-brk :: MonadAtari ()
+brk :: MonadAcorn ()
 brk = do
     tick 1
     p0 <- getPC
@@ -543,7 +543,7 @@ brk = do
 -- Am I using wrong address for IRQ. Should it be 0xfffe for IRQ, 0xfffa for NMI?
 -- XXX not supported correctly for now
 -- {-# INLINABLE irq #-}
-irq :: MonadAtari ()
+irq :: MonadAcorn ()
 irq = do
     fi <- getI
     if not fi
@@ -551,14 +551,14 @@ irq = do
         else return ()
 
 -- {-# INLINABLE push #-}
-push :: Word8 -> MonadAtari ()
+push :: Word8 -> MonadAcorn ()
 push v = do
     sp <- getS
     writeMemory (0x100+i16 sp) v
     putS (sp-1)
 
 -- {-# INLINABLE pull #-}
-pull :: MonadAtari Word8
+pull :: MonadAcorn Word8
 pull = do
     sp <- getS
     let sp' = sp+1
@@ -567,7 +567,7 @@ pull = do
 
 -- 3 clock cycles
 -- {-# INLINABLE pha #-}
-pha :: MonadAtari ()
+pha :: MonadAcorn ()
 pha = do
     tick 1
     discard $ getPC >>= readMemory
@@ -577,7 +577,7 @@ pha = do
 
 -- 3 clock cycles
 -- {-# INLINABLE php #-}
-php :: MonadAtari ()
+php :: MonadAcorn ()
 php = do
     tick 1
     discard $ getPC >>= readMemory
@@ -587,7 +587,7 @@ php = do
 
 -- 4 clock cycles
 -- {-# INLINABLE plp #-}
-plp :: MonadAtari ()
+plp :: MonadAcorn ()
 plp = do
     tick 1
     p0 <- getPC
@@ -602,7 +602,7 @@ plp = do
 
 -- 4 clock cycles
 -- {-# INLINABLE pla #-}
-pla :: MonadAtari ()
+pla :: MonadAcorn ()
 pla = do
     tick 1
     p0 <- getPC
@@ -616,7 +616,7 @@ pla = do
     pull >>= setNZ >>= putA
 
 -- {-# INLINABLE nmi #-}
-nmi :: Bool -> MonadAtari ()
+nmi :: Bool -> MonadAcorn ()
 nmi sw = do
     p0 <- getPC
     push $ hi p0
@@ -629,7 +629,7 @@ nmi sw = do
 
 -- 6 clock cycles
 -- {-# INLINABLE rti #-}
-rti :: MonadAtari ()
+rti :: MonadAcorn ()
 rti = do
     tick 1
     p0 <- getPC
@@ -646,7 +646,7 @@ rti = do
 
 -- 6 clock cycles
 -- {-# INLINABLE jsr #-}
-jsr :: MonadAtari ()
+jsr :: MonadAcorn ()
 jsr = do
     tick 1
     p0 <- getPC
@@ -672,7 +672,7 @@ jsr = do
 
 -- 6 clock cycles
 -- {-# INLINABLE rts #-}
-rts :: MonadAtari ()
+rts :: MonadAcorn ()
 rts = do
     tick 1
     discard $ getPC >>= readMemory
@@ -709,7 +709,7 @@ initState :: Int -> Int -> Int -> Int ->
              Ptr Word8 ->
              [(Word16, Int)] ->
              Controllers ->
-             IO Atari2600
+             IO AcornAtom
 initState xscale' yscale' width height ram'
 #if TRACE
             record'
@@ -733,7 +733,7 @@ initState xscale' yscale' width height ram'
           word8Array' <- newArray (0, maxWord8) 0
           liftIO $ st word16Array' pc initialPC
           delayArray <- makeDelayArray delayList
-          return $ Atari2600 {
+          return $ AcornAtom {
               _frameParity = parity,
               _nextFrameTime = nextFrameTime',
               _xscale = xscale',
@@ -823,7 +823,7 @@ Overscan        sta WSYNC
 -- |key30 - D7 IN4|key31 - D7 IN1|key32 - D7 IN0|key33 - D7 IN5|key34 - D7 IN3|key35 - D7 IN2|
 
 -- {- INLINE stellaVsync -}
-stellaVsync :: Word8 -> MonadAtari ()
+stellaVsync :: Word8 -> MonadAcorn ()
 stellaVsync v = do
     oldv <- load vsync
     when (testBit oldv 1 && not (testBit v 1)) $ do
@@ -832,7 +832,7 @@ stellaVsync v = do
     vsync @= v
 
 -- {-# INLINE pureReadRom #-}
-pureReadRom :: Word16 -> MonadAtari Word8
+pureReadRom :: Word16 -> MonadAcorn Word8
 pureReadRom addr = do
     atari <- ask
     let m = atari ^. rom
@@ -842,14 +842,14 @@ pureReadRom addr = do
 -- {-# INLINE pureWriteRom #-}
 -- | pureWriteRom sees address in full 6507 range 0x0000-0x1fff
 -- You can write to Super Chip "ROM"
-pureWriteRom :: Word16 -> Word8 -> MonadAtari ()
+pureWriteRom :: Word16 -> Word8 -> MonadAcorn ()
 pureWriteRom addr v = do
     atari <- ask
     let m = atari ^. rom
     liftIO $ writeArray m (iz addr - 0xc000) v
 
 -- {-# INLINE pureReadMemory #-}
-pureReadMemory :: MemoryType -> Word16 -> MonadAtari Word8
+pureReadMemory :: MemoryType -> Word16 -> MonadAcorn Word8
 pureReadMemory PPIA addr = do
     bits <- case addr of
         0xb000 -> load ppia0
@@ -903,7 +903,7 @@ translateChar c = '.'
 
 
 -- {-# INLINE pureWriteMemory #-}
-pureWriteMemory :: MemoryType -> Word16 -> Word8 -> MonadAtari ()
+pureWriteMemory :: MemoryType -> Word16 -> Word8 -> MonadAcorn ()
 pureWriteMemory PPIA addr v = do
     case addr of
         0xb000 -> do
@@ -926,7 +926,7 @@ pureWriteMemory RAM  addr v = do
 
 
 -- {-# INLINABLE dumpMemory #-}
-dumpMemory :: MonadAtari ()
+dumpMemory :: MonadAcorn ()
 dumpMemory = do
     regPC <- getPC
     b0 <- readMemory regPC
@@ -940,7 +940,7 @@ dumpMemory = do
     liftIO $ putStrLn $ mne
 
 -- {-# INLINABLE dumpRegisters #-}
-dumpRegisters :: MonadAtari ()
+dumpRegisters :: MonadAcorn ()
 dumpRegisters = do
     regPC <- getPC
     liftIO $ putStr $ " pc = " ++ showHex regPC ""
@@ -964,7 +964,7 @@ dumpRegisters = do
     liftIO $ putStrLn $ " N = " ++ showHex regS ""
 
 -- {-# INLINABLE dumpState #-}
-dumpState :: MonadAtari ()
+dumpState :: MonadAcorn ()
 dumpState = do
     dumpMemory
     dumpRegisters
@@ -1026,7 +1026,7 @@ dumpState = do
 -}
 
 -- {- INLINABLE writeStella -}
-writeStella :: Word16 -> Word8 -> MonadAtari ()
+writeStella :: Word16 -> Word8 -> MonadAcorn ()
 writeStella addr v = do
     when (addr <= 0x2c) $ do
         delays' <- view delays
@@ -1099,7 +1099,7 @@ writeStella addr v = do
        0x297 -> startIntervalTimerN 1024 v
        _ -> return () -- liftIO $ putStrLn $ "writing TIA 0x" ++ showHex addr ""
 
-renderDisplay :: MonadAtari ()
+renderDisplay :: MonadAcorn ()
 renderDisplay = do
     window <- view sdlWindow
     prog <- view glProg
@@ -1141,7 +1141,7 @@ renderDisplay = do
 --     liftIO $ print "renderDisplay done"
     return ()
 
-waitUntilNextFrameDue :: MonadAtari ()
+waitUntilNextFrameDue :: MonadAcorn ()
 waitUntilNextFrameDue = do
     nextFrameTimeRef <- view nextFrameTime
     nextFrameTime' <- liftIO $ readIORef nextFrameTimeRef
@@ -1155,7 +1155,7 @@ waitUntilNextFrameDue = do
 --         liftIO $ SDL.delay $ floor milliSecondsToGo
         liftIO $ threadDelay $ floor milliSecondsToGo
 
-initHardware :: MonadAtari ()
+initHardware :: MonadAcorn ()
 initHardware = do
     store inpt0 0x80
     store inpt1 0x80

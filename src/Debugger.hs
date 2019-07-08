@@ -1,7 +1,7 @@
 module Debugger(runDebugger) where
 
 import Asm
-import Atari2600
+import AcornAtom
 import Step
 import Control.Monad
 import Control.Monad.State.Strict
@@ -18,7 +18,7 @@ import qualified Data.Map.Strict as Map
 
 data DebugAction = Continue | KeepDebugging
 
-comparison :: (Int -> Int -> Bool) -> Expr -> Expr -> MonadAtari Value
+comparison :: (Int -> Int -> Bool) -> Expr -> Expr -> MonadAcorn Value
 comparison operator expr0 expr1 = do
     value0 <- eval expr0
     value1 <- eval expr1
@@ -26,7 +26,7 @@ comparison operator expr0 expr1 = do
         (EInt operand0, EInt operand1) -> return $ EBool (operand0 `operator` operand1)
         _ -> return EFail
 
-arith :: (Int -> Int -> Int) -> Expr -> Expr -> MonadAtari Value
+arith :: (Int -> Int -> Int) -> Expr -> Expr -> MonadAcorn Value
 arith operator expr0 expr1 = do
     value0 <- eval expr0
     value1 <- eval expr1
@@ -34,7 +34,7 @@ arith operator expr0 expr1 = do
         (EInt operand0, EInt operand1) -> return $ EInt (operand0 `operator` operand1)
         _ -> return EFail
 
-eval :: Expr -> MonadAtari Value
+eval :: Expr -> MonadAcorn Value
 eval A = EInt <$> fromIntegral <$> getA
 eval X = EInt <$> fromIntegral <$> getX
 eval Y = EInt <$> fromIntegral <$> getY
@@ -116,7 +116,7 @@ eval expr = do
     liftIO $ print expr
     return EFail
 
-disassemble :: Maybe Expr -> Maybe Expr -> MonadAtari ()
+disassemble :: Maybe Expr -> Maybe Expr -> MonadAcorn ()
 disassemble addr n = do
     n' <- case n of
         Just e -> do
@@ -136,7 +136,7 @@ disassemble addr n = do
     liftIO $ dis n' startPC bytes
 
 -- Rewrite without case
-execCommand :: Command -> MonadAtari DebugAction
+execCommand :: Command -> MonadAcorn DebugAction
 execCommand cmd = 
     case cmd of
         Let var e -> do
@@ -165,7 +165,7 @@ execCommand cmd =
         Until cond repeatedCmd -> execUntil cond repeatedCmd
         Execute cmdExpr -> execute cmdExpr
 
-execute :: Expr -> MonadAtari DebugAction
+execute :: Expr -> MonadAcorn DebugAction
 execute cmdExpr = do
     cmdValue <- eval cmdExpr
     case cmdValue of
@@ -178,7 +178,7 @@ execute cmdExpr = do
                     return KeepDebugging
         _ -> return KeepDebugging
 
-execRepeat :: Expr -> Command -> MonadAtari DebugAction
+execRepeat :: Expr -> Command -> MonadAcorn DebugAction
 execRepeat n repeatedCmd = do
     n' <- eval n
     case n' of
@@ -187,7 +187,7 @@ execRepeat n repeatedCmd = do
         _ -> return ()
     return KeepDebugging
 
-execPrint :: [Expr] -> MonadAtari DebugAction
+execPrint :: [Expr] -> MonadAcorn DebugAction
 execPrint es = do
     forM_ es $ \e -> do
         val <- eval e
@@ -197,7 +197,7 @@ execPrint es = do
     liftIO $ putStrLn ""
     return KeepDebugging
 
-execHelp :: MonadAtari DebugAction
+execHelp :: MonadAcorn DebugAction
 execHelp = do
     liftIO $ do
         putStrLn ""
@@ -241,7 +241,7 @@ execHelp = do
         putStrLn ""
     return KeepDebugging
 
-execUntil :: Expr -> Command -> MonadAtari DebugAction
+execUntil :: Expr -> Command -> MonadAcorn DebugAction
 execUntil cond repeatedCmd = loop >> return KeepDebugging where
     loop = do
         c <- eval cond
@@ -252,7 +252,7 @@ execUntil cond repeatedCmd = loop >> return KeepDebugging where
                 loop
             _ -> liftIO $ putStrLn "Non-boolean condition"
 
-runDebugger :: MonadAtari ()
+runDebugger :: MonadAcorn ()
 runDebugger = do
     let settings = defaultSettings { historyFile=Just ".stellarator" }
     mline <- liftIO $ runInputT settings $ getInputLine "> "

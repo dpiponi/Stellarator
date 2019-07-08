@@ -1,6 +1,6 @@
 module CPU where
 
-import Atari2600
+import AcornAtom
 import Data.Bits hiding (bit)
 import Data.Word
 import Prelude hiding (last, and)
@@ -19,22 +19,22 @@ iz :: Integral a => a -> Int
 iz = fromIntegral
 
 -- {-# INLINABLE setN #-}
-setN :: Word8 -> MonadAtari ()
+setN :: Word8 -> MonadAcorn ()
 setN r = putN $ r >= 0x80
 
 -- {-# INLINABLE setZ #-}
-setZ :: Word8 -> MonadAtari ()
+setZ :: Word8 -> MonadAcorn ()
 setZ r = putZ $ r == 0
 
 -- {-# INLINABLE setNZ #-}
-setNZ :: Word8 -> MonadAtari Word8
+setNZ :: Word8 -> MonadAcorn Word8
 setNZ r = setN r >> setZ r >> return r
 
 -- {-# INLINABLE setNZ_ #-}
-setNZ_ :: Word8 -> MonadAtari ()
+setNZ_ :: Word8 -> MonadAcorn ()
 setNZ_ r = setN r >> setZ r
 
-discard :: MonadAtari Word8 -> MonadAtari ()
+discard :: MonadAcorn Word8 -> MonadAcorn ()
 discard = void
 
 -- {-# INLINE make16 #-}
