@@ -11,7 +11,9 @@ picx :: Int
 picx = 68
 
 screenWidth, screenHeight :: Int
-(screenWidth, screenHeight) = (160, screenScanLines)
+--(screenWidth, screenHeight) = (160, screenScanLines)
+screenWidth = 32
+screenHeight = 16
 
 fps :: Int64
 fps = 60

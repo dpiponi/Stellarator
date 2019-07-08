@@ -96,7 +96,7 @@ atom_keyboard = [
     (Key'M, ([4], 4)),
     (Key'C, ([4], 3)),
     (Key'9, ([4], 2)),
-    (Key'Delete, ([4], 1)),
+    (Key'Backspace, ([4], 1)),
     (Key'CapsLock, ([4], 0)),
 
     (Key'V, ([5], 5)),
@@ -109,7 +109,7 @@ atom_keyboard = [
     (Key'U, ([6], 5)),
     (Key'K, ([6], 4)),
     (Key'A, ([6], 3)),
-    (Key'9, ([6], 2)),
+    (Key'7, ([6], 2)),
     (Key'Enter, ([6], 1)),
     (Key'RightBracket, ([6], 0)),
 

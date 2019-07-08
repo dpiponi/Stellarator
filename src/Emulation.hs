@@ -16,6 +16,8 @@ import Data.Char
 import Data.Array.IO hiding (index)
 import Data.Bits hiding (bit)
 import Data.ByteString hiding (putStrLn, putStr, index)
+import Foreign.Ptr
+import Foreign.Storable
 import Data.IORef
 import Data.Int
 import CPU
@@ -60,7 +62,10 @@ writeMemory addr' v = do
 tick :: Int -> MonadAtari ()
 tick n = do
     modifyClock id (+ fromIntegral n)
-    -- c <- useClock id
+    c <- useClock id
+    when (c `mod` 16667 == 0) $ do
+--         liftIO $ print "Frame"
+        renderDisplay
     stellaTickFor (3*n)
 
 -- {-# INLINE debugStr #-}
@@ -869,7 +874,7 @@ pureReadMemory PPIA addr = do
 
         0xb002 -> do
             c <- useClock id
-            let s = c `mod` 16667 -- clock cycles per 50 Hz
+            let s = c `mod` 16667 -- clock cycles per 60 Hz
 --             liftIO $ putStrLn $ "c = " ++ show s ++ ", s = " ++ show s
 --          -- The 0x40 is the REPT key
             let bits = if s < 100 then 0x40 else 0xc0
@@ -914,9 +919,9 @@ pureWriteMemory RAM  addr v = do
     atari <- ask
     let m = atari ^. ram
     let realAddress = iz addr
-    when (addr >= 0x8000 && addr < 0x9800) $ do
-        let character = translateChar (fromIntegral v)
-        liftIO $ putStrLn $ "Writing 0x" ++ showHex v "" ++ "(" ++ [character] ++ ") to screen: 0x" ++ showHex addr ""
+--     when (addr >= 0x8000 && addr < 0x9800) $ do
+--         let character = translateChar (fromIntegral v)
+--         liftIO $ putStrLn $ "Writing 0x" ++ showHex v "" ++ "(" ++ [character] ++ ") to screen: 0x" ++ showHex addr ""
     liftIO $ writeArray m realAddress v
 
 
@@ -1035,17 +1040,32 @@ renderDisplay = do
     lastPtr <- view lastTextureData
     windowWidth' <- view windowWidth
     windowHeight' <- view windowHeight
-    liftIO $ if parity
-      then do
-        updateTexture tex' ptr
-        updateTexture lastTex' lastPtr
-      else do
-        updateTexture lastTex' ptr
-        updateTexture tex' lastPtr
+--     atari <- ask
+--     let m = atari ^. ram
+--     liftIO $ print "renderDisplay"
+    -- Copy 6K of video RAM
+    forM_ [0..6143] $ \i -> do
+        char <- readMemory (0x8000 + i16 i)
+        liftIO $ pokeElemOff ptr (fromIntegral $ i) char
+--     liftIO $ print "renderDisplay 1"
+    liftIO $ updateTexture tex' ptr
+    liftIO $ updateTexture lastTex' ptr
+--     liftIO $ if parity
+--       then do
+--         updateTexture tex' ptr
+--         updateTexture lastTex' lastPtr
+--         return ()
+--       else do
+--         updateTexture lastTex' ptr
+--         updateTexture tex' lastPtr
+--         return ()
+--     liftIO $ print "renderDisplay 2"
     liftIO $ draw windowWidth' windowHeight' prog attrib
+--     liftIO $ print "renderDisplay 3"
 
     waitUntilNextFrameDue
     liftIO $ swapBuffers window
+--     liftIO $ print "renderDisplay done"
     return ()
 
 waitUntilNextFrameDue :: MonadAtari ()

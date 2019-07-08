@@ -17,6 +17,8 @@ import Control.Monad.Reader
 import Data.Array.IO
 import Data.Binary hiding (get)
 import Debugger
+import System.IO
+import Data.Char
 import System.Exit
 import Display
 import Emulation
@@ -121,6 +123,7 @@ delayList =  [
 
 main :: IO ()
 main = do
+    fontData <- readFont "font.txt"
     args' <- cmdArgs clargs
 
     let optionsFile = options args'
@@ -146,7 +149,7 @@ main = do
     result <- initAudio 64 44100 1024
     unless result $ die "Couldn't init sound"
 
-    (prog, attrib, tex', lastTex', textureData', lastTextureData') <- initResources alpha
+    (prog, attrib, tex', lastTex', textureData', lastTextureData') <- initResources alpha fontData
 
     romArray <- newArray (0, 0x3fff) 0 :: IO (IOUArray Int Word8)
     ramArray <- newArray (0, 0xbfff) 0 :: IO (IOUArray Int Word8)
