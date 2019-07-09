@@ -57,7 +57,7 @@ main = do
     let screenScaleX' = screenScaleX options'
     let screenScaleY' = screenScaleY options'
     -- XXX Make list of default keys
-    let Just atariKeys = keysFromOptions options'
+--     let Just atariKeys = keysFromOptions options'
     let controllerTypeString = controllerTypes options'
     let controllerType = read controllerTypeString
     let alpha = motionBlurAlpha options'
@@ -94,7 +94,7 @@ main = do
 --                 liftIO $ print queue
                 liftIO $ writeIORef queueRef queue'
                 let UIKey {uiKey = key, uiState = motion} = queuedKey
-                handleKey atariKeys motion key
+                handleKey motion key
             loopUntil 1000
 
             loop

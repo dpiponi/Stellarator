@@ -296,117 +296,117 @@ defaultOptions = Options {
     keyboardController35 = ["Comma"]
 }
 
-data AtariKey = Joystick1Left | Joystick1Right | Joystick1Up | Joystick1Down
-              | Joystick2Left | Joystick2Right | Joystick2Up | Joystick2Down
-              | Joystick1Trigger |Joystick2Trigger
-              | GameSelect | GameReset | TVType
-              | GameQuit | DumpState | EnterDebugger | DebugMode
-              | WriteRecord | DelayLeft | DelayRight | DelayUp | DelayDown
-              | KeyboardController Int Int
-                deriving (Eq, Show)
+-- data AtariKey = Joystick1Left | Joystick1Right | Joystick1Up | Joystick1Down
+--               | Joystick2Left | Joystick2Right | Joystick2Up | Joystick2Down
+--               | Joystick1Trigger |Joystick2Trigger
+--               | GameSelect | GameReset | TVType
+--               | GameQuit | DumpState | EnterDebugger | DebugMode
+--               | WriteRecord | DelayLeft | DelayRight | DelayUp | DelayDown
+--               | KeyboardController Int Int
+--                 deriving (Eq, Show)
 
-type AtariKeys = M.Map Key AtariKey
+-- type AtariKeys = M.Map Key AtariKey
 
-keysFromOptions :: Options -> Maybe AtariKeys
-keysFromOptions options = do
-    scancodes <- sequence $ map (sequence . map scancodeFromString) [
-                    joystick1Left options,
-                    joystick1Right options,
-                    joystick1Up options,
-                    joystick1Down options,
-                    joystick2Left options,
-                    joystick2Right options,
-                    joystick2Up options,
-                    joystick2Down options,
-                    joystick1Trigger options,
-                    joystick2Trigger options,
-                    dumpState options,
-                    gameQuit options,
-                    gameSelect options,
-                    gameReset options,
-                    tvType options,
-                    enterDebugger options,
-                    debugMode options,
-                    writeRecord options,
-                    delayLeft options,
-                    delayRight options,
-                    delayUp options,
-                    delayDown options,
-                    keyboardController00 options,
-                    keyboardController01 options,
-                    keyboardController02 options,
-                    keyboardController03 options,
-                    keyboardController04 options,
-                    keyboardController05 options,
-                    keyboardController10 options,
-                    keyboardController11 options,
-                    keyboardController12 options,
-                    keyboardController13 options,
-                    keyboardController14 options,
-                    keyboardController15 options,
-                    keyboardController20 options,
-                    keyboardController21 options,
-                    keyboardController22 options,
-                    keyboardController23 options,
-                    keyboardController24 options,
-                    keyboardController25 options,
-                    keyboardController30 options,
-                    keyboardController31 options,
-                    keyboardController32 options,
-                    keyboardController33 options,
-                    keyboardController34 options,
-                    keyboardController35 options
-                ]
-    let atariKeys = [
-                    Joystick1Left,
-                    Joystick1Right,
-                    Joystick1Up,
-                    Joystick1Down,
-                    Joystick2Left,
-                    Joystick2Right,
-                    Joystick2Up,
-                    Joystick2Down,
-                    Joystick1Trigger,
-                    Joystick2Trigger,
-                    DumpState,
-                    GameQuit,
-                    GameSelect,
-                    GameReset,
-                    TVType,
-                    EnterDebugger,
-                    DebugMode,
-                    WriteRecord,
-                    DelayLeft,
-                    DelayRight,
-                    DelayUp,
-                    DelayDown,
-                    KeyboardController 0 0,
-                    KeyboardController 0 1,
-                    KeyboardController 0 2,
-                    KeyboardController 0 3,
-                    KeyboardController 0 4,
-                    KeyboardController 0 5,
-                    KeyboardController 1 0,
-                    KeyboardController 1 1,
-                    KeyboardController 1 2,
-                    KeyboardController 1 3,
-                    KeyboardController 1 4,
-                    KeyboardController 1 5,
-                    KeyboardController 2 0,
-                    KeyboardController 2 1,
-                    KeyboardController 2 2,
-                    KeyboardController 2 3,
-                    KeyboardController 2 4,
-                    KeyboardController 2 5,
-                    KeyboardController 3 0,
-                    KeyboardController 3 1,
-                    KeyboardController 3 2,
-                    KeyboardController 3 3,
-                    KeyboardController 3 4,
-                    KeyboardController 3 5
-                ]
-    return $ M.fromList $ concat $ [zip scancodeLists (repeat deviceKeys) |
-                                    (scancodeLists, deviceKeys) <- zip scancodes atariKeys]
+-- keysFromOptions :: Options -> Maybe AtariKeys
+-- keysFromOptions options = do
+--     scancodes <- sequence $ map (sequence . map scancodeFromString) [
+--                     joystick1Left options,
+--                     joystick1Right options,
+--                     joystick1Up options,
+--                     joystick1Down options,
+--                     joystick2Left options,
+--                     joystick2Right options,
+--                     joystick2Up options,
+--                     joystick2Down options,
+--                     joystick1Trigger options,
+--                     joystick2Trigger options,
+--                     dumpState options,
+--                     gameQuit options,
+--                     gameSelect options,
+--                     gameReset options,
+--                     tvType options,
+--                     enterDebugger options,
+--                     debugMode options,
+--                     writeRecord options,
+--                     delayLeft options,
+--                     delayRight options,
+--                     delayUp options,
+--                     delayDown options,
+--                     keyboardController00 options,
+--                     keyboardController01 options,
+--                     keyboardController02 options,
+--                     keyboardController03 options,
+--                     keyboardController04 options,
+--                     keyboardController05 options,
+--                     keyboardController10 options,
+--                     keyboardController11 options,
+--                     keyboardController12 options,
+--                     keyboardController13 options,
+--                     keyboardController14 options,
+--                     keyboardController15 options,
+--                     keyboardController20 options,
+--                     keyboardController21 options,
+--                     keyboardController22 options,
+--                     keyboardController23 options,
+--                     keyboardController24 options,
+--                     keyboardController25 options,
+--                     keyboardController30 options,
+--                     keyboardController31 options,
+--                     keyboardController32 options,
+--                     keyboardController33 options,
+--                     keyboardController34 options,
+--                     keyboardController35 options
+--                 ]
+--     let atariKeys = [
+--                     Joystick1Left,
+--                     Joystick1Right,
+--                     Joystick1Up,
+--                     Joystick1Down,
+--                     Joystick2Left,
+--                     Joystick2Right,
+--                     Joystick2Up,
+--                     Joystick2Down,
+--                     Joystick1Trigger,
+--                     Joystick2Trigger,
+--                     DumpState,
+--                     GameQuit,
+--                     GameSelect,
+--                     GameReset,
+--                     TVType,
+--                     EnterDebugger,
+--                     DebugMode,
+--                     WriteRecord,
+--                     DelayLeft,
+--                     DelayRight,
+--                     DelayUp,
+--                     DelayDown,
+--                     KeyboardController 0 0,
+--                     KeyboardController 0 1,
+--                     KeyboardController 0 2,
+--                     KeyboardController 0 3,
+--                     KeyboardController 0 4,
+--                     KeyboardController 0 5,
+--                     KeyboardController 1 0,
+--                     KeyboardController 1 1,
+--                     KeyboardController 1 2,
+--                     KeyboardController 1 3,
+--                     KeyboardController 1 4,
+--                     KeyboardController 1 5,
+--                     KeyboardController 2 0,
+--                     KeyboardController 2 1,
+--                     KeyboardController 2 2,
+--                     KeyboardController 2 3,
+--                     KeyboardController 2 4,
+--                     KeyboardController 2 5,
+--                     KeyboardController 3 0,
+--                     KeyboardController 3 1,
+--                     KeyboardController 3 2,
+--                     KeyboardController 3 3,
+--                     KeyboardController 3 4,
+--                     KeyboardController 3 5
+--                 ]
+--     return $ M.fromList $ concat $ [zip scancodeLists (repeat deviceKeys) |
+--                                     (scancodeLists, deviceKeys) <- zip scancodes atariKeys]
 
 data UIKey = UIKey { uiKey :: Key, uiScancode :: Int, uiState :: KeyState, uiMods :: ModifierKeys }
                    deriving Show

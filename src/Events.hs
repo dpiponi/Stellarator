@@ -115,10 +115,10 @@ updatePPIA key pressed = do
                 liftIO $ print (row, column, pressed)
                 
 
-handleKey :: AtariKeys -> KeyState -> Key -> MonadAcorn ()
-handleKey atariKeys motion key = do
+handleKey :: KeyState -> Key -> MonadAcorn ()
+handleKey motion key = do
 --     let scancode = keysymScancode sym
-    let mAtariKey = M.lookup key atariKeys
+--     let mAtariKey = M.lookup key atariKeys
     let pressed = isPressed motion
     case key of
 --                 DumpState        -> Emulation.dumpState
