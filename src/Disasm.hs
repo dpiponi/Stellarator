@@ -117,14 +117,14 @@ disasm :: Word16 -> [Word8] -> (Int, String, [Word8])
 disasm _ [] = error "Shouldn't happen"
 disasm pc (b : bs) =
     case b of
-        0x00 -> (1, "BRK", bs)
-        0x08 -> (1, "PHP", bs)
+        0x00 -> (1, "brk", bs)
+        0x08 -> (1, "php", bs)
         0x10 -> branch pc "BPL" bs
-        0x18 -> branch pc "BCC" bs
+        0x18 -> (1, "clc", bs)
         0x20 -> absolute "jsr" bs
-        0x28 -> (1, "PLP", bs)
+        0x28 -> (1, "plp", bs)
         0x30 -> branch pc "BMI" bs
-        0x38 -> (1, "SEC", bs)
+        0x38 -> (1, "sec", bs)
         0x40 -> (1, "rti", bs)
         0x48 -> (1, "pha", bs)
         0x50 -> branch pc "BVC" bs

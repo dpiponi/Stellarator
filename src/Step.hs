@@ -11,11 +11,7 @@ import ALU
 -- -- Trying not having this inlined {-# IGNOREINLINABLE step #-}
 step :: MonadAcorn ()
 step = do
-    --dumpState
     p0 <- getPC
-    --if p0 == 0x3781 then debug .= True else return () -- XXX
---     if p0 == 0x400 then liftIO $ putStrLn "Started!!!" else return ()
---     if p0 == 0x3770 then liftIO $ putStrLn "Passed!!!" else return ()
     tick 1
     i <- readMemory p0
     incPC
@@ -179,6 +175,5 @@ step = do
     return ()
 
 loopUntil :: Int64 -> MonadAcorn ()
-loopUntil n = do
-    stellaClock' <- useStellaClock id
-    when (stellaClock' < n) $ (pc @-> pcStep) >> step >> loopUntil n
+loopUntil 0 = return ()
+loopUntil n = (pc @-> pcStep) >> step >> loopUntil (n-1)

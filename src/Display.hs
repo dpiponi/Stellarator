@@ -49,7 +49,7 @@ createImageTexture texName = do
 
     -- Allocate 6K of video RAM
     -- as width 64, height 96
-    forM_ [0..6143] $ \i ->
+    forM_ [0..6143::Int] $ \i ->
         pokeElemOff textureData (fromIntegral $ i) 0
 
     GL.textureBinding GL.Texture2D $= Just texName
@@ -192,6 +192,8 @@ draw windowWidth windowHeight program attrib = do
     GL.clearColor $= GL.Color4 0 0 0 0
     GL.clear [GL.ColorBuffer]
     GL.viewport $= (GL.Position 0 0, GL.Size (fromIntegral windowWidth) (fromIntegral windowHeight))
+--     (w, h) <- getFramebufferSize window
+--     GL.viewport $= (GL.Position 0 0, GL.Size (fromIntegral w) (fromIntegral h))
 
     GL.currentProgram $= Just program
     GL.vertexAttribArray attrib $= GL.Enabled
@@ -291,14 +293,14 @@ makeMainWindow screenScaleX' screenScaleY' queue = do
                             Nothing
     case mWindow of
         Nothing -> die "Couldn't create window"
-        Just window -> do
+        Just createdWindow -> do
 
             let keyCallback window key someInt state mods = do
                         print (window, key, someInt, state, mods)
                         modifyIORef queue (flip pushBack (UIKey key someInt state mods))
-            setKeyCallback window (Just keyCallback)
+            setKeyCallback createdWindow (Just keyCallback)
 
-            makeContextCurrent (Just window)
+            makeContextCurrent (Just createdWindow)
             print "Created window"
 
-            return window
+            return createdWindow

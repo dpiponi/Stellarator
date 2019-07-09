@@ -31,33 +31,6 @@ isPressed KeyState'Pressed = True
 isPressed KeyState'Repeating = True -- I don't know!
 isPressed KeyState'Released = False
 
--- XXX Move to Stella?
-{- INLINE setBreak -}
-setBreak :: Int -> Int -> MonadAcorn ()
-setBreak breakX breakY = do
-    xbreak @= (breakX+picx)
-    ybreak @= (breakY+picy)
-
-trigger1Pressed :: Bool -> MonadAcorn ()
-trigger1Pressed pressed = do
-    store trigger1 pressed
-    vblank' <- load vblank
-    let latch = testBit vblank' 6
-    case (latch, pressed) of
-        (False, _   ) -> modify inpt4 $ bitAt 7 .~ not pressed
-        (True, False) -> return ()
-        (True, True ) -> modify inpt4 $ bitAt 7 .~ False
-
-trigger2Pressed :: Bool -> MonadAcorn ()
-trigger2Pressed pressed = do
-    store trigger2 pressed
-    vblank' <- load vblank
-    let latch = testBit vblank' 6
-    case (latch, pressed) of
-        (False, _   ) -> modify inpt5 $ bitAt 7 .~ not pressed
-        (True, False) -> return ()
-        (True, True ) -> modify inpt5 $ bitAt 7 .~ False
-
 atom_keyboard :: [(Key, ([Int], Int))]
 atom_keyboard = [
     (Key'LeftShift, ([0..9], 7)),

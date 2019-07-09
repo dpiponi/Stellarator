@@ -43,7 +43,6 @@ module AcornAtom(
                  modify,
                  useStellaDebug,
                  modifyClock,
-                 useStellaClock,
                  controllers,
                  ram,
                  rom,
@@ -51,7 +50,6 @@ module AcornAtom(
                  useClock,
                  putStellaDebug,
                  sdlWindow,
-                 frameParity,
                  textureData,
                  lastTextureData,
                  windowWidth,
@@ -60,28 +58,16 @@ module AcornAtom(
                  lastTex,
                  glProg,
                  glAttrib,
-                 modifyStellaClock,
                  stellaDebug,
                  clock,
-                 stellaClock,
                  delays,
-                 modifyStellaDebug,
-                 readKeypadColumn,
-                 readInput,
-#if TRACE
-                 record,
-                 recordPtr
-#endif
+                 modifyStellaDebug
                  ) where
 
 import Control.Lens
 import Control.Monad.Reader
 import System.Clock
 import Data.Array.Base
-import Data.Bits
-#if TRACE
-import Data.Array.Storable
-#endif
 import Data.Array.IO
 import Data.Bits.Lens
 import Data.IORef
@@ -97,18 +83,12 @@ import Asm
 data Controllers = Joysticks | Keypads deriving (Eq, Show, Read)
 
 data AcornAtom = AcornAtom {
-    _frameParity :: IORef Bool,
     _clock :: IORef Int64,
-    _stellaClock :: IORef Int64,
     _stellaDebug :: IORef DebugState,
 
     _nextFrameTime :: IORef TimeSpec,
 
     _ram :: IOUArray Int Word8,
-#if TRACE
-    _record :: StorableArray Int Word8,
-    _recordPtr :: IORef Int,
-#endif
     _rom :: IOUArray Int Word8,
     _boolArray :: Segment Bool,
     _intArray :: Segment Int,
@@ -221,19 +201,6 @@ modifyClock lens' modifier = do
     atari <- ask
     liftIO $ modifyIORef' (atari ^. clock) (over lens' modifier)
 
-{-# INLINE useStellaClock #-}
-useStellaClock :: Getting b Int64 b -> MonadAcorn b
-useStellaClock lens' = do
-    atari <- ask
-    stellaClock' <- liftIO $ readIORef (atari ^. stellaClock)
-    return $! stellaClock' ^. lens'
-
-{-# INLINE modifyStellaClock #-}
-modifyStellaClock :: ASetter Int64 Int64 a b -> (a -> b) -> MonadAcorn ()
-modifyStellaClock lens' modifier = do
-    atari <- ask
-    liftIO $ modifyIORef' (atari ^. stellaClock) (over lens' modifier)
-
 -- 6502 registers
 
 -- {-# INLINE getX #-}
@@ -320,19 +287,3 @@ putY r = y @= r
 putPC r = pc @= r
 -- {-# INLINE addPC #-}
 addPC n = modify pc (+ fromIntegral n)
-
-readKeypadColumn :: Int -> MonadAcorn Word8
-readKeypadColumn col =  do
-    k0 <- load (kbd 0 col)
-    k1 <- load (kbd 1 col)
-    k2 <- load (kbd 2 col)
-    k3 <- load (kbd 3 col)
-    swchaValue <- load swcha
-    return $ if k0 && not (testBit swchaValue 4)
-             || k1 && not (testBit swchaValue 5)
-             || k2 && not (testBit swchaValue 6)
-             || k3 && not (testBit swchaValue 7) then 0x00 else 0x80
-
-readInput :: Controllers -> TypedIndex Word8 -> Int -> MonadAcorn Word8
-readInput Keypads   _              column  = readKeypadColumn column
-readInput Joysticks input_register _       = load input_register

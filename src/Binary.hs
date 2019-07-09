@@ -30,7 +30,7 @@ readFont filename = do
     handle <- openFile filename ReadMode
     contents <- hGetContents handle
     let d = map (fromIntegral . ord) contents
-    let e = filter (\x -> x == 88 || x == 32) d
+    let e = filter (\x -> x == 88 || x == 32) d ::[Int]
     let f = map (\x -> if x == 88 then 0xff else 0x00) e
 --     return f
     fontData <- mallocBytes (256*96+10000) :: IO (Ptr Word8)

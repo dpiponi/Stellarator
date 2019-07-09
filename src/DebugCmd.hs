@@ -13,7 +13,7 @@ import Numeric
 
 data Command = Cont
              | Help
-             | DumpGraphics | Step
+             | Step
              | Until Expr Command
              | Print [Expr]
              | List (Maybe Expr) (Maybe Expr)
@@ -33,7 +33,7 @@ instance Show Value where
 
 data Expr = A | X | Y | PC | S
           | EQ | NE | CC | CS | PL | MI
-          | Row | Col | Clock
+          | Clock
           | Var String
           | Gt Expr Expr | Lt Expr Expr
           | Ge Expr Expr | Le Expr Expr
@@ -61,7 +61,6 @@ parseCommands = Block <$> semiSep1 lexer parseCommand
 parseCommand :: ParsecT String u Identity Command
 parseCommand = Block <$> (braces lexer $ semiSep1 lexer parseCommand)
            <|> (char 'c' >> whiteSpace lexer >> return Cont)
-           <|> (char 'g' >> whiteSpace lexer >> return DumpGraphics)
            <|> (char 's' >> whiteSpace lexer >> return Step)
            <|> (char 'h' >> whiteSpace lexer >> return Help)
            <|> Repeat <$> (char 'r' >> whiteSpace lexer >> parseExpr) <*> parseCommand
@@ -82,8 +81,6 @@ parseExpr = buildExpressionParser table term
 term :: ParsecT String u Identity Expr
 term  = parens lexer parseExpr 
     <|> try (symbol lexer "t" >> return Clock)
-    <|> try (symbol lexer "col" >> return Col)
-    <|> try (symbol lexer "row" >> return Row)
     <|> try (symbol lexer "eq" >> return EQ)
     <|> try (symbol lexer "ne" >> return NE)
     <|> try (symbol lexer "cc" >> return CC)

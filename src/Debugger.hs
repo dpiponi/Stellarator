@@ -10,7 +10,6 @@ import DebugCmd
 import DebugState
 import Disasm
 import Emulation
-import VideoOps
 import Numeric
 import System.Console.Haskeline
 import Text.Parsec
@@ -47,8 +46,6 @@ eval CC = EBool <$> not <$> getC
 eval MI = EBool <$> getN
 eval PL = EBool <$> not <$> getN
 eval DebugCmd.Clock = EInt <$> fromIntegral <$> useClock id
-eval Row = EInt <$> fromIntegral <$> load vpos
-eval Col = EInt <$> fromIntegral <$> load hpos
 
 eval (Var name) = do
     v <- useStellaDebug variables
@@ -159,7 +156,6 @@ execCommand cmd =
             liftIO $ putStrLn "Continuing..."
             return Continue
         Help -> execHelp
-        DumpGraphics -> dumpStella >> return KeepDebugging
         Step -> (pc @-> pcStep) >> step >> return KeepDebugging
         Print es -> execPrint es
         Until cond repeatedCmd -> execUntil cond repeatedCmd

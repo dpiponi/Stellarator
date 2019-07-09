@@ -64,9 +64,7 @@ tick n = do
     modifyClock id (+ fromIntegral n)
     c <- useClock id
     when (c `mod` 16667 == 0) $ do
---         liftIO $ print "Frame"
         renderDisplay
-    stellaTickFor (3*n)
 
 -- {-# INLINE debugStr #-}
 debugStr _ _ = return ()
@@ -687,12 +685,6 @@ rts = do
     discard $ readMemory p0
     putPC (p0+1)
 
-makeDelayArray:: [(Word16, Int)] -> IO (IOUArray Word16 Int)
-makeDelayArray delayList = do
-    delayArray <- newArray (0, 0x2c) 0
-    forM_ delayList $ \(addr, d) -> writeArray delayArray addr d
-    return delayArray
-
 initState :: Int -> Int -> Int -> Int ->
              IOUArray Int Word8 ->
 #if TRACE
@@ -707,22 +699,19 @@ initState :: Int -> Int -> Int -> Int ->
              GL.TextureObject ->
              Ptr Word8 ->
              Ptr Word8 ->
-             [(Word16, Int)] ->
              Controllers ->
              IO AcornAtom
 initState xscale' yscale' width height ram'
 #if TRACE
             record'
 #endif
-            rom' initialPC window prog attrib initTex initLastTex initTextureData initLastTextureData delayList controllerType = do
+            rom' initialPC window prog attrib initTex initLastTex initTextureData initLastTextureData controllerType = do
           stellaDebug' <- newIORef DebugState.start
           t <- liftIO $ getTime Realtime
           let nt = addTime t (1000000000 `div` 60)
           nextFrameTime' <- newIORef nt
-          parity <- newIORef False
           clock' <- newIORef 0
           -- debug' <- newIORef 8
-          stellaClock' <- newIORef 0
 #if TRACE
           recordPtr' <- newIORef 0
 #endif
@@ -732,9 +721,7 @@ initState xscale' yscale' width height ram'
           word16Array' <- newArray (0, maxWord16) 0      -- Overkill
           word8Array' <- newArray (0, maxWord8) 0
           liftIO $ st word16Array' pc initialPC
-          delayArray <- makeDelayArray delayList
           return $ AcornAtom {
-              _frameParity = parity,
               _nextFrameTime = nextFrameTime',
               _xscale = xscale',
               _yscale = yscale',
@@ -748,7 +735,6 @@ initState xscale' yscale' width height ram'
               _ram = ram',
               _stellaDebug = stellaDebug',
               _clock = clock',
-              _stellaClock = stellaClock',
               _boolArray = boolArray',
               _intArray = intArray',
               _word64Array = word64Array',
@@ -761,8 +747,7 @@ initState xscale' yscale' width height ram'
               _tex = initTex,
               _lastTex = initLastTex,
               _glProg = prog,
-              _glAttrib = attrib,
-              _delays = delayArray
+              _glAttrib = attrib
           }
 
 {-
@@ -822,15 +807,6 @@ Overscan        sta WSYNC
 -- |key20 - D6 IN4|key21 - D6 IN1|key22 - D6 IN0|key23 - D6 IN5|key24 - D6 IN3|key25 - D6 IN2|
 -- |key30 - D7 IN4|key31 - D7 IN1|key32 - D7 IN0|key33 - D7 IN5|key34 - D7 IN3|key35 - D7 IN2|
 
--- {- INLINE stellaVsync -}
-stellaVsync :: Word8 -> MonadAcorn ()
-stellaVsync v = do
-    oldv <- load vsync
-    when (testBit oldv 1 && not (testBit v 1)) $ do
-        vpos @= 0
-        renderDisplay
-    vsync @= v
-
 -- {-# INLINE pureReadRom #-}
 pureReadRom :: Word16 -> MonadAcorn Word8
 pureReadRom addr = do
@@ -882,9 +858,7 @@ pureReadMemory PPIA addr = do
             return bits
         _ -> return 0
     return bits
-pureReadMemory VIA addr = do
---     liftIO $ putStrLn $ "Reading from VIA: 0x" ++ showHex addr ""
-    return 0
+pureReadMemory VIA _ = return 0
 pureReadMemory ROM  addr = pureReadRom addr
 pureReadMemory RAM  addr = do
     atari <- ask
@@ -899,7 +873,7 @@ translateChar :: Int -> Char
 translateChar c | c < 64 = displayChars !! c
 translateChar c | c < 128 = '.'
 translateChar c | c < 192 = displayChars !! (c - 128)
-translateChar c = '.'
+translateChar _ = '.'
 
 
 -- {-# INLINE pureWriteMemory #-}
@@ -908,20 +882,14 @@ pureWriteMemory PPIA addr v = do
     case addr of
         0xb000 -> do
             store ppia0 v
-            store keyboard_row v
+            store keyboard_row (v .&. 0xf)
         _ -> return ()
---     liftIO $ putStrLn $ "Writing 0x" ++ showHex v "" ++ " to PPIA: 0x" ++ showHex addr ""
-pureWriteMemory VIA addr v = do
---     liftIO $ putStrLn $ "Writing 0x" ++ showHex v "" ++ " to VIA: 0x" ++ showHex addr ""
-    return ()
+pureWriteMemory VIA _ _ = return ()
 pureWriteMemory ROM  addr v = pureWriteRom addr v
 pureWriteMemory RAM  addr v = do
     atari <- ask
     let m = atari ^. ram
     let realAddress = iz addr
---     when (addr >= 0x8000 && addr < 0x9800) $ do
---         let character = translateChar (fromIntegral v)
---         liftIO $ putStrLn $ "Writing 0x" ++ showHex v "" ++ "(" ++ [character] ++ ") to screen: 0x" ++ showHex addr ""
     liftIO $ writeArray m realAddress v
 
 
@@ -969,144 +937,12 @@ dumpState = do
     dumpMemory
     dumpRegisters
 
-{-
- - TIA Summary
-
-6-bit Address
-      Address Name
-                76543210    Function
----+---------+-----------+------------------------------------------
-00 |  VSYNC  |  ......1. |  vertical sync set-clear
-01 |  VBLANK |  11....1. |  vertical blank set-clear
-02 |  WSYNC  |  strobe   |  wait for leading edge of horizontal blank
-03 |  RSYNC  |  strobe   |  reset horizontal sync counter
-04 |  NUSIZ0 |  ..111111 |  number-size player-missile 0
-05 |  NUSIZ1 |  ..111111 |  number-size player-missile 1
-06 |  COLUP0 |  1111111. |  color-lum player 0
-07 |  COLUP1 |  1111111. |  color-lum player 1
-08 |  COLUPF |  1111111. |  color-lum playfield
-09 |  COLUBK |  1111111. |  color-lum background
-0A |  CTRLPF |  ..11.111 |  control playfield ball size & collisions
-0B |  REFP0  |  ....1... |  reflect player 0
-0C |  REFP1  |  ....1... |  reflect player 1
-0D |  PF0    |  1111.... |  playfield register byte 0
-0E |  PF1    |  11111111 |  playfield register byte 1
-0F |  PF2    |  11111111 |  playfield register byte 2
-10 |  RESP0  |  strobe   |  reset player 0
-11 |  RESP1  |  strobe   |  reset player 1
-12 |  RESM0  |  strobe   |  reset missile 0
-13 |  RESM1  |  strobe   |  reset missile 1
-14 |  RESBL  |  strobe   |  reset ball
-15 |  AUDC0  |  ....1111 |  audio control 0
-16 |  AUDC1  |  ...11111 |  audio control 1
-17 |  AUDF0  |  ...11111 |  audio frequency 0
-18 |  AUDF1  |  ....1111 |  audio frequency 1
-19 |  AUDV0  |  ....1111 |  audio volume 0
-1A |  AUDV1  |  ....1111 |  audio volume 1
-1B |  GRP0   |  11111111 |  graphics player 0
-1C |  GRP1   |  11111111 |  graphics player 1
-1D |  ENAM0  |  ......1. |  graphics (enable) missile 0
-1E |  ENAM1  |  ......1. |  graphics (enable) missile 1
-1F |  ENABL  |  ......1. |  graphics (enable) ball
-20 |  HMP0   |  1111.... |  horizontal motion player 0
-21 |  HMP1   |  1111.... |  horizontal motion player 1
-22 |  HMM0   |  1111.... |  horizontal motion missile 0
-23 |  HMM1   |  1111.... |  horizontal motion missile 1
-24 |  HMBL   |  1111.... |  horizontal motion ball
-25 |  VDELP0 |  .......1 |  vertical delay player 0
-26 |  VDELP1 |  .......1 |  vertical delay player 1
-27 |  VDELBL |  .......1 |  vertical delay ball
-28 |  RESMP0 |  ......1. |  reset missile 0 to player 0
-29 |  RESMP1 |  ......1. |  reset missile 1 to player 1
-2A |  HMOVE  |  strobe   |  apply horizontal motion
-2B |  HMCLR  |  strobe   |  clear horizontal motion registers
-2C |  CXCLR  |  strobe   |  clear collision latches
----+---------+-----------+------------------------------------------
-
--}
-
--- {- INLINABLE writeStella -}
-writeStella :: Word16 -> Word8 -> MonadAcorn ()
-writeStella addr v = do
-    when (addr <= 0x2c) $ do
-        delays' <- view delays
-        d <- liftIO $ readArray delays' addr
-        graphicsDelay d
-
-    case addr of
-       0x00 -> stellaVsync v             -- VSYNC
-       0x01 -> stellaVblank v            -- VBLANK
-       0x02 -> stellaWsync               -- WSYNC
-       0x04 -> nusiz0 @= v        -- NUSIZ0
-       0x05 -> nusiz1 @= v        -- NUSIZ1
-       0x06 -> (pcStep @-> pcColup0) >> colup0 @= v               -- COLUP0
-       0x07 -> (pcStep @-> pcColup1) >> colup1 @= v               -- COLUP1
-       0x08 -> (pcStep @-> pcColupf) >> colupf @= v               -- COLUPF
-       0x09 -> (pcStep @-> pcColubk) >> colubk @= v               -- COLUBK
-       0x0a -> ctrlpf @= v >> makePlayfield               -- CTRLPF
-       0x0b -> refp0 @= v               -- REFP0
-       0x0c -> refp1 @= v               -- REFP1
-       -- I'm sure I read delay should be 3 for PF registers
-       -- but that doesn't make sense to me.
-       -- See docs/adventure_pf_timing.txt
-       0x0d -> (pcStep @-> pcPf0) >> pf0 @= v >> makePlayfield    -- PF0
-       0x0e -> (pcStep @-> pcPf1) >> pf1 @= v >> makePlayfield    -- PF1
-       0x0f -> (pcStep @-> pcPf2) >> pf2 @= v >> makePlayfield    -- PF2
-       0x10 -> (pcStep @-> pcResp0) >> hpos @-> ppos0 -- RESP0
-       0x11 -> (pcStep @-> pcResp1) >> hpos @-> ppos1 -- RESP1
-       0x12 -> (pcStep @-> pcResm0) >> hpos @-> mpos0 -- RESM0
-       0x13 -> (pcStep @-> pcResm1) >> hpos @-> mpos1 -- RESM1
-       0x14 -> (pcStep @-> pcResbl) >> load hpos >>= (return . max (picx+2)) >>= (bpos @=)  -- RESBL
-       0x15 -> return () -- liftIO $ putStrLn $ "AUDC0 = " ++ showHex v ""
-       0x16 -> return () -- liftIO $ putStrLn $ "AUDC1 = " ++ showHex v ""
-       0x17 -> return () -- liftIO $ putStrLn $ "AUDF0 = " ++ showHex v ""
-       0x18 -> return () -- liftIO $ putStrLn $ "AUDF1 = " ++ showHex v ""
-       0x19 -> return () -- liftIO $ do
-                        -- putStrLn $ "AUDV0 = " ++ showHex v ""
-                        -- doAudio v
-       0x1a -> return () -- liftIO $ putStrLn $ "AUDV1 = " ++ showHex v ""
-       -- graphicsDelay of 1 chosen to stop spurious pixel in
-       -- "CCE" in Freeway.
-       0x1b -> do -- GRP0
-                newGrp0 @= v
-                newGrp1 @-> oldGrp1
-       0x1c -> do -- GRP1
-                newGrp1 @= v
-                newGrp0 @-> oldGrp0
-                newBall @-> oldBall
-       0x1d -> enam0 @= v                -- ENAM0
-       0x1e -> enam1 @= v                -- ENAM1
-       0x1f -> newBall @= testBit v 1   -- ENABL
-       0x20 -> hmp0 @= v                 -- HMP0
-       0x21 -> hmp1 @= v                 -- HMP1
-       0x22 -> hmm0 @= v                 -- HMM0
-       0x23 -> hmm1 @= v                 -- HMM1
-       0x24 -> hmbl @= v                 -- HMBL
-       0x25 -> delayP0 @= testBit v 0   -- VDELP0
-       0x26 -> delayP1 @= testBit v 0   -- VDELP1
-       0x27 -> delayBall @= testBit v 0   -- VDELBL
-       0x28 -> resmp0 @= v
-       0x29 -> resmp1 @= v
-       0x2a -> stellaHmove               -- HMOVE
-       0x2b -> stellaHmclr               -- HMCLR
-       0x2c -> stellaCxclr               -- CXCLR
-       0x280 -> do
-                 swcha @= v               -- XXX just added
-       0x281 -> swacnt @= v
-       0x294 -> startIntervalTimerN 1 v
-       0x295 -> startIntervalTimerN 8 v
-       0x296 -> startIntervalTimerN 64 v
-       0x297 -> startIntervalTimerN 1024 v
-       _ -> return () -- liftIO $ putStrLn $ "writing TIA 0x" ++ showHex addr ""
 
 renderDisplay :: MonadAcorn ()
 renderDisplay = do
     window <- view sdlWindow
     prog <- view glProg
     attrib <- view glAttrib
-    parityRef <- view frameParity
-    parity <- liftIO $ readIORef parityRef
-    liftIO $ modifyIORef parityRef not
     tex' <- view tex
     lastTex' <- view lastTex
     ptr <- view textureData
@@ -1117,23 +953,15 @@ renderDisplay = do
 --     let m = atari ^. ram
 --     liftIO $ print "renderDisplay"
     -- Copy 6K of video RAM
-    forM_ [0..6143] $ \i -> do
+    forM_ [0..6143::Int] $ \i -> do
         char <- readMemory (0x8000 + i16 i)
         liftIO $ pokeElemOff ptr (fromIntegral $ i) char
 --     liftIO $ print "renderDisplay 1"
     liftIO $ updateTexture tex' ptr
     liftIO $ updateTexture lastTex' ptr
---     liftIO $ if parity
---       then do
---         updateTexture tex' ptr
---         updateTexture lastTex' lastPtr
---         return ()
---       else do
---         updateTexture lastTex' ptr
---         updateTexture tex' lastPtr
---         return ()
---     liftIO $ print "renderDisplay 2"
-    liftIO $ draw windowWidth' windowHeight' prog attrib
+--     (w, h) <- getFramebufferSize window
+    (w, h) <- liftIO $ getWindowSize window
+    liftIO $ draw (2*w) (2*h) prog attrib
 --     liftIO $ print "renderDisplay 3"
 
     waitUntilNextFrameDue
@@ -1152,26 +980,13 @@ waitUntilNextFrameDue = do
     let timeToGo = fromIntegral secondsToGo+fromIntegral nanosecondsToGo/1e9 :: Double
     when (nextFrameTime' `gtTime` t) $ do
         let milliSecondsToGo = 1000.0 * timeToGo
---         liftIO $ SDL.delay $ floor milliSecondsToGo
         liftIO $ threadDelay $ floor milliSecondsToGo
 
 initHardware :: MonadAcorn ()
 initHardware = do
-    store inpt0 0x80
-    store inpt1 0x80
-    store inpt2 0x80
-    store inpt3 0x80
-    store inpt4 0x80
-    store inpt5 0x80
-    store swcha 0b11111111
-    store swacnt 0b00000000
-    store swchb 0b00001011
-    store xbreak (-1)
-    store ybreak (-1)
     -- Clear keyboard
-    forM_ [0..9] $ \i -> do
+    forM_ [0..9::Int] $ \i -> do
         store (keyboard_matrix + fromIntegral i) 0xff
-    forM_ [0..3] $ \i-> forM_ [0..5] $ \j -> store (kbd i j) False
     pclo <- readMemory 0xfffc
     pchi <- readMemory 0xfffd
     let initialPC = fromIntegral pclo+(fromIntegral pchi `shift` 8)
