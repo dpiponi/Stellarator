@@ -5,27 +5,22 @@
 module Display where
 
 import Control.Monad
-import Data.Array.Unboxed
-import Data.Bits
+import Data.Dequeue
+import Data.IORef
 import Data.Word
-import Metrics
 import Foreign.Marshal.Alloc
 import Foreign.Ptr
 import Foreign.Storable
-import System.Exit
-import Data.Dequeue
-import Data.IORef
+import Graphics.Rendering.OpenGL (($=))
+import Graphics.UI.GLFW
 import Keys
-
+import Metrics
+import System.Exit
 import System.Exit (exitFailure)
 import System.IO
-import TIAColors
 import qualified Data.ByteString as BS
 import qualified Data.Vector.Storable as V
-import Graphics.Rendering.OpenGL (($=))
 import qualified Graphics.Rendering.OpenGL as GL
-import Graphics.UI.GLFW
--- import SDL.Vect
 
 -- | Inform OpenGL about new pixel data.
 updateTexture :: GL.TextureObject -> Ptr Word8 -> IO ()
@@ -43,7 +38,6 @@ updateTexture texName textureData = do
 createImageTexture :: GL.TextureObject -> IO (Ptr Word8)
 createImageTexture texName = do
     GL.textureBinding GL.Texture2D $= Just texName
---     print "createImageTexture"
 
     textureData <- mallocBytes 6144 :: IO (Ptr Word8)
 

@@ -21,8 +21,8 @@ library
   extensions: CPP
   cpp-options: -DTRACE=0
   extensions:          
-  exposed-modules:     TIAColors, Binary, Disasm,
-                       DebugCmd, Memory, Asm, DebugState, AcornAtom, Debugger, Metrics, BitManips, Step, Stella, CPU, ALU, Emulation, VideoOps, Display, Keys, Events
+  exposed-modules:     Binary, Disasm,
+                       DebugCmd, Memory, Asm, DebugState, AcornAtom, Debugger, Metrics, BitManips, Step, Stella, CPU, ALU, Emulation, Display, Keys, Events
                        -- Events
   build-depends:       base
                      , GLFW-b

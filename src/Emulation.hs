@@ -33,9 +33,7 @@ import Metrics
 import Numeric
 import Prelude hiding (last, and)
 import System.Clock
--- import VideoOps hiding (bit)
 import qualified Graphics.Rendering.OpenGL as GL
--- import qualified SDL
 import Graphics.UI.GLFW hiding (getTime)
 #if TRACE
 import Data.Array.Storable
