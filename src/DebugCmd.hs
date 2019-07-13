@@ -21,6 +21,7 @@ data Command = Cont
              | Block [Command]
              | Let String Expr
              | Execute Expr
+             | Load Expr
               deriving (Show)
 
 data Value = EFail | EInt Int | EBool Bool | EString String
@@ -69,6 +70,7 @@ parseCommand = Block <$> (braces lexer $ semiSep1 lexer parseCommand)
            <|> Print <$> (char 'p' >> whiteSpace lexer >> sepBy1 parseExpr (comma lexer))
            <|> Until <$> (char 'u' >> whiteSpace lexer >> parseExpr) <*> parseCommand
            <|> Let <$> (identifier lexer <* char '=' <* whiteSpace lexer) <*> parseExpr
+           <|> Load <$> (char '*' >> whiteSpace lexer >> parseExpr)
            <|> Repeat <$> parseExpr <*> parseCommand
 
 lexer :: GenTokenParser String u Identity

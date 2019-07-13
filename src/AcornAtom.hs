@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module AcornAtom(
                  MonadAcorn(..),
@@ -76,8 +77,10 @@ import Data.Word
 import qualified Graphics.UI.GLFW as GLFW
 import Foreign.Ptr
 import DebugState
+import GHC.Generics
 import qualified Graphics.Rendering.OpenGL as GL
 import Asm
+import Codec.Serialise
 
 -- Need to make left and right separately configurable
 data Controllers = Joysticks | Keypads deriving (Eq, Show, Read)
@@ -111,7 +114,9 @@ data AcornAtom = AcornAtom {
     _yscale :: !Int,
 
     _delays :: IOUArray Word16 Int
-}
+} deriving Generic
+
+instance Serialise AcornAtom
 
 $(makeLenses ''AcornAtom)
 

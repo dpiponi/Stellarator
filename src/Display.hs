@@ -130,15 +130,15 @@ createShaderProgram = do
 
 -- | Bind textures to appropriate locations in shader program.
 connectProgramToTextures :: GL.Program -> Float -> GL.TextureObject -> GL.TextureObject -> GL.TextureObject -> IO ()
-connectProgramToTextures program alpha current_frame_tex last_frame_tex font_tex = do
+connectProgramToTextures program mode current_frame_tex last_frame_tex font_tex = do
     GL.currentProgram $= Just program
     current_screen_tex_loc <- GL.uniformLocation program "current_frame"
     last_screen_tex_loc <- GL.uniformLocation program "last_frame"
     font_tex_loc <- GL.uniformLocation program "table"
-    alpha_loc <- GL.uniformLocation program "alpha"
-    print (current_screen_tex_loc, last_screen_tex_loc, font_tex_loc)
+    mode_loc <- GL.uniformLocation program "mode"
+--     print (current_screen_tex_loc, last_screen_tex_loc, font_tex_loc)
 
-    GL.uniform alpha_loc $= alpha
+    GL.uniform mode_loc $= mode
 
     GL.activeTexture $= GL.TextureUnit 0
     GL.texture GL.Texture2D $= GL.Enabled
@@ -167,7 +167,7 @@ connectProgramToTextures program alpha current_frame_tex last_frame_tex font_tex
 
 -- | Create all OpenGL objects required including shaders and textures.
 initResources :: Float -> Ptr Word8 -> IO (GL.Program, GL.AttribLocation, GL.TextureObject, GL.TextureObject, Ptr Word8, Ptr Word8)
-initResources alpha font_data = do
+initResources mode font_data = do
     [current_frame_tex, last_frame_tex, font_tex] <- GL.genObjectNames 3 :: IO [GL.TextureObject]
 
     textureData <- createImageTexture current_frame_tex
@@ -175,13 +175,13 @@ initResources alpha font_data = do
     createFontTexture font_tex font_data
 
     program <- createShaderProgram
-    connectProgramToTextures program alpha current_frame_tex last_frame_tex font_tex
+    connectProgramToTextures program mode current_frame_tex last_frame_tex font_tex
 
     return (program, GL.AttribLocation 0, current_frame_tex, last_frame_tex, textureData, lastTextureData)
 
 -- | Render VCS screen as pair of triangles.
-draw :: Int -> Int -> GL.Program -> GL.AttribLocation -> IO ()
-draw windowWidth windowHeight program attrib = do
+draw :: Word8 -> Int -> Int -> GL.Program -> GL.AttribLocation -> IO ()
+draw mode windowWidth windowHeight program attrib = do
 --     print "Draw 1"
     GL.clearColor $= GL.Color4 0 0 0 0
     GL.clear [GL.ColorBuffer]
@@ -190,6 +190,10 @@ draw windowWidth windowHeight program attrib = do
 --     GL.viewport $= (GL.Position 0 0, GL.Size (fromIntegral w) (fromIntegral h))
 
     GL.currentProgram $= Just program
+
+    mode_loc <- GL.uniformLocation program "mode"
+    GL.uniform mode_loc $= (fromIntegral mode :: Float)
+
     GL.vertexAttribArray attrib $= GL.Enabled
 --     print "Draw 2"
     V.unsafeWith vertices $ \ptr ->
@@ -217,47 +221,119 @@ vsSource = BS.intercalate "\n"
                 "}"
            ]
 
+-- Acorn atom graphics modes
+-- Mode:       Resolution:          Memory:   #B000
+--             X:       Y:
+--  0          64       48           0.5 K    #00
+--  1a         64       64             1 K    #10
+--  1         128       64             1 K    #30
+--  2a        128       64             2 K    #50
+--  2         128       96           1.5 K    #70
+--  3a        128       96             3 K    #90
+--  3         128      192             3 K    #B0
+--  4a        128      192             6 K    #D0
+--  4         256      192             6 K    #F0
+
 fsSource = BS.intercalate "\n"
            [
                 "#version 110",
                 "",
+                "int f(int x) { return x+1; }",
+                "",
                 "uniform sampler2D current_frame;",
                 "uniform sampler2D last_frame;",
                 "uniform sampler2D table;",
-                "uniform float alpha;",
+                "uniform float mode;",
                 "varying vec2 texcoord;",
                 "",
                 "void main()",
                 "{",
                 "",
-                "    vec4 current_index = texture2D(current_frame, texcoord);",
-
-                "    int x = int(32.*8.*texcoord.x);",
-                "    int y = int(16.*12.*texcoord.y);",
-
-                "    int ix = x/8;",
-                "    int iy = y/12;",
-                "    int fx = x-8*ix;",
-                "    int fy = y-12*iy;",
-
-                "    int addr = 32*iy+ix;",
-                "    int ty = addr/64;",
-                "    int tx = addr-64*ty;",
-
-                "    vec4 last_index = texture2D(current_frame, vec2(float(tx)/64., float(ty)/96.));",
---                 "    //float z = last_index.x>0.15 ? 0.0 : 1.0;//texture1D(table, last_index.x*8.*8.+float(ix)*8.+float(iy));",
---                 "    float z = float(tx);//last_index.x;",
---                 "    float z = float(iy)/16.0;//last_index.x;",
-                "    int character = int(255.0*last_index.x);",
-                "    int cy = character/32;",
-                "    int cx = character-32*cy;",
-                "    int px = 8*cx+fx;",
-                "    int py = 12*cy+fy;",
-                "    float z = texture2D(table, vec2(float(px)/256.0, float(py)/96.0)).x;",
---                 "    z = float(py)/96.0;",
---                 "    z = float(character)/255.0;",
---                 "    z = texture2D(table, texcoord).x;",
-                "    gl_FragColor = vec4(z, z, z, 1.0);",
+                "    if (mode == 0.0) {",
+                "        int x = int(32.*8.*texcoord.x);",
+                "        int y = int(16.*12.*texcoord.y);",
+                "        int ix = x/8;",
+                "        int iy = y/12;",
+                "        int fx = x-8*ix;",
+                "        int fy = y-12*iy;",
+                "        int addr = 32*iy+ix;",
+                "        int ty = addr/64;",
+                "        int tx = addr-64*ty;",
+                "        vec4 last_index = texture2D(current_frame, vec2(float(tx)/64., float(ty)/96.));",
+                "        int character = int(255.0*last_index.x);",
+                "        int cy = character/32;",
+                "        int cx = character-32*cy;",
+                "        int px = 8*cx+fx;",
+                "        int py = 12*cy+fy;",
+                "        float z = texture2D(table, vec2(float(px)/256.0, float(py)/96.0)).x;",
+                "        gl_FragColor = vec4(z, z, z, 1.0);",
+                "    } else if (mode == 48.0) {",
+                "        int x = int(128.*texcoord.x);",
+                "        int y = int(64.*texcoord.y);",
+                "        int ix = x/8;",
+                "        int fx = 7-(x-8*ix);",
+                "        int addr = 16*y+ix;",
+                "        int ty = addr/64;",
+                "        int tx = addr-64*ty;",
+                "        vec4 last_index = texture2D(current_frame, vec2(float(tx)/64., float(ty)/96.));",
+                "        int byte = int(255.0*last_index.x);",
+                "        int px = int(pow(2., float(fx)));",
+                "        float z = mod(float(byte), float(2*px)) >= float(px) ? 1.0 : 0.0;",
+                "        gl_FragColor = vec4(z, z, z, 1.0);",
+                "    } else if (mode == 112.0) {",
+                "        int x = int(128.*texcoord.x);",
+                "        int y = int(96.*texcoord.y);",
+                "        int ix = x/8;",
+                "        int fx = 7-(x-8*ix);",
+                "        int addr = 16*y+ix;",
+                "        int ty = addr/64;",
+                "        int tx = addr-64*ty;",
+                "        vec4 last_index = texture2D(current_frame, vec2(float(tx)/64., float(ty)/96.));",
+                "        int byte = int(255.0*last_index.x);",
+                "        int px = int(pow(2., float(fx)));",
+                "        float z = mod(float(byte), float(2*px)) >= float(px) ? 1.0 : 0.0;",
+                "        gl_FragColor = vec4(z, z, z, 1.0);",
+                "    } else if (mode == 176.0) {",
+                "        int x = int(128.*texcoord.x);",
+                "        int y = int(192.*texcoord.y);",
+                "        int ix = x/8;",
+                "        int fx = 7-(x-8*ix);",
+                "        int addr = 16*y+ix;",
+                "        int ty = addr/64;",
+                "        int tx = addr-64*ty;",
+                "        vec4 last_index = texture2D(current_frame, vec2(float(tx)/64., float(ty)/96.));",
+                "        int byte = int(255.0*last_index.x);",
+                "        int px = int(pow(2., float(fx)));",
+                "        float z = mod(float(byte), float(2*px)) >= float(px) ? 1.0 : 0.0;",
+                "        gl_FragColor = vec4(z, z, z, 1.0);",
+                "    } else if (mode == 240.0) { // 4",
+                "        int x = int(256.*texcoord.x);",
+                "        int y = int(192.*texcoord.y);",
+                "        int ix = x/8;",
+                "        int fx = 7-(x-8*ix);",
+                "        int addr = 32*y+ix;",
+                "        int ty = addr/64;",
+                "        int tx = addr-64*ty;",
+                "        vec4 last_index = texture2D(current_frame, vec2(float(tx)/64., float(ty)/96.));",
+                "        int byte = int(255.0*last_index.x);",
+                "        int px = int(pow(2., float(fx)));",
+                "        float z = mod(float(byte), float(2*px)) >= float(px) ? 1.0 : 0.0;",
+                "        gl_FragColor = vec4(z, z, z, 1.0);",
+                "    } else if (mode == 208.0 || true) { // 4a",
+                "        int x = int(128.*texcoord.x);",
+                "        int y = int(192.*texcoord.y);",
+                "        int ix = x/4;",
+                "        int fx = 3-(x-4*ix);",
+                "        int addr = 32*y+ix;",
+                "        int ty = addr/64;",
+                "        int tx = addr-64*ty;",
+                "        vec4 last_index = texture2D(current_frame, vec2(float(tx)/64., float(ty)/96.));",
+                "        int byte = int(255.0*last_index.x);",
+                "        int px = int(pow(2., float(2*fx)));",
+                "        vec3 z = mod(float(byte), float(2*px)) >= float(px) ? vec3(1., 0., 0.) : vec3(0., 0., 0.);",
+                "        z += mod(float(byte), float(4*px)) >= float(2*px) ? vec3(0., 1., 0.) : vec3(0., 0., 0.);",
+                "        gl_FragColor = vec4(z, 1.0);",
+                "    }",
                 "}"
            ]
 
@@ -290,7 +366,6 @@ makeMainWindow screenScaleX' screenScaleY' queue = do
         Just createdWindow -> do
 
             let keyCallback window key someInt state mods = do
-                        print (window, key, someInt, state, mods)
                         modifyIORef queue (flip pushBack (UIKey key someInt state mods))
             setKeyCallback createdWindow (Just keyCallback)
 

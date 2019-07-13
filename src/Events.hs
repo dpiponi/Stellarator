@@ -112,7 +112,7 @@ updatePPIA key pressed = do
         Just (rows, column) -> do
             forM_ rows $ \row -> do
                 modify (keyboard_matrix + TO row) $ bitAt column .~ not pressed
-                liftIO $ print (row, column, pressed)
+--                 liftIO $ print (row, column, pressed)
                 
 
 handleKey :: KeyState -> Key -> MonadAcorn ()

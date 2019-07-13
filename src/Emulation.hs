@@ -9,15 +9,18 @@ module Emulation where
 
 import Asm hiding (a, s, x)
 import AcornAtom
-import Control.Lens hiding (set, op, index)
+import Control.Lens hiding (set, op, index, noneOf)
 import Control.Monad.Reader
 import Data.Maybe
 import Data.Char
+import System.IO
 import Data.Array.IO hiding (index)
 import Data.Bits hiding (bit)
 import Data.ByteString hiding (putStrLn, putStr, index)
 import Foreign.Ptr
+import Text.Printf
 import Foreign.Storable
+import Text.Parsec
 import Data.IORef
 import Data.Int
 import CPU
@@ -26,6 +29,8 @@ import DebugState
 import Control.Concurrent
 import Disasm hiding (make16)
 import Display
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Internal as BS (c2w, w2c)
 import Foreign.Ptr
 import Stella
 import Memory
@@ -60,19 +65,299 @@ writeMemory addr' v = do
 tick :: Int -> MonadAcorn ()
 tick n = do
     modifyClock id (+ fromIntegral n)
-    c <- useClock id
+    c <- useClock id -- XXXXXXXXXXXXXXXXXXXXXX
     when (c `mod` 16667 == 0) $ do
         renderDisplay
+--         liftIO $ print $ fromIntegral c/1000000
 
 -- {-# INLINE debugStr #-}
 debugStr _ _ = return ()
 -- {-# INLINE debugStrLn #-}
 debugStrLn _ _ = return ()
 
+-- Host instruction stuff..
+writeWord32 :: Word16 -> Word32 -> MonadAcorn ()
+writeWord32 i w = do
+    writeMemory i (fromIntegral w)
+    writeMemory (i+1) (fromIntegral $ w `shift` (-8))
+    writeMemory (i+2) (fromIntegral $ w `shift` (-16))
+    writeMemory (i+3) (fromIntegral $ w `shift` (-24))
+
+hostFileName :: String -> MonadAcorn String
+hostFileName name = return name
+-- hostFileName name@(_ : '.' : _) = return name
+--     dir <- use currentDirectory
+--     return $ dir : '.' : name
+
+saveBlock :: Word16 -> String -> MonadAcorn ()
+saveBlock blockAddr hostName = do
+    startData32 <- word32At (blockAddr+0xa)
+    endData32 <- word32At (blockAddr+0xe)
+    let start = i16 startData32
+    let end = i16 endData32
+    liftIO $ putStr $ printf " Save %04x:%04x to '%s'" start end hostName
+    h <- liftIO $ openBinaryFile hostName WriteMode
+    forM_ [start..end-1] $ \i -> do
+        x <- readMemory i
+        liftIO $ hPutChar h (BS.w2c x)
+    liftIO $ hClose h
+
+loadFile :: Word16 -> String -> MonadAcorn ()
+loadFile blockAddr hostName = do
+    loadAddr32 <- word32At (blockAddr+0x2)
+    execAddr32 <- word32At (blockAddr+0x6)
+    startData32 <- word32At (blockAddr+0xa)
+    addressType <- readMemory (blockAddr+0x6)
+    -- If caller-specified execution address ends in zero
+    -- use user-specified load address
+    -- otherwise use load address in file
+    let start = fromIntegral loadAddr32
+    h <- liftIO $ openBinaryFile hostName ReadMode
+    bytes <- liftIO $ B.hGetContents h
+    let len = B.length bytes
+    let end = start+fromIntegral len
+    liftIO $ putStr $ printf " Load %04x:%04x from '%s'" start end hostName
+    forM_ (Prelude.zip [start..end-1] (Prelude.map BS.w2c $ B.unpack bytes)) $ \(i, d) -> writeMemory i (BS.c2w d)
+    liftIO $ print "Done"
+    liftIO $ hClose h
+
+data Command = LOAD String Int -- <-- XXX needs to me Maybe Int
+             | SAVE String Int Bool Int Int Int
+             | RUN String -- XXX pass args
+
+decimal :: ParsecT String u Identity Int
+decimal = do
+    digits <- many1 digit
+    return $ read digits
+
+number :: Stream s m t => Int -> ParsecT s u m Char -> ParsecT s u m Int
+number base baseDigit
+    = do { digits <- many1 baseDigit
+         ; let n = Prelude.foldl (\x d -> base*x + (digitToInt d)) 0 digits
+         ; seq n (return n)
+         }
+
+filename :: ParsecT String u Identity String
+filename = (char '"' >> (many1 (noneOf "\"") <* char '"'))
+           <|> many1 (noneOf " ")
+
+ignoreCase :: Stream s m Char => [Char] -> ParsecT s u m [Char]
+ignoreCase [] = return []
+ignoreCase (c : cs) | isUpper c = do
+    m <- char (toLower c) <|> char c
+    ms <- ignoreCase cs
+    return (m : ms)
+ignoreCase (c : cs) | isLower c = do
+    m <- char '.' <|> char c <|> char (toUpper c)
+    if m == '.'
+        then
+            return "."
+        else do
+            ms <- ignoreCase cs
+            return (m : ms)
+ignoreCase (c : cs) = do
+    m <- char c
+    ms <- ignoreCase cs
+    return (m : ms)
+
+removeStars :: String -> String
+removeStars ('*' : cs) = removeStars cs
+removeStars cs = cs
+
+{-# INLINE i32 #-}
+i32 :: Integral a => a -> Word32
+i32 = fromIntegral
+
+{-# INLINE make32 #-}
+make32 :: Word8 -> Word8 -> Word8 -> Word8 -> Word32
+make32 b0 b1 b2 b3 = (i32 b3 `shift` 24)+(i32 b2 `shift` 32)+(i32 b1 `shift` 8)+i32 b0
+
+{-# INLINABLE stringAt #-}
+stringAt :: Word16 -> MonadAcorn String
+stringAt addr = do
+    let loop cmd i = do
+                    byte <- readMemory (addr+i16 i)
+                    if byte == 0x0d || byte == 0x00
+                        then return cmd
+                        else loop (cmd ++ [BS.w2c byte]) (i+1)
+    loop "" 0
+
+{-# INLINE word16At #-}
+word16At :: Word16 -> MonadAcorn Word16
+word16At addr = do
+    lo <- readMemory addr
+    hi <- readMemory (addr+1)
+    return $ make16 lo hi
+
+{-# INLINE word32At #-}
+word32At :: Word16 -> MonadAcorn Word32
+word32At addr = do
+    b0 <- readMemory addr
+    b1 <- readMemory (addr+1)
+    b2 <- readMemory (addr+2)
+    b3 <- readMemory (addr+3)
+    return $ make32 b0 b1 b2 b3
+
+{-# INLINE putWord32 #-}
+putWord32 :: Word16 -> Word32 -> MonadAcorn ()
+putWord32 addr w = do
+    writeMemory addr (i8 $ w)
+    writeMemory (addr+1) (i8 (w `shift` (-8)))
+    writeMemory (addr+2) (i8 (w `shift` (-16)))
+    writeMemory (addr+3) (i8 (w `shift` (-24)))
+
+{-# INLINE writeWord16 #-}
+writeWord16 :: Word16 -> Word16 -> MonadAcorn ()
+writeWord16 i w = do
+    writeMemory i (fromIntegral w)
+    writeMemory (i+1) (fromIntegral $ w `shift` (-8))
+
+-- XXX Ignore case of commands
+parseCommand :: ParsecT String u Identity Command
+parseCommand = (LOAD <$> (ignoreCase "Load" >> spaces >> filename)
+                     <*> option 0 (spaces >> number 16 hexDigit))
+               <|>
+               (SAVE <$> (ignoreCase "Save" >> spaces >> (filename <* spaces))
+                     <*> (number 16 hexDigit <* spaces)
+                     <*> option False (char '+' >> spaces >> return True)
+                     <*> (number 16 hexDigit <* spaces)
+                     <*> option 0 (number 16 hexDigit <* spaces)
+                     <*> option 0 (number 16 hexDigit <* spaces))
+               <|>
+               (RUN <$> (ignoreCase "Run" >> spaces >> (filename <* spaces)))
+
+{-# INLINABLE osfile #-}
+osfile :: MonadAcorn ()
+osfile = do
+    a <- getA
+    x <- getX
+    y <- getY
+
+    liftIO $ putStrLn $ printf "OSFILE A=%02x X=%02x Y=%02x" a x y
+
+    let blockAddr = make16 x y
+    stringAddr <- word16At blockAddr
+    rawFilename <- stringAt stringAddr
+    hostName <- hostFileName rawFilename
+    
+    -- Note that the 'end' field points to the last byte,
+    -- not the first byte after the end.
+    case a of
+        0x00 -> saveBlock blockAddr hostName
+        0xff -> loadFile blockAddr hostName
+
+        _ -> error $ "Unknown OSFILE call " ++ show a ++ "," ++ show x ++ "," ++ show y
+
+
+execStarCommand :: Command -> MonadAcorn ()
+execStarCommand (LOAD filename loadAddress) = do
+    h <- liftIO $ openBinaryFile filename ReadMode
+    bytes <- liftIO $ B.hGetContents h
+    let bytes' = B.unpack $ B.take 22 bytes
+    let addr = i16 (bytes'!!16) + 256*i16 (bytes'!!17)
+    let start = i16 (bytes'!!18) + 256*i16 (bytes'!!19)
+    let len = i16 (bytes'!!20) + 256*i16 (bytes'!!21)
+    liftIO $ putStrLn $ "Loading at " ++ showHex addr ""
+    forM_ (Prelude.zip [addr..] (Prelude.drop 22 $ Prelude.map BS.w2c $ B.unpack bytes)) $ \(i, d) -> do
+        writeMemory i (BS.c2w d)
+    liftIO $ print "Done"
+    liftIO $ hClose h
+    p0 <- getPC
+    putPC $ p0+2
+
+execStarCommand (RUN filename) = do
+    h <- liftIO $ openBinaryFile filename ReadMode
+    bytes <- liftIO $ B.hGetContents h
+    let bytes' = B.unpack $ B.take 22 bytes
+    let addr = i16 (bytes'!!16) + 256*i16 (bytes'!!17)
+    let start = i16 (bytes'!!18) + 256*i16 (bytes'!!19)
+    let len = i16 (bytes'!!20) + 256*i16 (bytes'!!21)
+    liftIO $ putStrLn $ "Loading at " ++ showHex addr ""
+    liftIO $ putStrLn $ "Running from " ++ showHex start ""
+    forM_ (Prelude.zip [addr..] (Prelude.drop 22 $ Prelude.map BS.w2c $ B.unpack bytes)) $ \(i, d) -> do
+        writeMemory i (BS.c2w d)
+    liftIO $ print "Done"
+    liftIO $ hClose h
+--     p0 <- getPC
+    putPC start
+
+execStarCommand (SAVE filename startAddress relative endAddress execAddress reloadAddress) = do
+    --liftIO $ printf "*SAVE %s %08x %d %08x %08x" filename startAddress (if relative then 1 else 0::Int) endAddress execAddress
+    putA 0
+    -- Control block at &02EE
+    putX 0xee
+    putY 0x02
+    let addrFilename = 0x200 :: Word16
+    -- Write filename
+    forM_ (Prelude.zip [addrFilename..] filename) $
+            \(i, d) -> writeMemory (fromIntegral i) (BS.c2w d)
+    -- Terminate filename with zero
+    writeMemory (fromIntegral addrFilename+fromIntegral (Prelude.length filename)) 0
+    -- Write address of filename
+    writeWord16 0x2ee addrFilename
+    writeWord32 (0x2ee+2) (fromIntegral $ if reloadAddress == 0 then startAddress else reloadAddress)
+    writeWord32 (0x2ee+6) (fromIntegral execAddress)
+    writeWord32 (0x2ee+0xa) (fromIntegral startAddress)
+    writeWord32 (0x2ee+0xe) (fromIntegral $ if relative then startAddress+endAddress else endAddress)
+    osfile
+    p0 <- getPC
+    putPC $ p0+2
+-- execStarCommand (RUN filename) = do
+--     putA 0xff
+--     -- Control block at &02EE
+--     putX 0xee
+--     putY 0x02
+--     let addrFilename = 0x200 :: Word16
+--     forM_ (Prelude.zip [addrFilename..] filename) $ \(i, d) -> writeMemory (fromIntegral i) (BS.c2w d)
+--     writeMemory (fromIntegral addrFilename+fromIntegral (Prelude.length filename)) 0
+--     writeWord16 0x2ee addrFilename
+--     -- Signal that we want to use load address alreday in file.
+--     writeWord32 (0x2ee+6) 1
+--     osfile
+--     fileExec <- word32At (0x2ee+6)
+--     liftIO $ putStrLn $ "Executing from 0x" ++ showHex fileExec ""
+--     -- Fake JSR
+--     p0 <- getPC
+--     push $ hi (p0+1)
+--     push $ lo (p0+1)
+--     putPC (i16 fileExec)
+
+{-# INLINABLE oscli #-}
+oscli :: MonadAcorn ()
+oscli = do
+--     lo <- getX
+--     hi <- getY
+--     let addr = make16 lo hi
+    let addr = 0x100
+    cmd <- stringAt addr
+    liftIO $ putStrLn $ printf "OSCLI: %s" cmd
+    let cmd' = removeStars cmd
+    let cmd'' = parse parseCommand "" cmd'
+    case cmd'' of
+        Right cmd''' -> execStarCommand cmd'''
+        Left _ -> do
+            liftIO $ putStrLn $  "Unknow * command:" ++ cmd
+            p0 <- getPC
+            putPC $ p0+2
+    return ()
+
 -- {- INLINE illegal -}
 illegal i = do
-    dumpState
-    error $ "Illegal opcode 0x" ++ showHex i ""
+    if i == 0x02
+    then do
+      pp <- getPC
+      -- Retroactively fix PC
+      putPC $ pp-1
+      p0 <- getPC
+      op <- readMemory (p0+1)
+      if op == 0x04
+        then oscli
+        else do
+          putPC $ p0+2
+          liftIO $ putStrLn $ "Host call with op 0x" ++ showHex op ""
+    else do
+      dumpState
+      error $ "Illegal opcode 0x" ++ showHex i ""
 
 debugStr :: Int -> String -> MonadAcorn ()
 debugStrLn :: Int -> String -> MonadAcorn ()
@@ -748,70 +1033,13 @@ initState xscale' yscale' width height ram'
               _glAttrib = attrib
           }
 
-{-
-Here's a standard kernel:
-StartOfFrame
-        ;--------------------------------------------------
-        ; Start of vertical blank processing
-        ;--------------------------------------------------
-                lda #0
-                sta VBLANK
-
-                lda #2
-                sta VSYNC
-
-                sta WSYNC
-                sta WSYNC
-                sta WSYNC                ; 3 scanlines of VSYNC signal
-
-                lda #0
-                sta VSYNC
-        ;--------------------------------------------------
-        ; 37 scanlines of vertical blank...
-        ;--------------------------------------------------
-                ldx #0
-VerticalBlank   sta WSYNC
-                inx
-                cpx #37
-                bne VerticalBlank
-        ;--------------------------------------------------
-        ; Do 192 scanlines of colour-changing (our picture)
-        ;--------------------------------------------------
-                ldx #0                  ; this counts our scanline number
-                ...
-Lines           sta WSYNC
-                inx
-                cpx #192
-                bne Lines
-        ;--------------------------------------------------
-        ; 30 scanlines of overscan...
-        ;--------------------------------------------------
-                lda #%01000010
-                sta VBLANK           ; end of screen - enter blanking
-
-                ldx #0
-Overscan        sta WSYNC
-                inx
-                cpx #30
-                bne Overscan
-
-                jmp StartOfFrame
--}
-
--- Keyboard wiring
---
--- |key00 - D4 IN4|key01 - D4 IN1|key02 - D4 IN0|key03 - D4 IN5|key04 - D4 IN3|key05 - D4 IN2|
--- |key10 - D5 IN4|key11 - D5 IN1|key12 - D5 IN0|key13 - D5 IN5|key14 - D5 IN3|key15 - D5 IN2|
--- |key20 - D6 IN4|key21 - D6 IN1|key22 - D6 IN0|key23 - D6 IN5|key24 - D6 IN3|key25 - D6 IN2|
--- |key30 - D7 IN4|key31 - D7 IN1|key32 - D7 IN0|key33 - D7 IN5|key34 - D7 IN3|key35 - D7 IN2|
-
 -- {-# INLINE pureReadRom #-}
 pureReadRom :: Word16 -> MonadAcorn Word8
 pureReadRom addr = do
     atari <- ask
     let m = atari ^. rom
 --     liftIO $ putStrLn $ "rom read addr =" ++ showHex (iz addr) ""
-    liftIO $ readArray m (iz addr - 0xc000) -- Rom starts ac 0xc000
+    liftIO $ readArray m (iz addr - 0xa000) -- Rom starts ac 0xc000
 
 -- {-# INLINE pureWriteRom #-}
 -- | pureWriteRom sees address in full 6507 range 0x0000-0x1fff
@@ -820,7 +1048,7 @@ pureWriteRom :: Word16 -> Word8 -> MonadAcorn ()
 pureWriteRom addr v = do
     atari <- ask
     let m = atari ^. rom
-    liftIO $ writeArray m (iz addr - 0xc000) v
+    liftIO $ writeArray m (iz addr - 0xa000) v
 
 -- {-# INLINE pureReadMemory #-}
 pureReadMemory :: MemoryType -> Word16 -> MonadAcorn Word8
@@ -848,10 +1076,14 @@ pureReadMemory PPIA addr = do
 
         0xb002 -> do
             c <- useClock id
+            -- flyback
+            -- 20000/frame PAL   16667/US
             let s = c `mod` 16667 -- clock cycles per 60 Hz
 --             liftIO $ putStrLn $ "c = " ++ show s ++ ", s = " ++ show s
 --          -- The 0x40 is the REPT key
-            let bits = if s < 100 then 0x40 else 0xc0
+--          -- PAL vertical blanking 1600 us
+--          -- NTSC vertical blanking 1333us
+            let bits = if s < 1333 then 0x40 else 0xc0
 --             liftIO $ putStrLn $ "Reading 0x" ++ showHex bits "" ++ " from PPIA: 0x" ++ showHex addr ""
             return bits
         _ -> return 0
@@ -898,6 +1130,7 @@ dumpMemory = do
     b0 <- readMemory regPC
     b1 <- readMemory (regPC+1)
     b2 <- readMemory (regPC+2)
+    liftIO $ putStr $ "PC = " ++ showHex regPC ""
     liftIO $ putStr $ "(PC) = "
     liftIO $ putStr $ showHex b0 "" ++ " "
     liftIO $ putStr $ showHex b1 "" ++ " "
@@ -947,8 +1180,6 @@ renderDisplay = do
     lastPtr <- view lastTextureData
     windowWidth' <- view windowWidth
     windowHeight' <- view windowHeight
---     atari <- ask
---     let m = atari ^. ram
 --     liftIO $ print "renderDisplay"
     -- Copy 6K of video RAM
     forM_ [0..6143::Int] $ \i -> do
@@ -959,14 +1190,18 @@ renderDisplay = do
     liftIO $ updateTexture lastTex' ptr
 --     (w, h) <- getFramebufferSize window
     (w, h) <- liftIO $ getWindowSize window
-    liftIO $ draw (2*w) (2*h) prog attrib
+    mode <- load ppia0
+    liftIO $ draw (mode .&. 0xf0) (2*w) (2*h) prog attrib
 --     liftIO $ print "renderDisplay 3"
 
     waitUntilNextFrameDue
+--     liftIO $ swapInterval 0
     liftIO $ swapBuffers window
 --     liftIO $ print "renderDisplay done"
     return ()
 
+-- Note this fixes the *frame* rate.
+-- It has nothing to do with the simulated clock
 waitUntilNextFrameDue :: MonadAcorn ()
 waitUntilNextFrameDue = do
     nextFrameTimeRef <- view nextFrameTime
@@ -977,8 +1212,8 @@ waitUntilNextFrameDue = do
     let TimeSpec {sec=secondsToGo, nsec=nanosecondsToGo} = diffTimeSpec nextFrameTime' t
     let timeToGo = fromIntegral secondsToGo+fromIntegral nanosecondsToGo/1e9 :: Double
     when (nextFrameTime' `gtTime` t) $ do
-        let milliSecondsToGo = 1000.0 * timeToGo
-        liftIO $ threadDelay $ floor milliSecondsToGo
+        let microSecondsToGo = 1000000.0 * timeToGo
+        liftIO $ threadDelay $ floor microSecondsToGo
 
 initHardware :: MonadAcorn ()
 initHardware = do

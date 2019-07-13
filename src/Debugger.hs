@@ -1,15 +1,17 @@
 module Debugger(runDebugger) where
 
+import System.IO
 import Asm
 import AcornAtom
 import Step
 import Control.Monad
 import Control.Monad.State.Strict
 import Data.Bits
+import Data.Char
 import DebugCmd
 import DebugState
 import Disasm
-import Emulation
+import Emulation hiding (Command)
 import Numeric
 import System.Console.Haskeline
 import Text.Parsec
@@ -152,6 +154,7 @@ execCommand cmd =
             disassemble addr n
             return KeepDebugging
         Repeat n repeatedCmd -> execRepeat n repeatedCmd
+        Load f -> execLoad f
         Cont -> do
             liftIO $ putStrLn "Continuing..."
             return Continue
@@ -191,6 +194,27 @@ execPrint es = do
             EInt w -> liftIO $ putStr ("0x" ++ showHex w "")
             _ -> liftIO $ putStr (show val)
     liftIO $ putStrLn ""
+    return KeepDebugging
+
+execLoad :: Expr -> MonadAcorn DebugAction
+execLoad filexp = do
+    f <- eval filexp
+    case f of
+        EString filename -> do
+          handle <- liftIO $ openBinaryFile filename ReadMode
+          contents <- liftIO $ hGetContents handle
+          let romSize = length contents
+
+          let addr = ord (contents!!16) + ord (contents!!17)*256
+          liftIO $ putStrLn $ filename ++ ": ROM size = " ++ show romSize ++ " bytes."
+          liftIO $ putStrLn $ "addr = " ++ showHex addr ""
+
+          forM_ (zip [0..] contents) $ \(i, c) -> do -- Stupid me, I need to lose 1st 22 chars!
+                liftIO $ print (showHex (i-0) "", showHex (ord c) "")
+                writeMemory (i-0+fromIntegral addr) (fromIntegral (ord c))
+
+        _ -> return ()
+
     return KeepDebugging
 
 execHelp :: MonadAcorn DebugAction

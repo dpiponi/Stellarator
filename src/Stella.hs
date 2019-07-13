@@ -1,20 +1,18 @@
 module Stella where
 
-import Asm hiding (a)
 import AcornAtom
--- import Data.Bits hiding (bit)
-import Data.Word
-import Prelude hiding (last, and)
+import Asm hiding (a)
 import Control.Lens
-import Data.Bits.Lens
-import System.Clock
 import Control.Monad
-import Data.Bits hiding (bit)
-import BitManips
-import Data.Int
-import Metrics
 import Control.Monad.IO.Class
+import Data.Bits hiding (bit)
+import Data.Bits.Lens
 import Data.IORef
+import Data.Int
+import Data.Word
+import Metrics
+import Prelude hiding (last, and)
+import System.Clock
 
 -- stellaTickFor :: Int -> MonadAcorn ()
 -- stellaTickFor d = do

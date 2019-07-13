@@ -1,0 +1,2 @@
+ca65 -o os.o asm/os.s -l os.lst
+ld65 -v -o os.bin os.o -C asm/os.config -m os.map

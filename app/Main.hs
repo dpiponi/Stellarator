@@ -73,11 +73,26 @@ main = do
 
     (prog, attrib, tex', lastTex', textureData', lastTextureData') <- initResources alpha fontData
 
-    romArray <- newArray (0, 0x3fff) 0 :: IO (IOUArray Int Word8)
-    ramArray <- newArray (0, 0xbfff) 0 :: IO (IOUArray Int Word8)
-    readBinary romArray "acorn_roms/Atom_Kernel.rom" (0xf000 - 0xc000)
-    readBinary romArray "acorn_roms/Atom_Basic.rom" (0xc000 - 0xc000)
-    readBinary romArray "acorn_roms/Atom_FloatingPoint.rom" (0xd000 - 0xc000)
+    romArray <- newArray (0, 0x5fff) 0 :: IO (IOUArray Int Word8)
+    ramArray <- newArray (0, 0x9fff) 0 :: IO (IOUArray Int Word8)
+    readBinary romArray "acorn_roms/Atom_Kernel.rom" (0xf000 - 0xa000)
+    readBinary romArray "acorn_roms/Atom_Basic.rom" (0xc000 - 0xa000)
+    readBinary romArray "acorn_roms/Atom_FloatingPoint.rom" (0xd000 - 0xa000)
+--     readBinary romArray "acorn_roms/Atom_pcharme.rom" (0xa000 - 0xa000)
+--     readBinary romArray "acorn_roms/Atom_Toolkit.rom" (0xa000 - 0xa000)
+    readBinary romArray "utility.bin" (0xa000 - 0xa000)
+--     readBinary ramArray "software/BB/PINBALL" (0x2900-22)
+--     readBinary ramArray "software/BB/GALAXBB" (0x2900-22)
+--     readBinary ramArray "software/AS/ADVENT/ADVENTUR" (0x2900-22)
+--     readBinary ramArray "software/BB/INVADBB" (0x2900-22)
+--     readBinary ramArray "software/BB/LUNARBB" (0x2900-22)
+--     readBinary ramArray "software/L9/DUNGEON/DUNGEON" (0xe00-22)
+--     readBinary ramArray "software/L9/DUNGEON/DUNGEON" (0x400-22)
+--     readBinary ramArray "JSW2CODE" (0x400-22)
+--     readBinary ramArray "elite.atm" (0x400-22)
+--     readBinary ramArray "software/BB/CHESSBB" (0x2900-22)
+--     readBinary ramArray "software/BB/INVADBB" (0x2900-22)
+--     readBinary ramArray "acorn_roms/Atom_Demo.rom" (0x2900)
 
     state <- initState screenScaleX' screenScaleY'
                        (screenWidth*screenScaleX') (screenHeight*screenScaleY')
