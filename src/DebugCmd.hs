@@ -22,6 +22,8 @@ data Command = Cont
              | Let String Expr
              | Execute Expr
              | Load Expr
+             | SaveState Expr
+             | LoadState Expr
               deriving (Show)
 
 data Value = EFail | EInt Int | EBool Bool | EString String
@@ -72,6 +74,8 @@ parseCommand = Block <$> (braces lexer $ semiSep1 lexer parseCommand)
            <|> Let <$> (identifier lexer <* char '=' <* whiteSpace lexer) <*> parseExpr
            <|> Load <$> (char '*' >> whiteSpace lexer >> parseExpr)
            <|> Repeat <$> parseExpr <*> parseCommand
+           <|> LoadState <$> (char '<' >> whiteSpace lexer >> parseExpr)
+           <|> SaveState <$> (char '>' >> whiteSpace lexer >> parseExpr)
 
 lexer :: GenTokenParser String u Identity
 lexer = makeTokenParser haskellStyle

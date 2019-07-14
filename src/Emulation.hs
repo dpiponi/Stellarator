@@ -1191,7 +1191,8 @@ renderDisplay = do
 --     (w, h) <- getFramebufferSize window
     (w, h) <- liftIO $ getWindowSize window
     mode <- load ppia0
-    liftIO $ draw (mode .&. 0xf0) (2*w) (2*h) prog attrib
+    let macRetinaKludge = 1
+    liftIO $ draw (mode .&. 0xf0) (macRetinaKludge*w) (macRetinaKludge*h) prog attrib
 --     liftIO $ print "renderDisplay 3"
 
     waitUntilNextFrameDue

@@ -1,14 +1,18 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Asm where
 
 import Data.Word
 import Data.Array.IO
 import Data.Array.Base
+import Codec.Serialise
+import GHC.Generics
 
-newtype TypedIndex t = TO { unTyped :: Int } deriving (Ord, Ix, Eq, Num)
+newtype TypedIndex t = TO { unTyped :: Int } deriving (Ord, Ix, Eq, Num, Generic, Enum)
+instance Serialise (TypedIndex a)
 
 intim, p, a, x, y, s, timint, ppia0, keyboard_matrix, keyboard_row, keyboard_matrix_end :: TypedIndex Word8
 intim = 0

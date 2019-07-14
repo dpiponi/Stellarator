@@ -330,12 +330,24 @@ fsSource = BS.intercalate "\n"
                 "        vec4 last_index = texture2D(current_frame, vec2(float(tx)/64., float(ty)/96.));",
                 "        int byte = int(255.0*last_index.x);",
                 "        int px = int(pow(2., float(2*fx)));",
-                "        vec3 z = mod(float(byte), float(2*px)) >= float(px) ? vec3(1., 0., 0.) : vec3(0., 0., 0.);",
-                "        z += mod(float(byte), float(4*px)) >= float(2*px) ? vec3(0., 1., 0.) : vec3(0., 0., 0.);",
-                "        gl_FragColor = vec4(z, 1.0);",
+                "        int bits = mod(float(byte), float(2*px)) >= float(px) ? 1 : 0;",
+                "        bits += mod(float(byte), float(4*px)) >= float(2*px) ? 2 : 0;",
+                "        if (bits == 0) {",
+                "            gl_FragColor = vec4(0.0, 1.0, 0.0, 1.0);",
+                "        } else if (bits == 1) {",
+                "            gl_FragColor = vec4(1.0, 1.0, 0.0, 1.0);",
+                "        } else if (bits == 2) {",
+                "            gl_FragColor = vec4(0.0, 0.0, 1.0, 1.0);",
+                "        } else {",
+                "            gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);",
+                "        }",
                 "    }",
                 "}"
            ]
+-- 0 green
+-- 1 yellow
+-- 2 blue
+-- 3 red
 
 -- | Pair of triangles filling window.
 vertices :: V.Vector Float

@@ -17,6 +17,8 @@ module AcornAtom(
                  getC,
                  putZ,
                  getZ,
+                 frozen,
+                 thawInto,
                  putI,
                  getI,
                  putD,
@@ -70,6 +72,7 @@ import Control.Monad.Reader
 import System.Clock
 import Data.Array.Base
 import Data.Array.IO
+import Data.Array
 import Data.Bits.Lens
 import Data.IORef
 import Data.Int
@@ -114,11 +117,122 @@ data AcornAtom = AcornAtom {
     _yscale :: !Int,
 
     _delays :: IOUArray Word16 Int
-} deriving Generic
-
-instance Serialise AcornAtom
+}
 
 $(makeLenses ''AcornAtom)
+
+data SerialisableAcornAtom = SerialisableAcornAtom {
+    _s_clock :: Int64,
+    _s_nextFrameTime :: TimeSpec,
+    _s_ram :: [Word8],
+    _s_rom :: [Word8],
+    _s_boolArray :: [Bool],
+    _s_intArray :: [Int],
+    _s_word8Array :: [Word8],
+    _s_word16Array :: [Word16],
+    _s_word64Array :: [Word64]
+} deriving (Generic)
+
+frozen :: AcornAtom -> IO SerialisableAcornAtom
+frozen AcornAtom {
+         _clock=clock0,
+         _nextFrameTime = nextFrameTime0,
+         _rom=rom0,
+         _ram=ram0,
+         _boolArray=boolArray0,
+         _intArray=intArray0,
+         _word8Array=word8Array0,
+         _word16Array=word16Array0,
+         _word64Array=word64Array0 } = do
+         clock1 <- readIORef clock0
+         nextFrameTime1 <- readIORef nextFrameTime0
+         ram1 <- freeze ram0
+         rom1 <- freeze rom0
+         boolArray1 <- freeze boolArray0
+         intArray1 <- freeze intArray0
+         word8Array1 <- freeze word8Array0
+         word16Array1 <- freeze word16Array0
+         word64Array1 <- freeze word64Array0
+         return SerialisableAcornAtom {
+            _s_clock=clock1,
+            _s_nextFrameTime=nextFrameTime1,
+            _s_ram=Data.Array.elems ram1,
+            _s_rom=Data.Array.elems rom1,
+            _s_boolArray=Data.Array.elems boolArray1,
+            _s_intArray=Data.Array.elems intArray1,
+            _s_word8Array=Data.Array.elems word8Array1,
+            _s_word16Array=Data.Array.elems word16Array1,
+            _s_word64Array=Data.Array.elems word64Array1 }
+
+thawedLike :: AcornAtom -> SerialisableAcornAtom -> IO AcornAtom
+thawedLike atom SerialisableAcornAtom {
+            _s_clock=clock0,
+            _s_nextFrameTime=nextFrameTime0,
+            _s_ram=ram0,
+            _s_rom=rom0,
+            _s_boolArray=boolArray0,
+            _s_intArray=intArray0,
+            _s_word8Array=word8Array0,
+            _s_word16Array=word16Array0,
+            _s_word64Array=word64Array0 } = do
+                clock1 <- newIORef clock0
+                nextFrameTime1 <- newIORef nextFrameTime0
+                ram1 <- newListArray (0, 0x5fff) ram0
+                rom1 <- newListArray (0, 0x9fff) rom0
+                boolArray1 <- newListArray (0, maxBool) boolArray0
+                intArray1 <- newListArray (0, maxInt) intArray0
+                word8Array1 <- newListArray (0, maxWord8) word8Array0
+                word16Array1 <- newListArray (0, maxWord16) word16Array0
+                word64Array1 <- newListArray (0, maxWord64) word64Array0
+                return atom {
+                    _clock=clock1,
+                    _nextFrameTime=nextFrameTime1,
+                    _ram=ram1,
+                    _rom=rom1,
+                    _boolArray=boolArray1,
+                    _intArray=intArray1,
+                    _word8Array=word8Array1,
+                    _word16Array=word16Array1,
+                    _word64Array=word64Array1 }
+
+-- zipWithM_ f (x:xs) (y:ys) = f x y >> zipWithM_ f xs ys
+-- zipWithM_ f _ _ = return ()
+
+copyArray mut imm = zipWithM_ (writeArray mut) [0..] imm
+
+thawInto :: AcornAtom -> SerialisableAcornAtom -> IO ()
+thawInto AcornAtom {
+            _clock=clock1,
+            _nextFrameTime=nextFrameTime1,
+            _ram=ram1,
+            _rom=rom1,
+            _boolArray=boolArray1,
+            _intArray=intArray1,
+            _word8Array=word8Array1,
+            _word16Array=word16Array1,
+            _word64Array=word64Array1
+            } SerialisableAcornAtom {
+            _s_clock=clock0,
+            _s_nextFrameTime=nextFrameTime0,
+            _s_ram=ram0,
+            _s_rom=rom0,
+            _s_boolArray=boolArray0,
+            _s_intArray=intArray0,
+            _s_word8Array=word8Array0,
+            _s_word16Array=word16Array0,
+            _s_word64Array=word64Array0 } = do
+                writeIORef clock1 clock0
+                writeIORef nextFrameTime1 nextFrameTime0
+                copyArray ram1 ram0
+                copyArray rom1 rom0
+                copyArray boolArray1 boolArray0
+                copyArray intArray1 intArray0
+                copyArray word8Array1 word8Array0
+                copyArray word16Array1 word16Array0
+                copyArray word64Array1 word64Array0
+
+instance Serialise SerialisableAcornAtom
+instance Serialise TimeSpec
 
 newtype MonadAcorn a = M { unM :: ReaderT AcornAtom IO a }
       deriving (Functor, Applicative, Monad, MonadReader AcornAtom, MonadIO)

@@ -9,6 +9,8 @@ import Control.Monad.State.Strict
 import Data.Bits
 import Data.Char
 import DebugCmd
+import Codec.Serialise
+import qualified Data.ByteString.Lazy as BSL
 import DebugState
 import Disasm
 import Emulation hiding (Command)
@@ -16,6 +18,7 @@ import Numeric
 import System.Console.Haskeline
 import Text.Parsec
 import qualified Data.Map.Strict as Map
+import Control.Monad.Reader
 
 data DebugAction = Continue | KeepDebugging
 
@@ -163,6 +166,8 @@ execCommand cmd =
         Print es -> execPrint es
         Until cond repeatedCmd -> execUntil cond repeatedCmd
         Execute cmdExpr -> execute cmdExpr
+        SaveState f -> execSaveState f
+        LoadState f -> execLoadState f
 
 execute :: Expr -> MonadAcorn DebugAction
 execute cmdExpr = do
@@ -212,6 +217,34 @@ execLoad filexp = do
           forM_ (zip [0..] contents) $ \(i, c) -> do -- Stupid me, I need to lose 1st 22 chars!
                 liftIO $ print (showHex (i-0) "", showHex (ord c) "")
                 writeMemory (i-0+fromIntegral addr) (fromIntegral (ord c))
+
+        _ -> return ()
+
+    return KeepDebugging
+
+execSaveState :: Expr -> MonadAcorn DebugAction
+execSaveState filexp = do
+    f <- eval filexp
+    case f of
+        EString filename -> do
+            state <- ask
+            serial <- liftIO $ frozen state
+            liftIO $ BSL.writeFile filename (serialise serial)
+            liftIO $ print $ "saved to " ++ filename
+
+        _ -> return ()
+
+    return KeepDebugging
+
+execLoadState :: Expr -> MonadAcorn DebugAction
+execLoadState filexp = do
+    f <- eval filexp
+    case f of
+        EString filename -> do
+            state <- ask
+            serial <- liftIO $ deserialise <$> BSL.readFile filename
+            liftIO $ print $ "loaded from " ++ filename
+            liftIO $ thawInto state serial
 
         _ -> return ()
 
