@@ -358,87 +358,144 @@ readIndX = do
     incPC
     read16zpTick (addr0+index) >>= readMemoryTick
 
+-- -- 3 clock cycles
+-- -- {-# INLINABLE readZeroPage #-}
+-- readZeroPage :: MonadAtari Word8
+-- readZeroPage = do
+--     tick 1
+--     addr <- getPC >>= readMemory
+-- 
+--     tick 1
+--     src <- readMemory (i16 addr)
+--     incPC
+--     return src
+-- 
+-- -- 2 clock cycles
+-- -- {-# INLINABLE readImm #-}
+-- readImm :: MonadAtari Word8
+-- readImm = do
+--     tick 1
+--     src <- getPC >>= readMemory
+--     incPC
+--     return src
+-- 
+-- -- XXX consider applicable ops like *>
+-- -- 4 clock cycles
+-- -- {-# INLINABLE readAbs #-}
+-- readAbs :: MonadAtari Word8
+-- readAbs = do
+--     p0 <- getPC
+--     src <- (read16tick p0 <* tick 1) >>= readMemory
+--     addPC 2
+--     return src
+
 -- 3 clock cycles
 -- {-# INLINABLE readZeroPage #-}
 readZeroPage :: MonadAtari Word8
 readZeroPage = do
-    tick 1
-    addr <- getPC >>= readMemory
-
-    tick 1
-    src <- readMemory (i16 addr)
+    addr <- fetchByteTick
     incPC
-    return src
+    readZpTick addr
 
 -- 2 clock cycles
 -- {-# INLINABLE readImm #-}
 readImm :: MonadAtari Word8
-readImm = do
-    tick 1
-    src <- getPC >>= readMemory
-    incPC
-    return src
+readImm = fetchByteTick <* incPC
 
 -- XXX consider applicable ops like *>
 -- 4 clock cycles
 -- {-# INLINABLE readAbs #-}
 readAbs :: MonadAtari Word8
-readAbs = do
-    p0 <- getPC
-    src <- (read16tick p0 <* tick 1) >>= readMemory
-    addPC 2
-    return src
+readAbs = getPC <* addPC 2 >>= read16tick >>= readMemoryTick
+
+-- -- 5-6 clock cycles
+-- -- {-# INLINABLE readIndY #-}
+-- readIndY :: MonadAtari Word8
+-- readIndY = do
+--     tick 1
+--     addr' <- getPC >>= readMemory
+-- 
+--     addr <- read16zpTick addr'
+-- 
+--     index <- getY
+--     let (halfAddrY, addrY) = halfSum addr index
+-- 
+--     when (halfAddrY /= addrY) $ do
+--         tick 1
+--         discard $ readMemory halfAddrY
+-- 
+--     tick 1
+--     src <- readMemory addrY
+--     incPC
+--     return src
+-- 
+-- -- 4 clock cycles
+-- -- {-# INLINABLE readZeroPageX #-}
+-- readZeroPageX :: MonadAtari Word8
+-- readZeroPageX = do
+--     tick 1
+--     index <- getX
+--     addr <- getPC >>= readMemory
+-- 
+--     tick 1
+--     discard $ readMemory (i16 addr)
+-- 
+--     tick 1
+--     incPC
+--     readMemory (i16 $ addr+index)
+-- 
+-- -- 4 clock cycles
+-- -- {-# INLINABLE readZeroPageY #-}
+-- readZeroPageY :: MonadAtari Word8
+-- readZeroPageY = do
+--     tick 1
+--     index <- getY
+--     addr <- getPC >>= readMemory
+-- 
+--     tick 1
+--     discard $ readMemory (i16 addr)
+-- 
+--     tick 1
+--     incPC
+--     readMemory (i16 $ addr+index)
 
 -- 5-6 clock cycles
 -- {-# INLINABLE readIndY #-}
 readIndY :: MonadAtari Word8
 readIndY = do
-    tick 1
-    addr' <- getPC >>= readMemory
-
-    addr <- read16zpTick addr'
+    addr <- fetchByteTick >>= read16zpTick
 
     index <- getY
     let (halfAddrY, addrY) = halfSum addr index
 
-    when (halfAddrY /= addrY) $ do
-        tick 1
-        discard $ readMemory halfAddrY
+    when (halfAddrY /= addrY) $ discard $ readMemoryTick halfAddrY
 
-    tick 1
-    src <- readMemory addrY
     incPC
-    return src
+    readMemoryTick addrY
 
 -- 4 clock cycles
 -- {-# INLINABLE readZeroPageX #-}
 readZeroPageX :: MonadAtari Word8
 readZeroPageX = do
-    tick 1
     index <- getX
-    addr <- getPC >>= readMemory
+    addr <- fetchByteTick
 
-    tick 1
-    discard $ readMemory (i16 addr)
+    discard $ readZpTick addr -- wraps
 
-    tick 1
     incPC
-    readMemory (i16 $ addr+index)
+    readZpTick (addr+index) -- wraps
 
 -- 4 clock cycles
 -- {-# INLINABLE readZeroPageY #-}
 readZeroPageY :: MonadAtari Word8
 readZeroPageY = do
-    tick 1
     index <- getY
-    addr <- getPC >>= readMemory
+    addr <- fetchByteTick
 
-    tick 1
-    discard $ readMemory (i16 addr)
+    discard $ readMemoryTick (i16 addr)
 
-    tick 1
     incPC
-    readMemory (i16 $ addr+index)
+    readMemoryTick (i16 $ addr+index)
 
 -- 4-5 clock cycles
 -- {-# INLINABLE readAbsX #-}
