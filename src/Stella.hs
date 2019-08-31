@@ -170,10 +170,10 @@ readStella addr = do
         0x0d -> readInput controls inpt5 3
         0x0e -> liftIO $ do
                     putStrLn "Illegal read 0xe"
-                    return 0xe
+                    return 0x0
         0x0f -> liftIO $ do
                     putStrLn "Illegal read 0xf"
-                    return 0xf -- Hack for Haunted House
+                    return 0x0 -- Hack for Haunted House
         0x10 -> load cxm0p
         0x11 -> load cxm1p
         0x12 -> load cxp0fb

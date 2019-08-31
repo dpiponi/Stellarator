@@ -32,7 +32,6 @@ import System.Console.CmdArgs hiding ((+=))
 import Graphics.UI.GLFW
 import Data.IORef
 import Data.Dequeue
-import Sound.ProteaAudio
 #if TRACE
 import Data.Array.Storable
 #endif
@@ -144,10 +143,6 @@ main = do
     queueRef <- newIORef empty
     window <- makeMainWindow screenScaleX' screenScaleY' queueRef
 
-    -- init audio
-    result <- initAudio 64 44100 1024
-    unless result $ die "Couldn't init sound"
-
     (prog, attrib, tex', lastTex', textureData', lastTextureData') <- initResources alpha
 
     romArray <- newArray (0, 0x7fff) 0 :: IO (IOUArray Int Word8)
@@ -182,7 +177,6 @@ main = do
             queue <- liftIO $ readIORef queueRef
             when (not (null queue)) $ do
                 let Just (queuedKey, queue') = popFront queue
-                liftIO $ print queue
                 liftIO $ writeIORef queueRef queue'
                 let UIKey {uiKey = key, uiState = motion} = queuedKey
                 handleKey atariKeys motion key
