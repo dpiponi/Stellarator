@@ -109,6 +109,7 @@ Command line options
            * f6 for 16K roms
            * f4 for 32K roms
            * e0 for Parker 8K roms
+           * fa for CBS 12K roms
 
            * Select 3f for 8K ROMS such as Tigervision's Miner 2049er.
            * append sc for "super chip" aka SARA
@@ -266,6 +267,7 @@ Lots of games work:
 | Millipede              | Seems to work.                                                           |
 | Miner 2049er           | Use -b 3f. Seems to work fine.                                           |
 | Montezuma's Revenge    | Use -b e0. Seems to play fine.                                           |
+| Mountain King          | Use -b fa. Seems to play fine. You can get to glitch heaven!             |
 | Motocross              | Seems to play fine.                                                      |
 | Ms. Pacman             | Seems to play fine.                                                      |
 | Nightmare              | Seems to play fine.                                                      |
