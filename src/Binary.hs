@@ -36,6 +36,7 @@ readBinary arr filename origin = do
             case romSize of
                 0x1000 -> return UnBanked
                 0x2000 -> return $ if blankPage then ModeF8SC else ModeF8
+                0x3000 -> return ModeFA
                 0x4000 -> return $ if blankPage then ModeF6SC else ModeF6
                 0x8000 -> return $ if blankPage then ModeF4SC else ModeF4
                 _      -> error "Unrecognised ROM size"

@@ -129,15 +129,11 @@ For example the baddies don't seem to appear in Millipede.
 
 Debugger
 --------
-Hitting escape while running the emulator drops you into the debugger.
-Use the `c` command to quit debugging and return to game playing.
+Hitting left-alt while running the emulator drops you into the debugger.
+Use the `c` command to quit debugging and return to emulation.
 
 
-It single steps until the VCS is on row 160 of the screen.
-It then single steps through the entire row showing each instruction.
-Useful when you're trying to decode how an individual scanline is
-being rendered.
-The debug command history is kept in the file .stellarator
+The debug command history is kept in the file .alcator
 
 Command syntax:
 ```
@@ -145,10 +141,7 @@ Command syntax:
     Put multiple commands in a block, eg. r100{s;l} will step and list the current instruction 100 times.
 
     c - continue
-    Return to playing game
-
-    g - dump graphics state
-    Eg. r10{s;g} will step through 10 instructions dumping graphics state each step.
+    Return to emulation.
 
     s - single instruction step
     Eg. r100000s will step 100000 instructions

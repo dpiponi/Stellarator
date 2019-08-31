@@ -79,7 +79,9 @@ data BankMode = UnBanked
               | ModeF8 -- 8K
               | ModeF8SC -- 8K
               | ModeE0 -- 8K
-              | Mode3F deriving (Show, Data, Typeable)
+              | Mode3F
+              | ModeFA -- 12K
+              deriving (Show, Data, Typeable)
 
 data BankState = NoBank
                | BankF4 !Word16
@@ -89,7 +91,8 @@ data BankState = NoBank
                | BankF8 !Word16
                | BankF8SC !Word16
                | BankE0 !Word16 !Word16 !Word16
-               | Bank3F !Word16 deriving Show
+               | Bank3F !Word16
+               | BankFA !Word16 deriving Show
 
 i16 :: Integral a => a -> Word16
 i16 = fromIntegral
@@ -158,6 +161,10 @@ bankSwitch    0x1ff5    _        (BankE0 a b _)     = BankE0 a b 0x1400
 bankSwitch    0x1ff6    _        (BankE0 a b _)     = BankE0 a b 0x1800
 bankSwitch    0x1ff7    _        (BankE0 a b _)     = BankE0 a b 0x1c00
 
+bankSwitch    0x1ff8    _        (BankFA _)     = BankFA 0x0000
+bankSwitch    0x1ff9    _        (BankFA _)     = BankFA 0x1000
+bankSwitch    0x1ffa    _        (BankFA _)     = BankFA 0x2000
+
 -- My implementation of 3F doesn't fit the description at
 -- http://blog.kevtris.org/blogfiles/Atari%202600%20Mappers.txt
 -- I switch bank on a read or write at 0x3f.
@@ -180,10 +187,17 @@ bankSwitch    _         _        state            = state
 -- For XXsc, address into 'ROM' under 0x100 wrap at 0x80.
 
 -- Superchip RAM is the same no matter which bank we're looking at
+-- 128 bytes RAM
 superchipRamAddress :: Word16 -> Word16 -> Int
 superchipRamAddress offset addr =
     let zaddr = iz addr .&. 0xfff
     in if zaddr < 0x100 then (zaddr .&. 0x7f) else zaddr+iz offset
+
+-- 256 bytes RAM
+cbsRamAddress :: Word16 -> Word16 -> Int
+cbsRamAddress offset addr =
+    let zaddr = iz addr .&. 0xfff
+    in if zaddr < 0x200 then (zaddr .&. 0xff) else zaddr+iz offset
 
 bankAddress :: BankState ->      Word16 -> Int
 bankAddress    NoBank            addr   = iz (addr .&. 0xfff)
@@ -204,6 +218,8 @@ bankAddress    (BankE0 a b c)    addr =   let zaddr = iz addr .&. 0x3ff -- 1K bl
 bankAddress    (Bank3F _)        addr   | addr > 0x1800 = iz addr
 bankAddress    (Bank3F offset)   addr   = ((iz addr .&. 0x7ff)+iz offset)
 
+bankAddress    (BankFA offset)   addr   = cbsRamAddress offset addr
+
 {-# INLINE bankWritable #-}
 -- | bankAddress function sees the full 6507 address
 -- i.e. it is in range 0x0000-0x1fff
@@ -214,6 +230,7 @@ bankAddress    (Bank3F offset)   addr   = ((iz addr .&. 0x7ff)+iz offset)
 -- Reada
 bankWritable :: BankState -> Word16 -> Bool
 bankWritable    (BankF6SC _) addr = (addr .&. 0xfff) < 0x100
+bankWritable    (BankFA   _) addr = (addr .&. 0xfff) < 0x200
 bankWritable    _            _    = False
 
 bankStyleByName :: BankMode -> String -> BankMode
@@ -225,6 +242,7 @@ bankStyleByName _         "f4"   = ModeF4
 bankStyleByName _         "f4sc" = ModeF4SC
 bankStyleByName _         "e0"   = ModeE0
 bankStyleByName _         "3f"   = Mode3F
+bankStyleByName _         "fa"   = ModeFA
 bankStyleByName bankStyle _      = bankStyle
 
 initialBankState :: BankMode -> BankState
@@ -237,4 +255,4 @@ initialBankState ModeF4   = BankF4 0x0000
 initialBankState ModeF4SC = BankF4SC 0x0000
 initialBankState ModeE0   = BankE0 0x0000 0x0000 0x0000
 initialBankState Mode3F   = Bank3F 0x0000
-
+initialBankState ModeFA   = BankFA 0x2000
