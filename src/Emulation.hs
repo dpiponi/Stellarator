@@ -65,12 +65,23 @@ writeMemory addr' v = do
     let bankStateRef = atari ^. bankState
     liftIO $ modifyIORef bankStateRef $ bankSwitch addr v
 
+readMemoryTick :: Word16 -> MonadAtari Word8
+readMemoryTick addr = tick 1 >> readMemory addr
+
+writeMemoryTick :: Word16 -> Word8 -> MonadAtari ()
+writeMemoryTick addr v = do
+    tick 1
+    writeMemory addr v
+
 -- {-# INLINE tick #-}
 tick :: Int -> MonadAtari ()
 tick n = do
     modifyClock id (+ fromIntegral n)
     -- c <- useClock id
     stellaTickFor (3*n)
+
+fetchByteTick :: MonadAtari Word8
+fetchByteTick = getPC >>= readMemoryTick
 
 -- {-# INLINE debugStr #-}
 debugStr _ _ = return ()
@@ -123,17 +134,14 @@ read16zpTick addr = do
 -- {-# INLINABLE writeIndX #-}
 writeIndX :: Word8 -> MonadAtari ()
 writeIndX src = do
-    tick 1
     index <- getX
-    addr <- getPC >>= readMemory
+    addr <- fetchByteTick
 
-    tick 1
-    discard $ readMemory (i16 addr)
+    discard $ readMemoryTick (i16 addr)
 
     addrX <- read16zpTick (addr+index)
 
-    tick 1
-    writeMemory addrX src
+    writeMemoryTick addrX src
     incPC
 
 -- 3 clock cycles
