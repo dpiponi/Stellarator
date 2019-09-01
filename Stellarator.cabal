@@ -33,7 +33,6 @@ library
                      , OpenGL
                      , array
                      , bytestring
-                     , proteaaudio
                      , mtl
                      , lens
                      , binary
@@ -61,7 +60,6 @@ executable stellarator-exe
                      , mtl
                      , lens
                      , binary
-                     , proteaaudio
                      , cmdargs
                      , monad-loops
                      , parsec

@@ -15,11 +15,10 @@ import Control.Monad.Reader
 import Data.Maybe
 import Data.Array.IO hiding (index)
 import Data.Bits hiding (bit)
-import Data.ByteString hiding (putStrLn, putStr)
+import Data.ByteString hiding (putStrLn, putStr, index)
 import Data.IORef
 import Data.Int
 import CPU
-import Sound.ProteaAudio
 import Data.Word
 import DebugState
 import Control.Concurrent

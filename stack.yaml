@@ -6,5 +6,4 @@ packages:
 - .
 extra-deps:
 - dequeue-0.1.12@sha256:547c2a71819dca0ae1bf7c15fb290b39f80d5d9a6f9985a06a1cb8645b578df2
-- proteaaudio-0.7.1.0@sha256:926a4437d239d453fc629c33ab5512211a6e6fe300c2f86efc6238ac1d587aa1
 resolver: lts-13.23

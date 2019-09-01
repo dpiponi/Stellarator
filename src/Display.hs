@@ -291,12 +291,12 @@ makeMainWindow screenScaleX' screenScaleY' queue = do
         Nothing -> die "Couldn't create window"
         Just window -> do
 
-            let keyCallback window key someInt state mods = 
+            let keyCallback _window key someInt state mods = 
                         modifyIORef queue (flip pushBack (UIKey key someInt state mods))
             setKeyCallback window (Just keyCallback)
 
             makeContextCurrent (Just window)
-            print "Created window"
+            putStrLn "Created window"
 --             setKeyCallback window (Just keyCallback)
 
 --             window <- SDL.createWindow "Stellarator"
