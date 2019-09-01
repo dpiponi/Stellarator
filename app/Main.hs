@@ -133,6 +133,36 @@ loopEmulation atariKeys queueRef = do
 
     loopEmulation atariKeys queueRef
 
+startingState :: Args -> Options -> Window -> IO Atari2600
+startingState args' options' window = do
+    let alpha = motionBlurAlpha options'
+    (prog, attrib, tex', lastTex', textureData', lastTextureData') <- initResources alpha
+
+    romArray <- newArray (0, 0x7fff) 0 :: IO (IOUArray Int Word8)
+    ramArray <- newArray (0, 0x7f) 0 :: IO (IOUArray Int Word8)
+#if TRACE
+    recordArray <- newArray (0, 2^(24 :: Int)-1) 0 :: IO (StorableArray Int Word8)
+#endif
+    bankStyle <- readBinary romArray (file args') 0x0000
+    let bankStyle' = bankStyleByName bankStyle (bank args')
+    let controllerTypeString = controllerTypes options'
+    let controllerType = read controllerTypeString
+
+    let initBankState = initialBankState bankStyle'
+    print $ "Initial bank state = " ++ show initBankState
+    let screenScaleX' = screenScaleX options'
+    let screenScaleY' = screenScaleY options'
+    initState screenScaleX' screenScaleY'
+                       (screenWidth*screenScaleX') (screenHeight*screenScaleY')
+                       ramArray
+#if TRACE
+                       recordArray
+#endif
+                       initBankState romArray
+                       0x0000 window prog attrib tex' lastTex' textureData' lastTextureData' delayList
+                       controllerType
+
+
 main :: IO ()
 main = do
     args' <- cmdArgs clargs
@@ -147,45 +177,19 @@ main = do
     let screenScaleY' = screenScaleY options'
     -- XXX Make list of default keys
     let Just atariKeys = keysFromOptions options'
-    let controllerTypeString = controllerTypes options'
-    let controllerType = read controllerTypeString
-    let alpha = motionBlurAlpha options'
 
     rc <- init -- init video
     when (not rc) $ die "Couldn't init graphics"
     queueRef <- newIORef empty
     window <- makeMainWindow screenScaleX' screenScaleY' queueRef
 
-    (prog, attrib, tex', lastTex', textureData', lastTextureData') <- initResources alpha
+    state <- startingState args' options' window
 
-    romArray <- newArray (0, 0x7fff) 0 :: IO (IOUArray Int Word8)
-    ramArray <- newArray (0, 0x7f) 0 :: IO (IOUArray Int Word8)
-#if TRACE
-    recordArray <- newArray (0, 2^(24 :: Int)-1) 0 :: IO (StorableArray Int Word8)
-#endif
-    bankStyle <- readBinary romArray (file args') 0x0000
-    let bankStyle' = bankStyleByName bankStyle (bank args')
-
-    let initBankState = initialBankState bankStyle'
-    print $ "Initial bank state = " ++ show initBankState
-
-    --let style = bank args
-    state <- initState screenScaleX' screenScaleY'
-                       (screenWidth*screenScaleX') (screenHeight*screenScaleY')
-                       ramArray
-#if TRACE
-                       recordArray
-#endif
-                       initBankState romArray
-                       0x0000 window prog attrib tex' lastTex' textureData' lastTextureData' delayList
-                       controllerType
-
-
-    _ <- flip runReaderT state $ unM $ do
-            initHardware
-            when (debugStart args') runDebugger
-            resetNextFrame
-            loopEmulation atariKeys queueRef
+    void $ with2600 state $ do
+        initHardware
+        when (debugStart args') runDebugger
+        resetNextFrame
+        loopEmulation atariKeys queueRef
 
     destroyWindow window
     -- XXX Free malloced data?

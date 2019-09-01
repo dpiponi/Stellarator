@@ -9,6 +9,7 @@ module Atari2600(
                  MonadAtari(..),
                  Atari2600(..),
                  Controllers(..),
+                 with2600,
                  getX,
                  putX,
                  getPC,
@@ -137,6 +138,9 @@ data Atari2600 = Atari2600 {
 }
 
 $(makeLenses ''Atari2600)
+
+with2600 :: Atari2600 -> MonadAtari a -> IO a
+with2600 state = flip runReaderT state . unM
 
 newtype MonadAtari a = M { unM :: ReaderT Atari2600 IO a }
       deriving (Functor, Applicative, Monad, MonadReader Atari2600, MonadIO)
