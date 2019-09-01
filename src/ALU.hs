@@ -134,29 +134,12 @@ cpy mode = do
     putC $ new < 0x100
     setNZ_ $ i8 new
 
--- -- 2 clock cycles
--- -- {-# INLINABLE txs #-}
--- txs :: MonadAtari ()
--- txs = do
---     tick 1
---     discard $ getPC >>= readMemory
---     getX >>= putS
-
 -- 2 clock cycles
 -- {-# INLINABLE txs #-}
 txs :: MonadAtari ()
 txs = do
     discard $ getPC >>= readMemoryTick
     getX >>= putS
-
--- -- 2 clock cycles
--- -- {-# INLINABLE tra #-}
--- tra :: MonadAtari Word8 -> (Word8 -> MonadAtari ()) ->
---        MonadAtari ()
--- tra getReg putReg = do
---     tick 1
---     discard $ getPC >>= readMemory
---     getReg >>= setNZ >>= putReg
 
 -- 2 clock cycles
 -- {-# INLINABLE tra #-}
@@ -165,32 +148,6 @@ tra :: MonadAtari Word8 -> (Word8 -> MonadAtari ()) ->
 tra getReg putReg = do
     discard $ getPC >>= readMemoryTick
     getReg >>= setNZ >>= putReg
-
--- -- 2 clock cycles
--- -- {-# INLINABLE inr #-}
--- inr :: MonadAtari Word8 -> (Word8 -> MonadAtari ()) -> MonadAtari ()
--- inr getReg putReg = do
---     tick 1
---     discard $ getPC >>= readMemory
--- --     v0 <- getReg
--- --     let v1 = v0+1
--- --     discard $ setNZ v1
--- --     putReg v1
--- --     getReg >>= return . (+ 1) >>= setNZ >>= putReg
---     getReg & fmap (+ 1) >>= setNZ >>= putReg
--- 
--- -- 2 clock cycles
--- -- {-# INLINABLE der #-}
--- der :: MonadAtari Word8 -> (Word8 -> MonadAtari ()) -> MonadAtari ()
--- der getReg putReg = do
---     tick 1
---     discard $ getPC >>= readMemory
--- --     v0 <- getReg
--- --     let v1 = v0-1
--- --     discard $ setNZ v1
--- --     putReg v1
--- --     getReg >>= return . (subtract 1) >>= setNZ >>= putReg
---     getReg & fmap (subtract 1) >>= setNZ >>= putReg
 
 -- 2 clock cycles
 -- {-# INLINABLE inr #-}
