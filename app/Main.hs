@@ -120,6 +120,7 @@ delayList =  [
 #endif
             ]
 
+loopEmulation :: AtariKeys -> IORef (BankersDequeue UIKey) -> MonadAtari b
 loopEmulation atariKeys queueRef = do
     liftIO pollEvents
     queue <- liftIO $ readIORef queueRef
@@ -150,10 +151,9 @@ startingState args' options' window = do
 
     let initBankState = initialBankState bankStyle'
     print $ "Initial bank state = " ++ show initBankState
-    let screenScaleX' = screenScaleX options'
-    let screenScaleY' = screenScaleY options'
-    initState screenScaleX' screenScaleY'
-              (screenWidth*screenScaleX') (screenHeight*screenScaleY')
+    let screenScale' = screenScale options'
+    initState screenScale'
+              (screenWidth*fst screenScale') (screenHeight*snd screenScale')
               ramArray
 #if TRACE
               recordArray
@@ -173,15 +173,14 @@ main = do
     optionsString <- readFile optionsFile
     let options' = read optionsString :: Options
     print options'
-    let screenScaleX' = screenScaleX options'
-    let screenScaleY' = screenScaleY options'
+    let screenScale' = screenScale options'
     -- XXX Make list of default keys
     let Just atariKeys = keysFromOptions options'
 
     rc <- init -- init video
     when (not rc) $ die "Couldn't init graphics"
     queueRef <- newIORef empty
-    window <- makeMainWindow screenScaleX' screenScaleY' queueRef
+    window <- makeMainWindow screenScale' queueRef
 
     state <- startingState args' options' window
 

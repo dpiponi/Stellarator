@@ -651,7 +651,7 @@ makeDelayArray delayList = do
     forM_ delayList $ \(addr, d) -> writeArray delayArray addr d
     return delayArray
 
-initState :: Int -> Int -> Int -> Int ->
+initState :: (Int, Int) -> Int -> Int ->
              IOUArray Int Word8 ->
 #if TRACE
              StorableArray Int Word8 ->
@@ -669,7 +669,7 @@ initState :: Int -> Int -> Int -> Int ->
              [(Word16, Int)] ->
              Controllers ->
              IO Atari2600
-initState xscale' yscale' width height ram'
+initState (xscale', yscale') width height ram'
 #if TRACE
             record'
 #endif

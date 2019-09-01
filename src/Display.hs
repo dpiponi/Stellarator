@@ -202,8 +202,8 @@ vertices = V.fromList [ -1.0, -1.0
                       , -1.0,  1.0
                       ]
 
-makeMainWindow :: Int -> Int -> IORef (BankersDequeue UIKey) -> IO Window
-makeMainWindow screenScaleX' screenScaleY' queue = do
+makeMainWindow :: (Int, Int) -> IORef (BankersDequeue UIKey) -> IO Window
+makeMainWindow (screenScaleX', screenScaleY') queue = do
     
     windowHint (WindowHint'OpenGLProfile OpenGLProfile'Any)
     windowHint (WindowHint'DoubleBuffer True)

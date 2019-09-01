@@ -182,8 +182,7 @@ scancodeFromString :: String -> Maybe Key
 scancodeFromString name = lookup name keyNames
 
 data Options = Options {
-    screenScaleX :: Int,
-    screenScaleY :: Int,
+    screenScale :: (Int, Int),
     topOverscan :: Int,
     bottomOverscan :: Int,
     motionBlurAlpha :: Float,
@@ -240,8 +239,7 @@ data Options = Options {
 
 defaultOptions :: Options
 defaultOptions = Options {
-    screenScaleX = 5,
-    screenScaleY = 3,
+    screenScale = (5, 3),
     topOverscan = 10,
     bottomOverscan = 10,
     motionBlurAlpha = 1.0,
