@@ -120,6 +120,19 @@ delayList =  [
 #endif
             ]
 
+loopEmulation atariKeys queueRef = do
+    liftIO pollEvents
+    queue <- liftIO $ readIORef queueRef
+    when (not (null queue)) $ do
+        let Just (queuedKey, queue') = popFront queue
+        liftIO $ writeIORef queueRef queue'
+        let UIKey {uiKey = key, uiState = motion} = queuedKey
+        handleKey atariKeys motion key
+    stellaClock' <- useStellaClock id
+    loopUntil (stellaClock' + 1000)
+
+    loopEmulation atariKeys queueRef
+
 main :: IO ()
 main = do
     args' <- cmdArgs clargs
@@ -167,29 +180,12 @@ main = do
                        0x0000 window prog attrib tex' lastTex' textureData' lastTextureData' delayList
                        controllerType
 
-    let loop = do
-    -- XXX Events
---             events <- liftIO $ SDL.pollEvents
-
---             forM_ events $ \event -> handleEvent atariKeys (eventPayload event)
---             liftIO $ print "loop"
-            liftIO pollEvents
-            queue <- liftIO $ readIORef queueRef
-            when (not (null queue)) $ do
-                let Just (queuedKey, queue') = popFront queue
-                liftIO $ writeIORef queueRef queue'
-                let UIKey {uiKey = key, uiState = motion} = queuedKey
-                handleKey atariKeys motion key
-            stellaClock' <- useStellaClock id
-            loopUntil (stellaClock' + 1000)
-
-            loop
 
     _ <- flip runReaderT state $ unM $ do
             initHardware
             when (debugStart args') runDebugger
             resetNextFrame
-            loop
+            loopEmulation atariKeys queueRef
 
     destroyWindow window
     -- XXX Free malloced data?
