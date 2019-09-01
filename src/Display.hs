@@ -88,11 +88,48 @@ createLUTTexture texName = do
     GL.textureWrapMode GL.Texture1D GL.S $= (GL.Repeated, GL.ClampToEdge)
     --GL.textureWrapMode GL.Texture1D GL.T $= (GL.Repeated, GL.ClampToEdge)
 
+-- -- | Compile and link vertex and fragment shaders.
+-- createShaderProgram :: IO GL.Program
+-- createShaderProgram = do
+--     -- compile vertex shader
+--     vs <- GL.createShader GL.VertexShader
+--     GL.shaderSourceBS vs $= vsSource
+--     GL.compileShader vs
+--     vsOK <- GL.get $ GL.compileStatus vs
+--     unless vsOK $ do
+--         hPutStrLn stderr "Error in vertex shader\n"
+--         exitFailure
+-- 
+--     -- Do it again for the fragment shader
+--     fs <- GL.createShader GL.FragmentShader
+--     GL.shaderSourceBS fs $= fsSource
+--     GL.compileShader fs
+--     fsOK <- GL.get $ GL.compileStatus fs
+--     unless fsOK $ do
+--         hPutStrLn stderr "Error in fragment shader\n"
+--         exitFailure
+-- 
+--     program <- GL.createProgram
+--     GL.attachShader program vs
+--     GL.attachShader program fs
+--     GL.attribLocation program "coord2d" $= GL.AttribLocation 0
+--     GL.linkProgram program
+--     linkOK <- GL.get $ GL.linkStatus program
+-- 
+--     unless linkOK $ do
+--         hPutStrLn stderr "GL.linkProgram error"
+--         plog <- GL.get $ GL.programInfoLog program
+--         putStrLn plog
+--         exitFailure
+-- 
+--     return program
+
 -- | Compile and link vertex and fragment shaders.
 createShaderProgram :: IO GL.Program
 createShaderProgram = do
     -- compile vertex shader
     vs <- GL.createShader GL.VertexShader
+    vsSource <- BS.readFile "shaders/vertex.glsl"
     GL.shaderSourceBS vs $= vsSource
     GL.compileShader vs
     vsOK <- GL.get $ GL.compileStatus vs
@@ -102,11 +139,14 @@ createShaderProgram = do
 
     -- Do it again for the fragment shader
     fs <- GL.createShader GL.FragmentShader
+    fsSource <- BS.readFile "shaders/fragment.glsl"
     GL.shaderSourceBS fs $= fsSource
     GL.compileShader fs
     fsOK <- GL.get $ GL.compileStatus fs
     unless fsOK $ do
         hPutStrLn stderr "Error in fragment shader\n"
+        msg <- GL.get $ GL.shaderInfoLog fs
+        hPutStrLn stderr msg
         exitFailure
 
     program <- GL.createProgram
@@ -188,41 +228,40 @@ draw windowWidth windowHeight program attrib = do
           (GL.ToFloat, GL.VertexArrayDescriptor 2 GL.Float 0 ptr)
     GL.drawArrays GL.Triangles 0 6
     GL.vertexAttribArray attrib $= GL.Disabled
---     SDL.glSwapWindow window
 
-vsSource, fsSource :: BS.ByteString
-vsSource = BS.intercalate "\n"
-           [
-                "#version 110",
-                "",
-                "attribute vec2 position;",
-                "varying vec2 texcoord;",
-                "",
-                "void main()",
-                "{",
-                "    gl_Position = vec4(position, 0.0, 1.0);",
-                "    texcoord = vec2(0.5+0.5*position.x, 0.5-0.5*position.y);",
-                "}"
-           ]
-
-fsSource = BS.intercalate "\n"
-           [
-                "#version 110",
-                "",
-                "uniform sampler2D current_frame;",
-                "uniform sampler2D last_frame;",
-                "uniform sampler1D table;",
-                "uniform float alpha;",
-                "varying vec2 texcoord;",
-                "",
-                "void main()",
-                "{",
-                "",
-                "    vec4 current_index = texture2D(current_frame, texcoord);",
-                "    vec4 last_index = texture2D(last_frame, texcoord);",
-                "    gl_FragColor = alpha*texture1D(table, current_index.x)+(1.0-alpha)*texture1D(table, last_index.x);",
-                "}"
-           ]
+-- vsSource, fsSource :: BS.ByteString
+-- vsSource = BS.intercalate "\n"
+--            [
+--                 "#version 110",
+--                 "",
+--                 "attribute vec2 position;",
+--                 "varying vec2 texcoord;",
+--                 "",
+--                 "void main()",
+--                 "{",
+--                 "    gl_Position = vec4(position, 0.0, 1.0);",
+--                 "    texcoord = vec2(0.5+0.5*position.x, 0.5-0.5*position.y);",
+--                 "}"
+--            ]
+-- 
+-- fsSource = BS.intercalate "\n"
+--            [
+--                 "#version 110",
+--                 "",
+--                 "uniform sampler2D current_frame;",
+--                 "uniform sampler2D last_frame;",
+--                 "uniform sampler1D table;",
+--                 "uniform float alpha;",
+--                 "varying vec2 texcoord;",
+--                 "",
+--                 "void main()",
+--                 "{",
+--                 "",
+--                 "    vec4 current_index = texture2D(current_frame, texcoord);",
+--                 "    vec4 last_index = texture2D(last_frame, texcoord);",
+--                 "    gl_FragColor = alpha*texture1D(table, current_index.x)+(1.0-alpha)*texture1D(table, last_index.x);",
+--                 "}"
+--            ]
 
 -- | Pair of triangles filling window.
 vertices :: V.Vector Float
