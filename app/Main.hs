@@ -153,14 +153,14 @@ startingState args' options' window = do
     let screenScaleX' = screenScaleX options'
     let screenScaleY' = screenScaleY options'
     initState screenScaleX' screenScaleY'
-                       (screenWidth*screenScaleX') (screenHeight*screenScaleY')
-                       ramArray
+              (screenWidth*screenScaleX') (screenHeight*screenScaleY')
+              ramArray
 #if TRACE
-                       recordArray
+              recordArray
 #endif
-                       initBankState romArray
-                       0x0000 window prog attrib tex' lastTex' textureData' lastTextureData' delayList
-                       controllerType
+              initBankState romArray
+              0x0000 window prog attrib tex' lastTex' textureData' lastTextureData' delayList
+              controllerType
 
 
 main :: IO ()
