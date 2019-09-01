@@ -497,6 +497,38 @@ readZeroPageY = do
     incPC
     readMemoryTick (i16 $ addr+index)
 
+-- -- 4-5 clock cycles
+-- -- {-# INLINABLE readAbsX #-}
+-- readAbsX :: MonadAtari Word8
+-- readAbsX = do
+--     index <- getX
+--     addr <- getPC >>= read16tick
+--     addPC 2
+-- 
+--     let (halfAddrX, addrX) = halfSum addr index
+--     when (halfAddrX /= addrX) $ do
+--             tick 1
+--             discard $ readMemory halfAddrX
+-- 
+--     tick 1
+--     readMemory addrX
+-- 
+-- -- 4-5 clock cycles
+-- -- {-# INLINABLE readAbsY #-}
+-- readAbsY :: MonadAtari Word8
+-- readAbsY = do
+--     index <- getY
+--     addr <- getPC >>= read16tick
+--     addPC 2
+-- 
+--     let (halfAddrY, addrY) = halfSum addr index
+--     when ( halfAddrY /= addrY) $ do
+--             tick 1
+--             discard $ readMemory halfAddrY
+-- 
+--     tick 1
+--     readMemory addrY
+
 -- 4-5 clock cycles
 -- {-# INLINABLE readAbsX #-}
 readAbsX :: MonadAtari Word8
@@ -506,12 +538,9 @@ readAbsX = do
     addPC 2
 
     let (halfAddrX, addrX) = halfSum addr index
-    when (halfAddrX /= addrX) $ do
-            tick 1
-            discard $ readMemory halfAddrX
+    when (halfAddrX /= addrX) $ discard $ readMemoryTick halfAddrX
 
-    tick 1
-    readMemory addrX
+    readMemoryTick addrX
 
 -- 4-5 clock cycles
 -- {-# INLINABLE readAbsY #-}
@@ -519,50 +548,73 @@ readAbsY :: MonadAtari Word8
 readAbsY = do
     index <- getY
     addr <- getPC >>= read16tick
-    addPC 2
+    addPC 2 -- XXX suspicious
 
     let (halfAddrY, addrY) = halfSum addr index
-    when ( halfAddrY /= addrY) $ do
-            tick 1
-            discard $ readMemory halfAddrY
+    when ( halfAddrY /= addrY) $ discard $ readMemoryTick halfAddrY
 
-    tick 1
-    readMemory addrY
+    readMemoryTick addrY
+
+-- -- 2-4 clock cycles
+-- -- {-# INLINABLE bra #-}
+-- bra :: MonadAtari Bool -> Bool -> MonadAtari ()
+-- bra getFlag value = do
+--     tick 1
+--     offset <- getPC >>= readMemory
+--     f <- getFlag
+--     incPC
+-- 
+--     when (value == f) $ do
+--         tick 1
+--         discard $ getPC >>= readMemory
+-- 
+--         oldP <- getPC
+--         let (halfAddr, addr) = halfSignedSum oldP offset
+--         when (halfAddr /= addr) $ do
+--                 tick 1
+--                 discard $ readMemory halfAddr
+--         putPC addr
+-- 
+-- -- 2 clock cycles
+-- -- {-# INLINABLE set #-}
+-- set :: (Bool -> MonadAtari ()) -> Bool -> MonadAtari ()
+-- set putFlag value = do
+--     tick 1
+--     discard $ getPC >>= readMemory
+--     putFlag value
+-- 
+-- -- 2 clock cycles
+-- -- {-# INLINABLE nop #-}
+-- nop :: MonadAtari ()
+-- nop = do
+--     tick 1
+--     discard $ getPC >>= readMemory
 
 -- 2-4 clock cycles
 -- {-# INLINABLE bra #-}
 bra :: MonadAtari Bool -> Bool -> MonadAtari ()
 bra getFlag value = do
-    tick 1
-    offset <- getPC >>= readMemory
+    offset <- fetchByteTick
     f <- getFlag
     incPC
 
     when (value == f) $ do
-        tick 1
-        discard $ getPC >>= readMemory
+        spinPC
 
         oldP <- getPC
         let (halfAddr, addr) = halfSignedSum oldP offset
-        when (halfAddr /= addr) $ do
-                tick 1
-                discard $ readMemory halfAddr
+        when (halfAddr /= addr) $ discard $ readMemoryTick halfAddr
         putPC addr
 
 -- 2 clock cycles
 -- {-# INLINABLE set #-}
 set :: (Bool -> MonadAtari ()) -> Bool -> MonadAtari ()
-set putFlag value = do
-    tick 1
-    discard $ getPC >>= readMemory
-    putFlag value
+set putFlag value = spinPC >> putFlag value
 
 -- 2 clock cycles
 -- {-# INLINABLE nop #-}
 nop :: MonadAtari ()
-nop = do
-    tick 1
-    discard $ getPC >>= readMemory
+nop = spinPC
 
 {-
 -- 3 clock cycles. Undocumented.
@@ -592,30 +644,127 @@ jmp_indirect = do
 uselessly :: m () -> m ()
 uselessly = id
 
+-- -- 5 clock cycles
+-- -- {-# INLINABLE withZeroPage #-}
+-- withZeroPage :: (Word8 -> MonadAtari Word8) -> MonadAtari ()
+-- withZeroPage op = do
+--     tick 1
+--     addr <- getPC >>= readMemory
+-- 
+--     tick 1
+--     src <- readMemory (i16 addr)
+-- 
+--     tick 1
+--     uselessly $ writeMemory (i16 addr) src
+-- 
+--     tick 1
+--     op src >>= writeMemory (i16 addr)
+--     incPC
+
+-- -- 5 clock cycles
+-- -- {-# INLINABLE withZeroPage #-}
+-- withZeroPage :: (Word8 -> MonadAtari Word8) -> MonadAtari ()
+-- withZeroPage op = do
+--     addr <- fetchByteTick
+--     src <- readMemoryTick (i16 addr)
+-- 
+--     uselessly $ writeMemoryTick (i16 addr) src
+-- 
+--     op src >>= writeMemoryTick (i16 addr)
+--     incPC
+-- 
+-- -- -- 2 clock cycles
+-- -- -- {-# INLINABLE withAcc #-}
+-- -- withAcc :: (Word8 -> MonadAtari Word8) -> MonadAtari ()
+-- -- withAcc op = do
+-- --     tick 1
+-- --     discard $ getPC >>= readMemory
+-- --     getA >>= op >>= putA
+-- 
+-- -- 2 clock cycles
+-- -- {-# INLINABLE withAcc #-}
+-- withAcc :: (Word8 -> MonadAtari Word8) -> MonadAtari ()
+-- withAcc op = spinPC >> getA >>= op >>= putA
+-- 
+-- -- 6 clock cycles
+-- -- {-# INLINE withAbs #-}
+-- withAbs :: (Word8 -> MonadAtari Word8) -> MonadAtari ()
+-- withAbs op = do
+--     addr <- getPC >>= read16tick
+--     
+--     tick 1
+--     src <- readMemory addr
+-- 
+--     tick 1
+--     uselessly $ writeMemory addr src
+-- 
+--     tick 1
+--     dst <- op src
+--     addPC 2
+--     writeMemory addr dst
+-- 
+-- -- 6 clock cycles
+-- withZeroPageX :: (Word8 -> MonadAtari Word8) -> MonadAtari ()
+-- withZeroPageX op = do
+--     tick 1
+--     index <- getX
+--     addr <- getPC >>= readMemory
+--     let addrX = addr+index
+-- 
+--     tick 1
+--     discard $ readMemory (i16 addr)
+-- 
+--     tick 1
+--     src <- readMemory (i16 addrX)
+-- 
+--     tick 1
+--     writeMemory (i16 addrX) src
+-- 
+--     tick 1
+--     dst <- op src
+--     writeMemory (i16 addrX) dst
+--     incPC
+--  
+-- -- 7 clock cycles
+-- -- {-# INLINE withAbsX #-}
+-- withAbsX :: (Word8 -> MonadAtari Word8) -> MonadAtari ()
+-- withAbsX op = do
+--     p0 <- getPC
+--     index <- getX
+--     addr <- read16tick p0
+-- 
+--     let (halfAddrX, addrX) = halfSum addr index
+-- 
+--     tick 1
+--     discard $ readMemory halfAddrX
+-- 
+--     tick 1
+--     src <- readMemory addrX
+-- 
+--     tick 1
+--     uselessly $ writeMemory addrX src
+-- 
+--     tick 1
+--     addPC 2
+--     dst <- op src
+--     writeMemory addrX dst
+
 -- 5 clock cycles
 -- {-# INLINABLE withZeroPage #-}
 withZeroPage :: (Word8 -> MonadAtari Word8) -> MonadAtari ()
 withZeroPage op = do
-    tick 1
-    addr <- getPC >>= readMemory
+    addr <- fetchByteTick
+    src <- readMemoryTick (i16 addr)
 
-    tick 1
-    src <- readMemory (i16 addr)
+    uselessly $ writeMemoryTick (i16 addr) src
 
-    tick 1
-    uselessly $ writeMemory (i16 addr) src
-
-    tick 1
-    op src >>= writeMemory (i16 addr)
+    op src >>= writeMemoryTick (i16 addr)
     incPC
 
 -- 2 clock cycles
 -- {-# INLINABLE withAcc #-}
 withAcc :: (Word8 -> MonadAtari Word8) -> MonadAtari ()
-withAcc op = do
-    tick 1
-    discard $ getPC >>= readMemory
-    getA >>= op >>= putA
+withAcc op = spinPC >> getA >>= op >>= putA
 
 -- 6 clock cycles
 -- {-# INLINE withAbs #-}
@@ -623,37 +772,29 @@ withAbs :: (Word8 -> MonadAtari Word8) -> MonadAtari ()
 withAbs op = do
     addr <- getPC >>= read16tick
     
-    tick 1
-    src <- readMemory addr
+    src <- readMemoryTick addr
 
-    tick 1
-    uselessly $ writeMemory addr src
+    uselessly $ writeMemoryTick addr src
 
-    tick 1
     dst <- op src
-    addPC 2
-    writeMemory addr dst
+    addPC 2 -- XXX suspicious
+    writeMemoryTick addr dst
 
 -- 6 clock cycles
 withZeroPageX :: (Word8 -> MonadAtari Word8) -> MonadAtari ()
 withZeroPageX op = do
-    tick 1
     index <- getX
-    addr <- getPC >>= readMemory
+    addr <- fetchByteTick
     let addrX = addr+index
 
-    tick 1
-    discard $ readMemory (i16 addr)
+    discard $ readMemoryTick (i16 addr)
 
-    tick 1
-    src <- readMemory (i16 addrX)
+    src <- readMemoryTick (i16 addrX)
 
-    tick 1
-    writeMemory (i16 addrX) src
+    uselessly $ writeMemoryTick (i16 addrX) src
 
-    tick 1
     dst <- op src
-    writeMemory (i16 addrX) dst
+    writeMemoryTick (i16 addrX) dst
     incPC
  
 -- 7 clock cycles
@@ -663,45 +804,78 @@ withAbsX op = do
     p0 <- getPC
     index <- getX
     addr <- read16tick p0
-
     let (halfAddrX, addrX) = halfSum addr index
-
-    tick 1
-    discard $ readMemory halfAddrX
-
-    tick 1
-    src <- readMemory addrX
-
-    tick 1
-    uselessly $ writeMemory addrX src
-
-    tick 1
+    discard $ readMemoryTick halfAddrX
+    src <- readMemoryTick addrX
+    uselessly $ writeMemoryTick addrX src
     addPC 2
     dst <- op src
-    writeMemory addrX dst
+    writeMemoryTick addrX dst
+
+-- 7 clock cycles
+-- {-# INLINE withAbsY #-}
+-- * undocumented *
+withAbsY :: (Word8 -> MonadAtari Word8) -> MonadAtari ()
+withAbsY op = do
+    p0 <- getPC
+    index <- getY
+    addr <- read16tick p0
+
+    let (halfAddrY, addrY) = halfSum addr index
+
+    discard $ readMemoryTick halfAddrY
+
+    src <- readMemoryTick addrY
+
+    uselessly $ writeMemoryTick addrY src
+
+    addPC 2
+    dst <- op src
+    writeMemoryTick addrY dst
+
+-- -- 7 clock cycles
+-- -- {-# INLINABLE brk #-}
+-- brk :: MonadAtari ()
+-- brk = do
+--     tick 1
+--     p0 <- getPC
+--     incPC
+--     discard $ readMemory p0
+-- 
+--     p1 <- getPC
+--     incPC
+--     tick 1
+--     push $ hi p1
+-- 
+--     incPC
+--     tick 1
+--     push $ lo p1
+-- 
+--     putB True
+--     incPC
+--     tick 1
+--     getP >>= push . (.|. 0x20) -- always on bit
+--     putI True
+-- 
+--     read16tick 0xfffe >>= putPC -- irq/brk XXX
 
 -- 7 clock cycles
 -- {-# INLINABLE brk #-}
 brk :: MonadAtari ()
 brk = do
-    tick 1
-    p0 <- getPC
+    discard $ fetchByteTick
     incPC
-    discard $ readMemory p0
 
     p1 <- getPC
+    pushTick $ hi p1
     incPC
-    tick 1
-    push $ hi p1
 
     incPC
-    tick 1
-    push $ lo p1
+    pushTick $ lo p1
 
     putB True
     incPC
-    tick 1
-    getP >>= push . (.|. 0x20) -- always on bit
+    getP >>= pushTick . (.|. 0x20) -- always on bit
     putI True
 
     read16tick 0xfffe >>= putPC -- irq/brk XXX
@@ -715,6 +889,21 @@ irq = do
     if not fi
         then nmi False
         else return ()
+
+-- {-# INLINABLE pushTick #-}
+pushTick :: Word8 -> MonadAtari ()
+pushTick v = do
+    sp <- getS
+    writeMemoryTick (0x100+i16 sp) v
+    putS (sp-1)
+
+-- {-# INLINABLE pullTick #-}
+pullTick :: MonadAtari Word8
+pullTick = do
+    sp <- getS
+    let sp' = sp+1
+    putS sp'
+    readMemoryTick (0x100+i16 sp') -- XXX make wrap
 
 -- {-# INLINABLE push #-}
 push :: Word8 -> MonadAtari ()
@@ -730,6 +919,9 @@ pull = do
     let sp' = sp+1
     putS sp'
     readMemory (0x100+i16 sp')
+
+spinPC :: MonadAtari ()
+spinPC = discard fetchByteTick
 
 -- 3 clock cycles
 -- {-# INLINABLE pha #-}
