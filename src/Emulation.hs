@@ -9,13 +9,10 @@ module Emulation where
 
 import Asm hiding (a, s)
 import Atari2600
-import System.IO.Unsafe
 import Control.Lens hiding (set, op, index)
 import Control.Monad.Reader
-import Data.Maybe
 import Data.Array.IO hiding (index)
 import Data.Bits hiding (bit)
-import Data.ByteString hiding (putStrLn, putStr, index)
 import Data.IORef
 import Data.Int
 import CPU

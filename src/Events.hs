@@ -13,7 +13,6 @@ import Asm
 import Data.Bits
 import Data.Bits.Lens
 import System.Exit
-import Control.Concurrent
 import Metrics
 import Data.Array.Storable
 import Debugger

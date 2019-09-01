@@ -11,7 +11,6 @@ import System.Clock
 import Control.Monad
 import Data.Bits hiding (bit)
 import BitManips
-import Numeric
 import Data.Int
 import VideoOps
 import Metrics
