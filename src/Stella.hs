@@ -11,6 +11,7 @@ import System.Clock
 import Control.Monad
 import Data.Bits hiding (bit)
 import BitManips
+import Numeric
 import Data.Int
 import VideoOps
 import Metrics
@@ -151,7 +152,6 @@ startIntervalTimerN n v = do
 -- {- INLINABLE readStella -}
 readStella :: Word16 -> MonadAtari Word8
 readStella addr = do
---     liftIO $ putStrLn $ "reading 0x" ++ showHex addr ""
     controls <- view controllers
     case addr of
         0x00 -> load cxm0p
@@ -170,10 +170,10 @@ readStella addr = do
         0x0d -> readInput controls inpt5 3
         0x0e -> liftIO $ do
                     putStrLn "Illegal read 0xe"
-                    return 0x0
+                    return 0xe
         0x0f -> liftIO $ do
                     putStrLn "Illegal read 0xf"
-                    return 0x0 -- Hack for Haunted House
+                    return 0xf -- Hack for Haunted House
         0x10 -> load cxm0p
         0x11 -> load cxm1p
         0x12 -> load cxp0fb
@@ -208,7 +208,10 @@ readStella addr = do
         0x282 -> load swchb
         0x284 -> load intim
         0x285 -> load timint
-        _ -> return 0 
+        _ -> return 0x00
+--         a -> liftIO $ do
+--                     putStrLn $ "Illegal read 0x" ++ showHex a ""
+--                     return 0x0
 
 graphicsDelay :: Int -> MonadAtari ()
 graphicsDelay d = do
