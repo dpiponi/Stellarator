@@ -69,6 +69,7 @@ executable stellarator-exe
                      , containers
                      , OpenGL
                      , Stellarator
+                     , stm
   default-language:    Haskell2010
  
 test-suite emu6502-test

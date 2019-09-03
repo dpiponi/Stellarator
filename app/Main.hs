@@ -12,6 +12,7 @@ module Main where
 import Prelude hiding (last, init, null)
 import Atari2600
 import Binary
+import Control.Concurrent.STM
 import Control.Monad
 import Control.Monad.Reader
 import Data.Array.IO
@@ -28,8 +29,6 @@ import Stella
 import Step
 import System.Console.CmdArgs hiding ((+=))
 import Graphics.UI.GLFW
-import Data.IORef
-import Data.Dequeue
 #if TRACE
 import Data.Array.Storable
 #endif
@@ -43,19 +42,19 @@ clargs = Args { file = "adventure.bin",
                 options = ".stellarator-options",
                 debugStart = False }
 
-loopEmulation :: AtariKeys -> IORef (BankersDequeue UIKey) -> MonadAtari b
-loopEmulation atariKeys queueRef = do
+loopEmulation :: AtariKeys -> TQueue UIKey -> MonadAtari b
+loopEmulation atariKeys queue = do
     liftIO pollEvents
-    queue <- liftIO $ readIORef queueRef
-    when (not (null queue)) $ do
-        let Just (queuedKey, queue') = popFront queue
-        liftIO $ writeIORef queueRef queue'
-        let UIKey {uiKey = key, uiState = motion} = queuedKey
-        handleKey atariKeys motion key
+    maybeKey <- liftIO $ atomically $ tryReadTQueue queue
+    case maybeKey of
+        Nothing -> return ()
+        Just queuedKey -> do
+            let UIKey {uiKey = key, uiState = motion} = queuedKey
+            handleKey atariKeys motion key
     stellaClock' <- useStellaClock id
     loopUntil (stellaClock' + 1000)
 
-    loopEmulation atariKeys queueRef
+    loopEmulation atariKeys queue
 
 startingState :: Args -> Options -> Window -> IO Atari2600
 startingState args' options' window = do
@@ -85,11 +84,10 @@ startingState args' options' window = do
               0x0000 window prog attrib tex' lastTex' textureData' lastTextureData' delayList
               controllerType
 
-
-keyCallback :: IORef (BankersDequeue UIKey) ->
+keyCallback :: TQueue UIKey ->
                Window -> Key -> Int -> KeyState -> ModifierKeys -> IO ()
 keyCallback queue _window key someInt state mods = 
-            modifyIORef queue (flip pushBack (UIKey key someInt state mods))
+            atomically $ writeTQueue queue (UIKey key someInt state mods)
 
 main :: IO ()
 main = do
@@ -107,9 +105,9 @@ main = do
 
     rc <- init -- init video
     when (not rc) $ die "Couldn't init graphics"
-    queueRef <- newIORef empty
+    queue <- newTQueueIO
     window <- makeMainWindow screenScale'
-    setKeyCallback window (Just $ keyCallback queueRef)
+    setKeyCallback window (Just $ keyCallback queue)
 
     state <- startingState args' options' window
 
@@ -117,7 +115,7 @@ main = do
         initHardware
         when (debugStart args') runDebugger
         resetNextFrame
-        loopEmulation atariKeys queueRef
+        loopEmulation atariKeys queue
 
     destroyWindow window
     -- XXX Free malloced data?
