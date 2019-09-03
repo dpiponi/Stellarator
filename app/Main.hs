@@ -86,6 +86,11 @@ startingState args' options' window = do
               controllerType
 
 
+keyCallback :: IORef (BankersDequeue UIKey) ->
+               Window -> Key -> Int -> KeyState -> ModifierKeys -> IO ()
+keyCallback queue _window key someInt state mods = 
+            modifyIORef queue (flip pushBack (UIKey key someInt state mods))
+
 main :: IO ()
 main = do
     args' <- cmdArgs clargs
@@ -103,7 +108,8 @@ main = do
     rc <- init -- init video
     when (not rc) $ die "Couldn't init graphics"
     queueRef <- newIORef empty
-    window <- makeMainWindow screenScale' queueRef
+    window <- makeMainWindow screenScale'
+    setKeyCallback window (Just $ keyCallback queueRef)
 
     state <- startingState args' options' window
 
