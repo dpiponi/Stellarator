@@ -25,10 +25,8 @@ import Keys
 import Memory
 import Metrics
 import Stella
--- import SDL.Event
 import Step
 import System.Console.CmdArgs hiding ((+=))
--- import qualified SDL
 import Graphics.UI.GLFW
 import Data.IORef
 import Data.Dequeue
