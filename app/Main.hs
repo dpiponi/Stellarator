@@ -42,7 +42,7 @@ clargs = Args { file = "adventure.bin",
                 options = ".stellarator-options",
                 debugStart = False }
 
-loopEmulation :: AtariKeys -> TQueue UIKey -> MonadAtari b
+loopEmulation :: AtariKeys -> TQueue UIKey -> MonadAtari ()
 loopEmulation atariKeys queue = do
     liftIO pollEvents
     maybeKey <- liftIO $ atomically $ tryReadTQueue queue
@@ -108,6 +108,7 @@ main = do
     queue <- newTQueueIO
     window <- makeMainWindow screenScale'
     setKeyCallback window (Just $ keyCallback queue)
+    void $ setWindowCloseCallback window $ Just $ \_ -> exitSuccess
 
     state <- startingState args' options' window
 
