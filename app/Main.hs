@@ -9,32 +9,35 @@
 
 module Main where
 
-import Prelude hiding (last, init, null)
 import Atari2600
 import Binary
+import Control.Concurrent
 import Control.Concurrent.STM
 import Control.Monad
 import Control.Monad.Reader
 import Data.Array.IO
-import Data.Binary hiding (get)
-import Debugger
-import System.Exit
-import Display
-import Emulation
-import Events
-import Keys
-import Memory
-import Metrics
-import Stella
-import Step
-import System.Console.CmdArgs hiding ((+=))
-import Graphics.UI.GLFW
 #if TRACE
 import Data.Array.Storable
 #endif
+import Data.Binary hiding (get)
+import Debugger
 import Delays
+import Display
+import Emulation
+import Events
+import Graphics.UI.GLFW
+import Keys
+import Memory
+import Metrics
+import Prelude hiding (last, init, null)
+import Stella
+import Step
+import System.Console.CmdArgs hiding ((+=))
+import System.Exit
 
-data Args = Args { file :: String, bank :: String, options :: String, debugStart :: Bool } deriving (Show, Data, Typeable)
+data Args = Args { file :: String, bank :: String,
+                   options :: String,
+                   debugStart :: Bool } deriving (Show, Data, Typeable)
 
 clargs :: Args
 clargs = Args { file = "adventure.bin",
@@ -44,7 +47,7 @@ clargs = Args { file = "adventure.bin",
 
 loopEmulation :: AtariKeys -> TQueue UIKey -> MonadAtari ()
 loopEmulation atariKeys queue = do
-    liftIO pollEvents
+--     liftIO pollEvents
     maybeKey <- liftIO $ atomically $ tryReadTQueue queue
     case maybeKey of
         Nothing -> return ()
@@ -111,6 +114,8 @@ main = do
     void $ setWindowCloseCallback window $ Just $ \_ -> exitSuccess
 
     state <- startingState args' options' window
+
+    void $ forkIO $ forever pollEvents
 
     void $ with2600 state $ do
         initHardware
