@@ -124,7 +124,8 @@ createShaderProgram = do
     return program
 
 -- | Bind textures to appropriate locations in shader program.
-connectProgramToTextures :: GL.Program -> Float -> GL.TextureObject -> GL.TextureObject -> GL.TextureObject -> IO ()
+connectProgramToTextures :: GL.Program -> Float ->
+                            GL.TextureObject -> GL.TextureObject -> GL.TextureObject -> IO ()
 connectProgramToTextures program alpha current_frame_tex last_frame_tex lut_tex = do
     GL.currentProgram $= Just program
     current_screen_tex_loc <- GL.uniformLocation program "current_frame"
@@ -178,7 +179,11 @@ draw :: Int -> Int -> GL.Program -> GL.AttribLocation -> IO ()
 draw windowWidth windowHeight program attrib = do
     GL.clearColor $= GL.Color4 0 0 0 0
     GL.clear [GL.ColorBuffer]
-    GL.viewport $= (GL.Position 0 0, GL.Size (fromIntegral windowWidth) (fromIntegral windowHeight))
+    -- Retina display requires 2*
+    -- Don't know correct GLFW sequence to get this right.
+    GL.viewport $= (GL.Position 0 0,
+                    GL.Size (2*fromIntegral windowWidth) (2*fromIntegral windowHeight))
+                    -- GL.Size (fromIntegral windowWidth) (fromIntegral windowHeight))
 
     GL.currentProgram $= Just program
     GL.vertexAttribArray attrib $= GL.Enabled
