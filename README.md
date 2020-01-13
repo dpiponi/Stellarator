@@ -254,6 +254,7 @@ Lots of games work:
 | Freeway                | Seems to play fine.                                                      |
 | Fun with Numbers       | Works. Pity the kids that learnt mathematics using this.                 |
 | Galaxians              | Seems to play fine despite extra column of galaxians.                    |
+| Grand Prix             | Seems to play fine.                                                      |
 | Glacier Patrol         | Seems to play fine, if you can stay awake.                               |
 | Gyruss                 | Use -b e8. Seems to play fine.                                           |
 | Haunted House          | Seems to play fine. Needs a special hack to make SBC #$0f work.          |
