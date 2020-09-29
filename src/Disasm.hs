@@ -1,8 +1,6 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE BinaryLiterals #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 -- http://nesdev.com/6502_cpu.txt
 -- http://www.zimmers.net/anonftp/pub/cbm/documents/chipdata/64doc
@@ -26,7 +24,7 @@ inHex16 x = "0x" ++ showHex x ""
 address8 :: Word8 -> String
 address8 x =
     if isTIA (fromIntegral x)
-        then inHex8 x ++ case (x .&. 0x3f) of
+        then inHex8 x ++ case x .&. 0x3f of
            0x00 -> "; VSYNC or CXM0P"
            0x01 -> "; VBLANK or CXM1P"
            0x02 -> "; WSYNC or CXP0FB"
@@ -154,8 +152,8 @@ withData02 bbb useY mne bs = case bbb of
 
     _ -> error "Unknown addressing mode"
 
-dis_illegal :: Word8 -> [Word8] -> (Int, String, [Word8])
-dis_illegal _ bs = (0, "error", bs)
+disIllegal :: Word8 -> [Word8] -> (Int, String, [Word8])
+disIllegal _ bs = (0, "error", bs)
 
 disasm :: Word16 -> [Word8] -> (Int, String, [Word8])
 disasm _ [] = error "Shouldn't happen"
@@ -211,7 +209,7 @@ disasm pc (b : bs) =
                         0b110 -> withData02 bbb False "cpy" bs
                         0b111 -> withData02 bbb False "cpx" bs
 
-                        _ -> dis_illegal b bs
+                        _ -> disIllegal b bs
 
                 0b01 -> do
                     let aaa = (b `shift` (-5)) .&. 0b111
@@ -227,7 +225,7 @@ disasm pc (b : bs) =
                         0b110 -> withData01 bbb "cmp" bs
                         0b111 -> withData01 bbb "sbc" bs
 
-                        _ -> dis_illegal b bs
+                        _ -> disIllegal b bs
                 0b10 -> do
                     let aaa = (b `shift` (-5)) .&. 0b111
                     let bbb = (b `shift` (-2)) .&. 0b111
@@ -243,7 +241,7 @@ disasm pc (b : bs) =
                         0b111 -> withData02 bbb False "inc" bs
                         _     -> error "Impossible"
 
-                _ -> dis_illegal b bs
+                _ -> disIllegal b bs
 
 dis :: Int -> Word16 -> [Word8] -> IO ()
 dis 0 _ _ = return ()

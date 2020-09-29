@@ -181,7 +181,7 @@ clampMissiles resmp0' resmp1' = do
     when (testBit resmp1' 1) $ ppos1 @-> mpos1
 
 -- Atari2600 programmer's guide p.22
-{- INLINE missile0 -}
+{-# INLINE missile #-}
 missile :: Word8 -> Word8 -> Int -> Word8 -> Bool
 missile _       _      o _       | o < 0                  = False
 missile _       _      _ resmp0' | testBit resmp0' 1      = False
@@ -220,7 +220,7 @@ ball delayBall' oldBall' newBall' ctrlpf' o = do
 
 
 missileSize :: Word8 -> Int
-missileSize nusiz = 1 `shift` (fromIntegral ((nusiz `shift` (-4)) .&. 0b11))
+missileSize nusiz = 1 `shift` fromIntegral ((nusiz `shift` (-4)) .&. 0b11)
 
 data Sprite = COLUBK | COLUB | COLUPF | COLUP0 | COLUP1 | COLUM0 | COLUM1 deriving (Eq, Show)
 
@@ -301,7 +301,7 @@ wrap160' :: Int -> Int
 wrap160' x' | x' < 0 = x'+160
 wrap160' x' = x'
 
-{- INLINE compositeAndCollide -}
+{-# INLINE compositeAndCollide #-}
 compositeAndCollide :: Int -> Int -> MonadAtari Word8
 compositeAndCollide pixelx hpos' = do
     ppos0' <- load ppos0
@@ -342,21 +342,9 @@ compositeAndCollide pixelx hpos' = do
                                 lmissile0 lmissile1
                                 lplayer0 lplayer1 pixelx
     debugColours' <- load debugColours
-    z <- if debugColours'
-            then return $ debugColour sprite
-            else load $ spriteColour sprite
-
-    vpos' <- load vpos
-    if vpos' == 174 && hpos' == 175
-    then do
-        return z
-    {-
-        liftIO $ print $ "lball = " ++ show lball
-        liftIO $ print $ "scoreMode = " ++ show scoreMode
-        liftIO $ print $ "z=" ++ show z
-        return 0xff
-        -}
-    else return z
+    if debugColours'
+       then return $ debugColour sprite
+       else load $ spriteColour sprite
 
 {-# INLINE stellaTick #-}
 stellaTick :: Int -> Ptr Word8 -> MonadAtari ()
