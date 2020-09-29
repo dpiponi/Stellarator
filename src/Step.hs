@@ -22,7 +22,7 @@ step = do
     case i of
         0x00 -> brk
         0x01 -> ora readIndX
-        0x04 -> void $ readZeroPage -- XXX undocumented "DOP" nop
+        0x04 -> void readZeroPage -- XXX undocumented "DOP" nop
         0x05 -> ora readZeroPage
         0x06 -> asl withZeroPage
         0x08 -> php
@@ -82,7 +82,7 @@ step = do
         0x68 -> pla
         0x69 -> adc readImm
         0x6a -> ror withAcc
-        0x6c -> jmp_indirect
+        0x6c -> jmpIndirect
         0x6d -> adc readAbs
         0x6e -> ror withAbs
         0x70 -> bra getV True

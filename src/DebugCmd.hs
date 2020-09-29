@@ -59,7 +59,7 @@ parseCommands:: ParsecT String u Identity Command
 parseCommands = Block <$> semiSep1 lexer parseCommand
 
 parseCommand :: ParsecT String u Identity Command
-parseCommand = Block <$> (braces lexer $ semiSep1 lexer parseCommand)
+parseCommand = Block <$> braces lexer (semiSep1 lexer parseCommand)
            <|> (char 'c' >> whiteSpace lexer >> return Cont)
            <|> (char 'g' >> whiteSpace lexer >> return DumpGraphics)
            <|> (char 's' >> whiteSpace lexer >> return Step)
@@ -128,7 +128,7 @@ table   = [ [prefix "-" Neg, prefix "+" id,
           ]
         
 binary :: String -> (a -> a -> a) -> Assoc -> Operator String u Identity a
-binary  name fun assoc = Infix   (do{ reservedOp lexer name; return fun }) assoc
+binary  name fun = Infix (do { reservedOp lexer name; return fun })
 prefix :: String -> (a -> a) -> Operator String u Data.Functor.Identity.Identity a
 prefix  name fun       = Prefix  (do{ reservedOp lexer name; return fun })
 postfix :: String -> (a -> a) -> Operator String u Data.Functor.Identity.Identity a

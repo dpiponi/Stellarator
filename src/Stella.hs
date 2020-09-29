@@ -81,22 +81,21 @@ stellaTickFor d = do
         else ahead @= (n-d)
 
 stellaTickFor' :: Int -> MonadAtari ()
-stellaTickFor' diff = do
-    when (diff >= 0) $ do
-        -- Batch together items that don't need to be
-        -- carried out on individual ticks
-        modifyStellaClock id (+ fromIntegral diff)
-        replicateM_ (fromIntegral diff) $ timerTick
-        resmp0' <- load resmp0
-        resmp1' <- load resmp1
-        -- XXX surely this must be done every time - collisions
-        clampMissiles resmp0' resmp1'
+stellaTickFor' diff = when (diff >= 0) $ do
+    -- Batch together items that don't need to be
+    -- carried out on individual ticks
+    modifyStellaClock id (+ fromIntegral diff)
+    replicateM_ (fromIntegral diff) timerTick
+    resmp0' <- load resmp0
+    resmp1' <- load resmp1
+    -- XXX surely this must be done every time - collisions
+    clampMissiles resmp0' resmp1'
 
-        parityRef <- view frameParity
-        parity <- liftIO $ readIORef parityRef
-        ptr' <- view (if parity then textureData else lastTextureData)
-        -- XXX Not sure stellaDebug actually changes here so may be some redundancy
-        stellaTick (fromIntegral diff) ptr'
+    parityRef <- view frameParity
+    parity <- liftIO $ readIORef parityRef
+    ptr' <- view (if parity then textureData else lastTextureData)
+    -- XXX Not sure stellaDebug actually changes here so may be some redundancy
+    stellaTick (fromIntegral diff) ptr'
 
 timerTick' :: Word8 -> Int -> Int -> Word8 -> (Word8, Int, Int, Word8)
 timerTick' 0      0         _         _       = (0xff,       3*1-1,         1,         0x80)

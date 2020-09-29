@@ -191,21 +191,21 @@ bankSwitch    _         _        state            = state
 superchipRamAddress :: Word16 -> Word16 -> Int
 superchipRamAddress offset addr =
     let zaddr = iz addr .&. 0xfff
-    in if zaddr < 0x100 then (zaddr .&. 0x7f) else zaddr+iz offset
+    in if zaddr < 0x100 then zaddr .&. 0x7f else zaddr+iz offset
 
 -- 256 bytes RAM
 cbsRamAddress :: Word16 -> Word16 -> Int
 cbsRamAddress offset addr =
     let zaddr = iz addr .&. 0xfff
-    in if zaddr < 0x200 then (zaddr .&. 0xff) else zaddr+iz offset
+    in if zaddr < 0x200 then zaddr .&. 0xff else zaddr+iz offset
 
 bankAddress :: BankState ->      Word16 -> Int
 bankAddress    NoBank            addr   = iz (addr .&. 0xfff)
-bankAddress    (BankF8 offset)   addr   = ((iz addr .&. 0xfff)+iz offset)
+bankAddress    (BankF8 offset)   addr   = (iz addr .&. 0xfff) + iz offset
 bankAddress    (BankF8SC offset) addr   = superchipRamAddress offset addr
-bankAddress    (BankF6 offset)   addr   = ((iz addr .&. 0xfff)+iz offset)
+bankAddress    (BankF6 offset)   addr   = (iz addr .&. 0xfff) + iz offset
 bankAddress    (BankF6SC offset) addr   = superchipRamAddress offset addr
-bankAddress    (BankF4 offset)   addr   = ((iz addr .&. 0xfff)+iz offset)
+bankAddress    (BankF4 offset)   addr   = (iz addr .&. 0xfff) + iz offset
 bankAddress    (BankF4SC offset) addr   = superchipRamAddress offset addr
 
 bankAddress    (BankE0 a b c)    addr =   let zaddr = iz addr .&. 0x3ff -- 1K blocks
@@ -216,7 +216,7 @@ bankAddress    (BankE0 a b c)    addr =   let zaddr = iz addr .&. 0x3ff -- 1K bl
                                             0x0c00 -> 0x1c00+zaddr
                                             _      -> error "Provably impossible"
 bankAddress    (Bank3F _)        addr   | addr > 0x1800 = iz addr
-bankAddress    (Bank3F offset)   addr   = ((iz addr .&. 0x7ff)+iz offset)
+bankAddress    (Bank3F offset)   addr   = (iz addr .&. 0x7ff) + iz offset
 
 bankAddress    (BankFA offset)   addr   = cbsRamAddress offset addr
 

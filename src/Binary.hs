@@ -32,7 +32,7 @@ readBinary arr filename origin = do
             forM_ (zip [0..] contents) $ \(i, c) ->
                 writeArray arr (i+fromIntegral origin) (BS.c2w c)
 
-            let blankPage = all (== (toEnum 0)) $ take 256 contents
+            let blankPage = all (== toEnum 0) $ take 256 contents
             case romSize of
                 0x1000 -> return UnBanked
                 0x2000 -> return $ if blankPage then ModeF8SC else ModeF8

@@ -307,7 +307,7 @@ type AtariKeys = M.Map Key AtariKey
 
 keysFromOptions :: Options -> Maybe AtariKeys
 keysFromOptions options = do
-    scancodes <- sequence $ map (sequence . map scancodeFromString) [
+    scancodes <- mapM (sequence . map scancodeFromString) [
                     joystick1Left options,
                     joystick1Right options,
                     joystick1Up options,
@@ -403,7 +403,7 @@ keysFromOptions options = do
                     KeyboardController 3 4,
                     KeyboardController 3 5
                 ]
-    return $ M.fromList $ concat $ [zip scancodeLists (repeat deviceKeys) |
+    return $ M.fromList $ concat [zip scancodeLists (repeat deviceKeys) |
                                     (scancodeLists, deviceKeys) <- zip scancodes atariKeys]
 
 data UIKey = UIKey { uiKey :: Key, uiScancode :: Int, uiState :: KeyState, uiMods :: ModifierKeys }

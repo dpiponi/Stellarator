@@ -24,14 +24,14 @@ import System.IO
 import Data.IORef
 #endif
 
-{- INLINE isPressed -}
+{-# INLINE isPressed #-}
 isPressed :: KeyState -> Bool
 isPressed KeyState'Pressed = True
 isPressed KeyState'Repeating = True -- I don't know!
 isPressed KeyState'Released = False
 
 -- XXX Move to Stella?
-{- INLINE setBreak -}
+{-# INLINE setBreak #-}
 setBreak :: Int -> Int -> MonadAtari ()
 setBreak breakX breakY = do
     xbreak @= (breakX+picx)
@@ -123,7 +123,7 @@ handleKey atariKeys motion key = do
                 GameSelect       -> modify swchb $ bitAt 1 .~ not pressed
                 GameReset        -> modify swchb $ bitAt 0 .~ not pressed
                 DumpState        -> Emulation.dumpState
-                GameQuit         -> liftIO $ exitSuccess
+                GameQuit         -> liftIO exitSuccess
                 EnterDebugger    -> when pressed $ do
                                         -- Throw away SDL events
                                         -- Rewrite as a withXXX XXX
@@ -156,8 +156,8 @@ handleKey atariKeys motion key = do
 #else
                 WriteRecord     -> when pressed $ liftIO $ print "Trace not enabled at compilation"
 #endif
-                DelayUp         -> when pressed $ doDelayUp
-                DelayDown       -> when pressed $ doDelayDown
+                DelayUp         -> when pressed doDelayUp
+                DelayDown       -> when pressed doDelayDown
                 DelayLeft       -> when pressed $ liftIO $ print "Left"
                 DelayRight      -> when pressed $ liftIO $ print "Right"
 

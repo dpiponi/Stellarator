@@ -7,7 +7,80 @@
 
 module Emulation where
 
-import Asm hiding (a, s)
+import Asm
+    ( Reg(store, load),
+      oldGrp0,
+      oldGrp1,
+      newGrp0,
+      newGrp1,
+      vsync,
+      nusiz0,
+      nusiz1,
+      colup0,
+      colup1,
+      colupf,
+      colubk,
+      ctrlpf,
+      refp0,
+      refp1,
+      pf0,
+      pf1,
+      pf2,
+      enam0,
+      enam1,
+      hmp0,
+      hmp1,
+      hmm0,
+      hmm1,
+      hmbl,
+      resmp0,
+      resmp1,
+      inpt0,
+      inpt1,
+      inpt2,
+      inpt3,
+      inpt4,
+      inpt5,
+      swcha,
+      swacnt,
+      swchb,
+      maxWord8,
+      delayP0,
+      delayP1,
+      delayBall,
+      oldBall,
+      newBall,
+      kbd,
+      maxBool,
+      maxWord64,
+      hpos,
+      vpos,
+      ppos0,
+      ppos1,
+      mpos0,
+      mpos1,
+      bpos,
+      xbreak,
+      ybreak,
+      maxInt,
+      pc,
+      pcStep,
+      pcResp0,
+      pcResp1,
+      pcResm0,
+      pcResm1,
+      pcResbl,
+      pcColup0,
+      pcColup1,
+      pcColupf,
+      pcColubk,
+      pcPf0,
+      pcPf1,
+      pcPf2,
+      maxWord16,
+      st,
+      (@=),
+      (@->) )
 import Atari2600
 import Control.Lens hiding (set, op, index)
 import Control.Monad.Reader
@@ -159,7 +232,13 @@ writeAbs src = do
     writeMemoryTick addr src
     addPC 2
 
--- 6 clock cycles
+writeMemoryIndexed :: Word16 -> Word8 -> Word8 ->MonadAtari ()
+writeMemoryIndexed addr index src = do
+    let (halfAddrY, addrY) = halfSum addr index
+    discard $ readMemoryTick halfAddrY
+    writeMemoryTick addrY src
+
+    -- 6 clock cycles
 -- {-# INLINABLE writeIndY #-}
 writeIndY :: Word8 -> MonadAtari ()
 writeIndY src = do
@@ -167,24 +246,22 @@ writeIndY src = do
     addr' <- fetchByteTick
 
     addr <- read16zpTick addr'
-
-    let (halfAddrY, addrY) = halfSum addr index
-
-    discard $ readMemoryTick halfAddrY
-
-    writeMemoryTick addrY src
+    writeMemoryIndexed addr index src
     incPC
+
+zeroPageXAddr :: MonadAtari Word8
+zeroPageXAddr = do
+    index <- getX
+    addr <- fetchByteTick
+    discard $ readZpTick addr
+    return (addr + index)
 
 -- 4 clock cycles
 -- {-# INLINABLE writeZeroPageX #-}
 writeZeroPageX :: Word8 -> MonadAtari ()
 writeZeroPageX src = do
-    index <- getX
-    addr <- fetchByteTick
-
-    discard $ readZpTick addr
-
-    writeMemoryTick (i16 $ addr+index) src -- writezp
+    addr <- zeroPageXAddr
+    writeMemoryTick (i16 addr) src -- writezp
     incPC
 
 -- 4 clock cycles
@@ -206,10 +283,7 @@ writeAbsY src = do
     index <- getY
     addr <- getPC >>= read16tick
 
-    let (halfAddrY, addrY) = halfSum addr index
-    discard $ readMemoryTick halfAddrY
-
-    writeMemoryTick addrY src
+    writeMemoryIndexed addr index src
     addPC 2
 
 -- 5 clock cycles
@@ -272,13 +346,9 @@ readIndY = do
 -- {-# INLINABLE readZeroPageX #-}
 readZeroPageX :: MonadAtari Word8
 readZeroPageX = do
-    index <- getX
-    addr <- fetchByteTick
-
-    discard $ readZpTick addr -- wraps
-
+    addr <- zeroPageXAddr
     incPC
-    readZpTick (addr+index) -- wraps
+    readZpTick addr -- wraps
 
 -- 4 clock cycles
 -- {-# INLINABLE readZeroPageY #-}
@@ -363,10 +433,9 @@ jmp = getPC >>= read16tick >>= putPC
 -- Not correct here.
 -- Looks like the torture test might not catch this.
 -- Aha! That's why ALIGN is used before addresses!
--- {-# INLINABLE jmp_indirect #-}
-jmp_indirect :: MonadAtari ()
-jmp_indirect = do
-    getPC >>= read16tick >>= read16tick >>= putPC
+-- {-# INLINABLE jmpIndirect #-}
+jmpIndirect :: MonadAtari ()
+jmpIndirect = getPC >>= read16tick >>= read16tick >>= putPC
 
 -- {-# INLINABLE uselessly #-}
 uselessly :: m () -> m ()
@@ -460,7 +529,7 @@ withAbsY op = do
 -- {-# INLINABLE brk #-}
 brk :: MonadAtari ()
 brk = do
-    discard $ fetchByteTick
+    discard fetchByteTick
     incPC
 
     p1 <- getPC
@@ -483,9 +552,7 @@ brk = do
 irq :: MonadAtari ()
 irq = do
     fi <- getI
-    if not fi
-        then nmi False
-        else return ()
+    when (not fi) $ nmi False
 
 -- {-# INLINABLE pushTick #-}
 pushTick :: Word8 -> MonadAtari ()
@@ -582,6 +649,12 @@ nmi sw = do
     read16 0xfffe >>= putPC -- irq/brk XXX
     tick 7
 
+spinTOS :: MonadAtari ()
+spinTOS = do
+    tick 1
+    s <- getS
+    discard $ readMemory (0x100 + fromIntegral s)
+
 -- 6 clock cycles
 -- {-# INLINABLE rti #-}
 rti :: MonadAtari ()
@@ -590,9 +663,7 @@ rti = do
     p0 <- getPC
     void $ readMemory p0
 
-    tick 1
-    s <- getS
-    discard $ readMemory (0x100 + fromIntegral s)
+    spinTOS
 
     tick 1
     pull >>= putP
@@ -608,9 +679,7 @@ jsr = do
     pcl <- readMemory p0
     incPC
 
-    tick 1
-    s <- getS
-    discard $ readMemory (0x100 + fromIntegral s)
+    spinTOS
 
     p2 <- getPC
 
@@ -625,12 +694,16 @@ jsr = do
 
     putPC $ make16 pcl pch
 
+spinInstruction :: MonadAtari ()
+spinInstruction = do
+    tick 1
+    discard $ getPC >>= readMemory
+
 -- 6 clock cycles
 -- {-# INLINABLE rts #-}
 rts :: MonadAtari ()
 rts = do
-    tick 1
-    discard $ getPC >>= readMemory
+    spinInstruction
 
     tick 1
     s <- getS
@@ -645,7 +718,7 @@ rts = do
 makeDelayArray:: [(Word16, Int)] -> IO (IOUArray Word16 Int)
 makeDelayArray delayList = do
     delayArray <- newArray (0, 0x2c) 0
-    forM_ delayList $ \(addr, d) -> writeArray delayArray addr d
+    forM_ delayList $ uncurry (writeArray delayArray)
     return delayArray
 
 initState :: (Int, Int) -> Int -> Int ->
@@ -887,12 +960,12 @@ dumpMemory = do
     b0 <- readMemory regPC
     b1 <- readMemory (regPC+1)
     b2 <- readMemory (regPC+2)
-    liftIO $ putStr $ "(PC) = "
+    liftIO $ putStr "(PC) = "
     liftIO $ putStr $ showHex b0 "" ++ " "
     liftIO $ putStr $ showHex b1 "" ++ " "
     liftIO $ putStrLn $ showHex b2 ""
     let (_, mne, _) = disasm regPC [b0, b1, b2]
-    liftIO $ putStrLn $ mne
+    liftIO $ putStrLn mne
 
 -- {-# INLINABLE dumpRegisters #-}
 dumpRegisters :: MonadAtari ()
@@ -904,10 +977,10 @@ dumpRegisters = do
         putStr $ " flags = " ++ showHex regP ""
         putStr $ "(N=" ++ showHex ((regP `shift` (-7)) .&. 1) ""
         putStr $ ",V=" ++ showHex ((regP `shift` (-6)) .&. 1) ""
-        putStr $ ",B=" ++ showHex (regP `shift` ((-4)) .&. 1) ""
-        putStr $ ",D=" ++ showHex (regP `shift` ((-3)) .&. 1) ""
-        putStr $ ",I=" ++ showHex (regP `shift` ((-2)) .&. 1) ""
-        putStr $ ",Z=" ++ showHex (regP `shift` ((-1)) .&. 1) ""
+        putStr $ ",B=" ++ showHex (regP `shift` (-4) .&. 1) ""
+        putStr $ ",D=" ++ showHex (regP `shift` (-3) .&. 1) ""
+        putStr $ ",I=" ++ showHex (regP `shift` (-2) .&. 1) ""
+        putStr $ ",Z=" ++ showHex (regP `shift` (-1) .&. 1) ""
         putStr $ ",C=" ++ showHex (regP .&. 1) ""
     regA <- getA 
     liftIO $ putStr $ ") A = " ++ showHex regA ""
@@ -1045,8 +1118,7 @@ writeStella addr v = do
        0x2a -> stellaHmove               -- HMOVE
        0x2b -> stellaHmclr               -- HMCLR
        0x2c -> stellaCxclr               -- CXCLR
-       0x280 -> do
-                 swcha @= v               -- XXX just added
+       0x280 -> swcha @= v               -- XXX just added
        0x281 -> swacnt @= v
        0x294 -> startIntervalTimerN 1 v
        0x295 -> startIntervalTimerN 8 v

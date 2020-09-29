@@ -4,15 +4,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Display where
 
-import Control.Monad
-import Data.Array.Unboxed
-import Data.Bits
-import Data.Word
-import Metrics
-import Foreign.Marshal.Alloc
-import Foreign.Ptr
-import Foreign.Storable
-import System.Exit
+import Control.Monad ( forM_, unless )
+import Data.Array.Unboxed ( (!) )
+import Data.Bits ( Bits(shift) )
+import Data.Word ( Word8, Word32 )
+import Metrics ( screenWidth, screenHeight )
+import Foreign.Marshal.Alloc ( mallocBytes )
+import Foreign.Ptr ( Ptr )
+import Foreign.Storable ( Storable(pokeElemOff) )
+import System.Exit ( die )
 
 import System.Exit (exitFailure)
 import System.IO
@@ -42,7 +42,7 @@ createImageTexture texName = do
     textureData <- mallocBytes (fromIntegral $ screenWidth*screenHeight) :: IO (Ptr Word8)
 
     forM_ [0..screenHeight-1] $ \i ->
-        forM_ [0..screenWidth-1] $ \j -> do
+        forM_ [0..screenWidth-1] $ \j ->
             pokeElemOff textureData (fromIntegral $ screenWidth*i+j) 0
 
     GL.textureBinding GL.Texture2D $= Just texName
@@ -67,7 +67,7 @@ createLUTTexture :: GL.TextureObject -> IO ()
 createLUTTexture texName = do
     textureData2 <- mallocBytes (4*256) :: IO (Ptr Word32)
     forM_ [0..255] $ \i ->
-        pokeElemOff textureData2 (fromIntegral $ i) (fromIntegral $ lut!(i `shift` (-1)))
+        pokeElemOff textureData2 (fromIntegral i) (fromIntegral $ lut!(i `shift` (-1)))
 
     GL.textureBinding GL.Texture1D $= Just texName
 
@@ -114,14 +114,16 @@ createShaderProgram = do
     GL.attribLocation program "coord2d" $= GL.AttribLocation 0
     GL.linkProgram program
     linkOK <- GL.get $ GL.linkStatus program
+    checkProgram linkOK "GL.linkProgram error" program
+    return program
 
-    unless linkOK $ do
-        hPutStrLn stderr "GL.linkProgram error"
+checkProgram :: Bool -> String -> GL.Program -> IO ()
+checkProgram ok msg program =
+    unless ok $ do
+        hPutStrLn stderr msg
         plog <- GL.get $ GL.programInfoLog program
         putStrLn plog
         exitFailure
-
-    return program
 
 -- | Bind textures to appropriate locations in shader program.
 connectProgramToTextures :: GL.Program -> Float ->
@@ -153,11 +155,7 @@ connectProgramToTextures program alpha current_frame_tex last_frame_tex lut_tex 
 
     GL.validateProgram program
     status <- GL.get $ GL.validateStatus program
-    unless status $ do
-        hPutStrLn stderr "GL.linkProgram error"
-        plog <- GL.get $ GL.programInfoLog program
-        putStrLn plog
-        exitFailure
+    checkProgram status "GL.validateProgram error" program
     GL.currentProgram $= Just program
 
 -- | Create all OpenGL objects required including shaders and textures.

@@ -158,7 +158,7 @@ testReflectedBit bitmap reflect o = testBit bitmap (flipIf reflect $ fromIntegra
 {-
  - See http://atarihq.com/danb/files/stella.pdf page 39
  -}
-{- INLINE stretchPlayer' -}
+{-# INLINE stretchPlayer' #-}
 stretchPlayer' :: Bool -> Word8 -> Int -> Word8 -> Bool
 stretchPlayer' reflect 0b000 o bitmap = o < 8 && testReflectedBit bitmap reflect o
 stretchPlayer' reflect 0b001 o bitmap = (o < 8 || o >= 16 && o < 24) && testReflectedBit bitmap reflect o
@@ -170,7 +170,7 @@ stretchPlayer' reflect 0b110 o bitmap = (o < 8 || o >= 32 && o < 40 || o >= 64) 
 stretchPlayer' reflect 0b111 o bitmap = o < 32 && testReflectedBit bitmap reflect (o `shift` (-2))
 stretchPlayer' _       _     _ _      = error "Impossible"
 
-{- INLINE stretchPlayer -}
+{-# INLINE stretchPlayer #-}
 stretchPlayer :: Bool -> Int -> Word8 -> Word8 -> Bool
 stretchPlayer _       o _          _      | o < 0 || o >= 72 = False
 stretchPlayer reflect o sizeCopies bitmap = stretchPlayer' reflect sizeCopies o bitmap
@@ -214,10 +214,10 @@ ball :: Bool -> Bool -> Bool -> Word8 -> Int -> Bool
 ball _ _ _ _ o | o < 0 = False
 ball delayBall' oldBall' newBall' ctrlpf' o = do
     let enabl' = if delayBall' then oldBall' else newBall'
-    if enabl'
-        then let ballSize = 1 `shift` (fromIntegral ((ctrlpf' `shift` (-4)) .&. 0b11))
-             in o >= 0 && o < ballSize
-        else False
+    enabl' && (
+        let ballSize = 1 `shift` fromIntegral ((ctrlpf' `shift` (-4)) .&. 0b11)
+             in o >= 0 && o < ballSize)
+
 
 missileSize :: Word8 -> Int
 missileSize nusiz = 1 `shift` (fromIntegral ((nusiz `shift` (-4)) .&. 0b11))

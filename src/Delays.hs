@@ -4,6 +4,7 @@ import Data.Word
 
 delayList :: [(Word16, Int)]
 delayList =  [
+
 #if 1
                 -- My figures
                 (0x00, 0), -- VSYNC

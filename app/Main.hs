@@ -10,17 +10,18 @@
 module Main where
 
 import Atari2600
-import Binary
+    ( useStellaClock, with2600, Atari2600, MonadAtari )
+import Binary ( readBinary )
 import Control.Concurrent
 import Control.Concurrent.STM
 import Control.Monad
 import Control.Monad.Reader
-import Data.Array.IO
+import Data.Array.IO ( IOUArray, MArray(newArray) )
 #if TRACE
 import Data.Array.Storable
 #endif
 import Data.Binary hiding (get)
-import Debugger
+import Debugger ( runDebugger )
 import Delays
 import Display
 import Emulation
@@ -107,11 +108,11 @@ main = do
     let Just atariKeys = keysFromOptions options'
 
     rc <- init -- init video
-    when (not rc) $ die "Couldn't init graphics"
+    unless rc $ die "Couldn't init graphics"
     queue <- newTQueueIO
     window <- makeMainWindow screenScale'
     setKeyCallback window (Just $ keyCallback queue)
-    void $ setWindowCloseCallback window $ Just $ \_ -> exitSuccess
+    void $ setWindowCloseCallback window $ Just $ const exitSuccess
 
     state <- startingState args' options' window
 
