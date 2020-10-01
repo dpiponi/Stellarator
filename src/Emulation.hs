@@ -843,28 +843,25 @@ stellaVsync v = do
         renderDisplay
     vsync @= v
 
--- {-# INLINE pureReadRom #-}
--- | pureReadRom sees address in full 6507 range 0x0000-0x1fff
-pureReadRom :: Word16 -> MonadAtari Word8
-pureReadRom addr = do
+withMemory :: Word16 -> (IOUArray Int Word8 -> BankState -> Int-> MonadAtari a) -> MonadAtari a
+withMemory addr op = do
     atari <- ask
     let m = atari ^. rom
     let bankStateRef = atari ^. bankState
     bankState' <- liftIO $ readIORef bankStateRef
     let bankedAddress = bankAddress bankState' addr
-    liftIO $ readArray m bankedAddress
+    op m bankState' bankedAddress
+
+-- {-# INLINE pureReadRom #-}
+-- | pureReadRom sees address in full 6507 range 0x0000-0x1fff
+pureReadRom :: Word16 -> MonadAtari Word8
+pureReadRom addr = withMemory addr $ \m _ bankedAddress -> liftIO $ readArray m bankedAddress
 
 -- {-# INLINE pureWriteRom #-}
 -- | pureWriteRom sees address in full 6507 range 0x0000-0x1fff
 -- You can write to Super Chip "ROM"
 pureWriteRom :: Word16 -> Word8 -> MonadAtari ()
-pureWriteRom addr v = do
-    atari <- ask
-    let m = atari ^. rom
-    let bankStateRef = atari ^. bankState
-    bankState' <- liftIO $ readIORef bankStateRef
-    let bankedAddress = bankAddress bankState' addr
-    when (bankWritable bankState' addr) $ liftIO $ writeArray m bankedAddress v
+pureWriteRom addr v = withMemory addr $ \m bankState' bankedAddress -> when (bankWritable bankState' addr) $ liftIO $ writeArray m bankedAddress v
 
 -- {-# INLINE pureReadMemory #-}
 -- | pureReadMemory expects an address in range 0x0000-0x1fff
