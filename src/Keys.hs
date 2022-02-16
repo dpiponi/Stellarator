@@ -307,7 +307,7 @@ type AtariKeys = M.Map Key AtariKey
 
 keysFromOptions :: Options -> Maybe AtariKeys
 keysFromOptions options = do
-    scancodes <- mapM (sequence . map scancodeFromString) [
+    scancodes <- mapM (mapM scancodeFromString) [
                     joystick1Left options,
                     joystick1Right options,
                     joystick1Up options,

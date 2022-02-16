@@ -11,6 +11,7 @@ This project has a sister project [Alcator](https://github.com/dpiponi/Alcator).
 
 News
 ----
+* Ported to GLFW
 * I'm going to port from SDL to GLFW and then maybe I can make audio work.
 * Runs at correct frame rate now.
 * Added second joystick emulation.
@@ -32,27 +33,9 @@ Installation
 ------------
 * It's written in Haskell.
 
-* Before doing anything else, you'll need to install the SDL libraries somewhere the Haskell
-  package manager Stack can find them.  I work on a Mac so I used MacPorts which you can install
-  from here: https://www.macports.org
-
-  Once MacPorts was installed I used:
-
-```
-    port install libsdl2
-    port install libsdl2_image
-```
-
-  I've had success with homebrew as well, in which case I think you can use:
-
-```
-    brew install sdl2
-    brew install sdl2_image
-```
-
-Getting SDL2 installed seems to be the main stumbling block.
-
 * If you don't have Stack, install it using the instructions here: https://docs.haskellstack.org/en/stable/
+
+* You may need to install OpenGL and GLFW.
 
 * Now clone the project into a directory. In that directory use:
 
@@ -70,8 +53,7 @@ You'll need to obtain ADVNTURE.BIN from somewhere like https://www.atariage.com/
 
 * If you started with ADVNTURE.BIN then hit `v` and start using the cursor keys. Have fun!
 
-Similar instructions have worked under Linux but I don't actively maintain that.
-I've never tested under Windows. Looking for a volunteer!
+Similar instructions have worked under Linux and Windows but I don't actively maintain that.
 
 Instructions
 ------------

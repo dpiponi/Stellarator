@@ -1,8 +1,5 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE BinaryLiterals #-}
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE ApplicativeDo #-}
 
 module Emulation where
@@ -552,7 +549,7 @@ brk = do
 irq :: MonadAtari ()
 irq = do
     fi <- getI
-    when (not fi) $ nmi False
+    unless fi $ nmi False
 
 -- {-# INLINABLE pushTick #-}
 pushTick :: Word8 -> MonadAtari ()
@@ -576,6 +573,7 @@ push v = do
     writeMemory (0x100+i16 sp) v
     putS (sp-1)
 
+{-
 -- {-# INLINABLE pull #-}
 pull :: MonadAtari Word8
 pull = do
@@ -583,16 +581,21 @@ pull = do
     let sp' = sp+1
     putS sp'
     readMemory (0x100+i16 sp')
+-}
 
 spinPC :: MonadAtari ()
 spinPC = discard fetchByteTick
+
+discardReadPC :: MonadAtari ()
+discardReadPC = do
+    tick 1
+    discard $ getPC >>= readMemory
 
 -- 3 clock cycles
 -- {-# INLINABLE pha #-}
 pha :: MonadAtari ()
 pha = do
-    tick 1
-    discard $ getPC >>= readMemory
+    discardReadPC
 
     tick 1
     getA >>= push
@@ -601,8 +604,7 @@ pha = do
 -- {-# INLINABLE php #-}
 php :: MonadAtari ()
 php = do
-    tick 1
-    discard $ getPC >>= readMemory
+    discardReadPC
 
     tick 1
     getP >>= push . (.|. 0x30)
@@ -611,31 +613,17 @@ php = do
 -- {-# INLINABLE plp #-}
 plp :: MonadAtari ()
 plp = do
-    tick 1
-    p0 <- getPC
-    discard $ readMemory p0
-
-    tick 1
-    s <- getS
-    discard $ readMemory (0x100+i16 s)
-
-    tick 1
-    pull >>= putP
+    discardReadPC
+    spinTOS
+    pullTick >>= putP
 
 -- 4 clock cycles
 -- {-# INLINABLE pla #-}
 pla :: MonadAtari ()
 pla = do
-    tick 1
-    p0 <- getPC
-    discard $ readMemory p0
-
-    tick 1
-    s <- getS
-    discard $ readMemory (0x100+i16 s)
-
-    tick 1
-    pull >>= setNZ >>= putA
+    discardReadPC
+    spinTOS
+    pullTick >>= setNZ >>= putA
 
 -- {-# INLINABLE nmi #-}
 nmi :: Bool -> MonadAtari ()
@@ -649,6 +637,7 @@ nmi sw = do
     read16 0xfffe >>= putPC -- irq/brk XXX
     tick 7
 
+-- Read from top of stack but do nothing with it.
 spinTOS :: MonadAtari ()
 spinTOS = do
     tick 1
@@ -659,16 +648,8 @@ spinTOS = do
 -- {-# INLINABLE rti #-}
 rti :: MonadAtari ()
 rti = do
-    tick 1
-    p0 <- getPC
-    void $ readMemory p0
-
-    spinTOS
-
-    tick 1
-    pull >>= putP
-
-    make16 <$> (tick 1 >> pull) <*> (tick 1 >> pull) >>= putPC
+    plp
+    make16 <$> pullTick <*> pullTick >>= putPC
 
 -- 6 clock cycles
 -- {-# INLINABLE jsr #-}
@@ -709,7 +690,7 @@ rts = do
     s <- getS
     discard $ readMemory (0x100+i16 s)
 
-    p0 <- make16 <$> (tick 1 >> pull) <*> (tick 1 >> pull)
+    p0 <- make16 <$> pullTick <*> pullTick
     
     tick 1
     discard $ readMemory p0
@@ -862,29 +843,25 @@ stellaVsync v = do
         renderDisplay
     vsync @= v
 
--- {-# INLINE pureReadRom #-}
--- | pureReadRom sees address in full 6507 range 0x0000-0x1fff
-pureReadRom :: Word16 -> MonadAtari Word8
-pureReadRom addr = do
+withMemory :: Word16 -> (IOUArray Int Word8 -> BankState -> Int-> MonadAtari a) -> MonadAtari a
+withMemory addr op = do
     atari <- ask
     let m = atari ^. rom
     let bankStateRef = atari ^. bankState
     bankState' <- liftIO $ readIORef bankStateRef
     let bankedAddress = bankAddress bankState' addr
-    liftIO $ readArray m bankedAddress
+    op m bankState' bankedAddress
+
+-- {-# INLINE pureReadRom #-}
+-- | pureReadRom sees address in full 6507 range 0x0000-0x1fff
+pureReadRom :: Word16 -> MonadAtari Word8
+pureReadRom addr = withMemory addr $ \m _ bankedAddress -> liftIO $ readArray m bankedAddress
 
 -- {-# INLINE pureWriteRom #-}
 -- | pureWriteRom sees address in full 6507 range 0x0000-0x1fff
 -- You can write to Super Chip "ROM"
 pureWriteRom :: Word16 -> Word8 -> MonadAtari ()
-pureWriteRom addr v = do
-    atari <- ask
-    let m = atari ^. rom
-    let bankStateRef = atari ^. bankState
-    bankState' <- liftIO $ readIORef bankStateRef
-    when (bankWritable bankState' addr) $ do
-        let bankedAddress = bankAddress bankState' addr
-        liftIO $ writeArray m bankedAddress v
+pureWriteRom addr v = withMemory addr $ \m bankState' bankedAddress -> when (bankWritable bankState' addr) $ liftIO $ writeArray m bankedAddress v
 
 -- {-# INLINE pureReadMemory #-}
 -- | pureReadMemory expects an address in range 0x0000-0x1fff
@@ -1084,7 +1061,7 @@ writeStella addr v = do
        0x11 -> (pcStep @-> pcResp1) >> hpos @-> ppos1 -- RESP1
        0x12 -> (pcStep @-> pcResm0) >> hpos @-> mpos0 -- RESM0
        0x13 -> (pcStep @-> pcResm1) >> hpos @-> mpos1 -- RESM1
-       0x14 -> (pcStep @-> pcResbl) >> load hpos >>= (return . max (picx+2)) >>= (bpos @=)  -- RESBL
+       0x14 -> (max (picx + 2) <$> ((pcStep @-> pcResbl) >> load hpos)) >>= (bpos @=)  -- RESBL
        0x15 -> return () -- liftIO $ putStrLn $ "AUDC0 = " ++ showHex v ""
        0x16 -> return () -- liftIO $ putStrLn $ "AUDC1 = " ++ showHex v ""
        0x17 -> return () -- liftIO $ putStrLn $ "AUDF0 = " ++ showHex v ""

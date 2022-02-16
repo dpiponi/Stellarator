@@ -1,7 +1,7 @@
 flags: {}
 extra-package-dbs: []
-extra-lib-dirs:
-- /usr/lib
+#extra-lib-dirs:
+#- /usr/lib
 packages:
 - .
 extra-deps:

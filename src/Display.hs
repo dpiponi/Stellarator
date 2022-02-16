@@ -12,9 +12,7 @@ import Metrics ( screenWidth, screenHeight )
 import Foreign.Marshal.Alloc ( mallocBytes )
 import Foreign.Ptr ( Ptr )
 import Foreign.Storable ( Storable(pokeElemOff) )
-import System.Exit ( die )
-
-import System.Exit (exitFailure)
+import System.Exit (die, exitFailure)
 import System.IO
 import TIAColors
 import qualified Data.ByteString as BS
@@ -180,8 +178,8 @@ draw windowWidth windowHeight program attrib = do
     -- Retina display requires 2*
     -- Don't know correct GLFW sequence to get this right.
     GL.viewport $= (GL.Position 0 0,
-                    GL.Size (2*fromIntegral windowWidth) (2*fromIntegral windowHeight))
-                    -- GL.Size (fromIntegral windowWidth) (fromIntegral windowHeight))
+                    -- GL.Size (2*fromIntegral windowWidth) (2*fromIntegral windowHeight))
+                    GL.Size (fromIntegral windowWidth) (fromIntegral windowHeight))
 
     GL.currentProgram $= Just program
     GL.vertexAttribArray attrib $= GL.Enabled
