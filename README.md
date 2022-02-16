@@ -274,6 +274,7 @@ Lots of games work:
 | Nightmare              | Seems to play fine.                                                      |
 | Obelix                 | Seems to play fine.                                                      |
 | Pacman                 | Seems to work fine. Flickering is normal.                                |
+| Pacman 8k Homebrew     | This is a good test case as it doesn't work well!                        |
 | Phoenix                | Seems to work fine.                                                      |
 | Pinball                | Seems to work fine.                                                      |
 | Planet Patrol          | Seems to play fine apart from a bad pixel at top of screen               |
